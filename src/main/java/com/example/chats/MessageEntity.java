@@ -1,16 +1,33 @@
 package com.example.chats;
 
-
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.SequenceGenerator;
+import jakarta.persistence.Table;
 
 // import java.time.LocalDateTime;
 
+@Entity
+@Table(name = "chats")
+public class MessageEntity {
+    @Id
+    @SequenceGenerator(
+        name = "chat_sequence",
+        sequenceName = "chat_sequence",
+        allocationSize = 1
+    )
 
-public class ChatMessage {
+    @GeneratedValue(
+        strategy = GenerationType.SEQUENCE,
+        generator = "chat_sequence"
+    )
+    private int chatId;
     private int locationId;
     private int senderId;
     private String content;
     // private LocalDateTime timestamp;
-
     public int getLocationId() {
         return locationId;
     }
@@ -20,9 +37,18 @@ public class ChatMessage {
     public String getContent() {
         return content;
     }
+    public int getChatId() {
+        return chatId;
+    }
+
     // public LocalDateTime getTimestamp() {
     //     return timestamp;
     // }
+    public void setChatId(int chatId) {
+        this.chatId = chatId;
+    }
+
+
     public void setLocationId(int locationId) {
         this.locationId = locationId;
     }
@@ -38,14 +64,12 @@ public class ChatMessage {
 
     @Override
     public String toString() {
-        return "ChatMessage{" +
+        return "MessageEntity{" +
                "sender='" + senderId + '\'' +
                ", content='" + content + '\'' +
                ", locationId='" + locationId + '\'' +
                '}';
     }
-
-    
 
 }
 

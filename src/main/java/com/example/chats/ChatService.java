@@ -1,21 +1,28 @@
-// package com.example.chats;
+package com.example.chats;
 
-// import org.springframework.beans.factory.annotation.Autowired;
-// import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
-// import java.util.List;
+import java.util.List;
 
-// @Service
-// public class ChatService {
+@Service
+public class ChatService {
 
-//     @Autowired
-//     private ChatMessageRepository chatMessageRepository;
+    @Autowired
+    private ChatMessageRepository chatMessageRepository;
 
-//     public ChatMessage save(ChatMessage chatMessage) {
-//         return chatMessageRepository.save(chatMessage);
-//     }
+    public ChatMessage save(ChatMessage message) {
+        MessageEntity messageEntity = new MessageEntity();
+        messageEntity.setLocationId(message.getLocationId());
+        messageEntity.setContent(message.getContent());
+        messageEntity.setSenderId(message.getSenderId());
+        // messageEntity.setTimestamp(message.getTimestamp());
+        chatMessageRepository.save(messageEntity);
+        return message;
 
-//     public List<ChatMessage> getMessagesForLocation(Long locationId) {
-//         return chatMessageRepository.findByLocationId(locationId);
-//     }
-// }
+    }
+
+    public List<MessageEntity> getMessagesForLocation(Long locationId) {
+        return chatMessageRepository.findByLocationId(locationId);
+    }
+}
