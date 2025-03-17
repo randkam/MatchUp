@@ -20,7 +20,7 @@ struct CustomTabView: View {
                         Text("Home")
                     }
 
-                ContentView(selectedCoordinate: selectedCoordinate?.coordinate ?? CLLocationCoordinate2D(latitude: 43.7800, longitude: -79.3350))
+                MapViewContent(selectedCoordinate: selectedCoordinate?.coordinate ?? CLLocationCoordinate2D(latitude: 43.7800, longitude: -79.3350))
                     .tag(1)
                     .tabItem {
                         Image(systemName: "map.fill")
