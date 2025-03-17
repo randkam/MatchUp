@@ -79,4 +79,10 @@ public class UserService {
 		}
 
 	}
+
+	public String getUsernameById(Long userId) {
+		User user = userRepository.findById(userId)
+				.orElseThrow(() -> new IllegalStateException("User not found"));
+		return user.getUserName();
+	}
 }

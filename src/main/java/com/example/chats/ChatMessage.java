@@ -9,6 +9,8 @@ public class ChatMessage {
     private int locationId;
     private int senderId;
     private String content;
+    private String senderUserName;
+
     // private LocalDateTime timestamp;
 
     public int getLocationId() {
@@ -19,6 +21,9 @@ public class ChatMessage {
     }
     public String getContent() {
         return content;
+    }
+    public String getSenderUserName() {
+        return senderUserName;
     }
     // public LocalDateTime getTimestamp() {
     //     return timestamp;
@@ -35,6 +40,9 @@ public class ChatMessage {
     // public void setTimestamp(LocalDateTime timestamp) {
     //     this.timestamp = timestamp;
     // }
+    public void setSenderUserName(String userName) {
+        this.senderUserName = userName;
+    }
 
     @Override
     public String toString() {
@@ -42,6 +50,7 @@ public class ChatMessage {
                "sender='" + senderId + '\'' +
                ", content='" + content + '\'' +
                ", locationId='" + locationId + '\'' +
+               "SenderUserName=" + senderUserName +
                '}';
     }
 

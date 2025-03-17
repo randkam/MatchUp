@@ -26,6 +26,7 @@ public class MessageEntity {
     private int chatId;
     private int locationId;
     private int senderId;
+    private String senderUserName;
     private String content;
     // private LocalDateTime timestamp;
     public int getLocationId() {
@@ -40,6 +41,10 @@ public class MessageEntity {
     public int getChatId() {
         return chatId;
     }
+    public String getSenderUserName() {
+        return senderUserName;
+    }
+    
 
     // public LocalDateTime getTimestamp() {
     //     return timestamp;
@@ -58,6 +63,9 @@ public class MessageEntity {
     public void setContent(String content) {
         this.content = content;
     }
+    public void setSenderUserName(String userName) {
+        this.senderUserName = userName;
+    }
     // public void setTimestamp(LocalDateTime timestamp) {
     //     this.timestamp = timestamp;
     // }
@@ -68,6 +76,7 @@ public class MessageEntity {
                "sender='" + senderId + '\'' +
                ", content='" + content + '\'' +
                ", locationId='" + locationId + '\'' +
+               "Sender UserName="+ senderUserName +
                '}';
     }
 

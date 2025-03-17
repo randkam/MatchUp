@@ -51,5 +51,7 @@ public class UserController {
     public void updateUser(@PathVariable("userId") long userId, @RequestParam(required = false) String userName,@RequestParam(required = false) String userEmail,@RequestParam(required = false) String userNickName,@RequestParam(required = false) String userPassword){
         userService.updateUser(userId, userName, userEmail, userNickName, userPassword);
     }
+
     
 } 
+    

@@ -16,8 +16,11 @@ public class MessageController {
     private ChatService chatService;
 
     @GetMapping("/{locationId}")
-    public List<MessageEntity>getMessagesByLocation(@PathVariable Long locationId) {
-        return chatService.getMessagesForLocation(locationId);
+    public List<MessageEntity> getMessagesByLocation(@PathVariable Long locationId) {
+        return chatService.getMessageById(locationId);
     }
+    // public List<ChatMessageDTO> getMessagesWithUserDetailsByLocation(@PathVariable Long locationId) {
+    //     return chatService.getMessagesWithUserDetailsForLocation(locationId);
+    // }
 }
 

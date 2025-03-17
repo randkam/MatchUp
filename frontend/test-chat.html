@@ -1,118 +1,121 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Chat Test</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.0/sockjs.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <title>WebSocket Chat Test</title>
     <style>
-        .chat-box {
+        .chat-container {
+            width: 600px;
+            margin: 20px auto;
+            padding: 20px;
             border: 1px solid #ccc;
+        }
+        #messageArea {
             height: 300px;
-            overflow-y: auto;
-            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            margin: 10px 0;
             padding: 10px;
+            overflow-y: auto;
+        }
+        .login-container {
+            margin-bottom: 20px;
+            padding: 10px;
+            background: #f0f0f0;
         }
         .message {
             margin: 5px 0;
             padding: 5px;
-            background-color: #f0f0f0;
+            border-bottom: 1px solid #eee;
         }
     </style>
 </head>
 <body>
-    <h2>Chat Test</h2>
-    
-    <div>
-        <button onclick="connect()">Connect</button>
-        <button onclick="disconnect()">Disconnect</button>
-        <span id="connectionStatus">Disconnected</span>
-    </div>
-    <br>
+    <div class="chat-container">
+        <div class="login-container">
+            <input type="number" id="userId" placeholder="Enter User ID">
+            <input type="number" id="locationId" placeholder="Enter Location ID">
+            <button onclick="joinChat()">Join Chat</button>
+        </div>
 
-    <div>
-        Location ID: <input type="number" id="locationId" value="1">
-        Sender ID: <input type="number" id="senderId" value="1">
-    </div>
-    <br>
-
-    <div class="chat-box" id="messageArea"></div>
-
-    <div>
-        <input type="text" id="message" placeholder="Type a message...">
-        <button onclick="sendMessage()">Send</button>
+        <div id="chatArea" style="display: none;">
+            <h3>Chat Room: <span id="roomInfo"></span></h3>
+            <div id="messageArea"></div>
+            <input type="text" id="messageInput" placeholder="Type a message...">
+            <button onclick="sendMessage()">Send</button>
+        </div>
     </div>
 
     <script>
-        let stompClient = null;
-        let currentLocationId = 1;
+        let ws;
+        let currentUserId;
+        let currentLocationId;
 
-        function connect() {
-            const socket = new SockJS('http://localhost:9095/ws');
-            stompClient = Stomp.over(socket);
-            
-            stompClient.connect({}, function(frame) {
-                document.getElementById('connectionStatus').textContent = 'Connected!';
-                
-                // Subscribe to the location-specific topic
-                currentLocationId = document.getElementById('locationId').value;
-                stompClient.subscribe('/topic/location/' + currentLocationId, function(message) {
-                    showMessage(JSON.parse(message.body));
-                });
+        function joinChat() {
+            currentUserId = document.getElementById('userId').value;
+            currentLocationId = document.getElementById('locationId').value;
 
-                // Load existing messages
-                loadExistingMessages();
-            }, function(error) {
-                document.getElementById('connectionStatus').textContent = 'Connection failed: ' + error;
-            });
-        }
-
-        function disconnect() {
-            if (stompClient !== null) {
-                stompClient.disconnect();
-                document.getElementById('connectionStatus').textContent = 'Disconnected';
+            if (!currentUserId || !currentLocationId) {
+                alert('Please enter both User ID and Location ID');
+                return;
             }
+
+            // Connect to WebSocket with location ID
+            ws = new WebSocket(`ws://localhost:9095/ws/chat?locationId=${currentLocationId}`);
+
+            ws.onopen = () => {
+                console.log('Connected to chat');
+                document.getElementById('chatArea').style.display = 'block';
+                document.getElementById('roomInfo').textContent = `Location ${currentLocationId}`;
+                
+                // Load chat history
+                loadChatHistory();
+            };
+
+            ws.onmessage = (event) => {
+                const message = JSON.parse(event.data);
+                displayMessage(message);
+            };
+
+            ws.onclose = () => {
+                console.log('Disconnected from chat');
+            };
         }
 
         function sendMessage() {
-            const messageContent = document.getElementById('message').value;
-            const locationId = document.getElementById('locationId').value;
-            const senderId = document.getElementById('senderId').value;
+            const messageInput = document.getElementById('messageInput');
+            const content = messageInput.value;
 
-            if (messageContent && stompClient) {
-                const chatMessage = {
-                    locationId: parseInt(locationId),
-                    senderId: parseInt(senderId),
-                    content: messageContent
-                };
+            if (!content) return;
 
-                stompClient.send("/app/chat.sendMessage/" + locationId, {}, JSON.stringify(chatMessage));
-                document.getElementById('message').value = '';
-            }
+            const message = {
+                senderId: parseInt(currentUserId),
+                locationId: parseInt(currentLocationId),
+                content: content
+            };
+
+            ws.send(JSON.stringify(message));
+            messageInput.value = '';
         }
 
-        function showMessage(message) {
+        function loadChatHistory() {
+            fetch(`http://localhost:9095/api/messages/${currentLocationId}`)
+                .then(response => response.json())
+                .then(messages => {
+                    messages.forEach(displayMessage);
+                })
+                .catch(error => console.error('Error loading chat history:', error));
+        }
+
+        function displayMessage(message) {
             const messageArea = document.getElementById('messageArea');
-            const messageElement = document.createElement('div');
-            messageElement.classList.add('message');
-            messageElement.textContent = `Sender ${message.senderId}: ${message.content}`;
-            messageArea.appendChild(messageElement);
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message';
+            messageDiv.textContent = `User ${message.senderId}: ${message.content}`;
+            messageArea.appendChild(messageDiv);
             messageArea.scrollTop = messageArea.scrollHeight;
         }
 
-        function loadExistingMessages() {
-            const locationId = document.getElementById('locationId').value;
-            fetch(`http://localhost:9095/api/messages/${locationId}`)
-                .then(response => response.json())
-                .then(messages => {
-                    const messageArea = document.getElementById('messageArea');
-                    messageArea.innerHTML = ''; // Clear existing messages
-                    messages.forEach(message => showMessage(message));
-                })
-                .catch(error => console.error('Error loading messages:', error));
-        }
-
-        // Enter key to send message
-        document.getElementById('message').addEventListener('keypress', function(e) {
+        // Handle Enter key in message input
+        document.getElementById('messageInput').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 sendMessage();
             }
