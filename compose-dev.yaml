@@ -1,0 +1,10 @@
+services:
+  backend:
+    build: .
+    container_name: matchup-app
+    ports:
+      - "9095:9095"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mainline.proxy.rlwy.net:38022/railway
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: wtDCxLAiaHTelRuHxKCmQiYjscIrPNrP

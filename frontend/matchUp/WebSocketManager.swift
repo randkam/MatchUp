@@ -21,7 +21,7 @@ class WebSocketManager: NSObject, ObservableObject, URLSessionWebSocketDelegate 
     private var isConnected = false
     
     func connect(locationId: Int, completion: @escaping (Bool) -> Void) {
-        let urlString = "ws://localhost:9095/ws/chat?locationId=\(locationId)"
+        let urlString = APIConfig.wsChatEndpoint(locationId: locationId)
         guard let url = URL(string: urlString) else {
             completion(false)
             return
@@ -86,7 +86,7 @@ class WebSocketManager: NSObject, ObservableObject, URLSessionWebSocketDelegate 
     }
     
     func loadOldMessages(locationId: Int, completion: @escaping ([ChatMessage]) -> Void) {
-        let url = URL(string: "http://localhost:9095/api/messages/\(locationId)")!
+        let url = URL(string: "\(APIConfig.messagesEndpoint)/\(locationId)")!
         
         URLSession.shared.dataTask(with: url) { data, response, error in
             if let error = error {
@@ -117,6 +117,10 @@ class WebSocketManager: NSObject, ObservableObject, URLSessionWebSocketDelegate 
     func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didCloseWith closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?) {
         isConnected = false
         print("WebSocket Disconnected")
+    }
+    
+    func connectToWebSocket(locationId: Int) {
+        let url = URL(string: "\(APIConfig.messagesEndpoint)/\(locationId)")!
     }
 }
 

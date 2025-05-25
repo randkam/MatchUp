@@ -78,7 +78,7 @@ struct ChatView: View {
                 }
             }
         }
-        guard let url = URL(string: "http://localhost:9095/api/v1/locations") else {
+        guard let url = URL(string: APIConfig.locationsEndpoint) else {
             completion(false, NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"]))
             return
         }

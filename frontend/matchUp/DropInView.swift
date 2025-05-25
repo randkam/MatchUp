@@ -79,11 +79,11 @@ struct DropInView: View {
                         .cornerRadius(10)
                 }
 
-                Text("OR")
-                    .font(Font.custom("Inter", size: 18))
-                    .foregroundColor(.white)
-                    .padding(.top, 5)
-                    .padding(.bottom, 5)
+//                Text("or")
+//                    .font(Font.custom("Inter", size: 18))
+//                    .foregroundColor(.white)
+//                    .padding(.top, 5)
+//                    .padding(.bottom, 5)
 
                 Button(action: {
                     showCreateAccount = true

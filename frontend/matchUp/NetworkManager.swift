@@ -21,7 +21,6 @@ class NetworkManager {
 //       
 //    private init() { } // Prevents external instantiation
     
-    let baseURL = "http://localhost:9095/api/v1/users"
     let secretKey = "your_secret_key"  // Replace with your actual secret key
     
     let sudoUser = "sudo"
@@ -68,7 +67,7 @@ class NetworkManager {
     }
     func updateUserProfile(userId: Int, userName: String, userNickName: String, email: String, completion: @escaping (Bool, Error?) -> Void) {
         guard let token = UserDefaults.standard.string(forKey: "userToken"),
-              let url = URL(string: "\(baseURL)/\(userId)") else {
+              let url = URL(string: "\(APIConfig.usersEndpoint)/\(userId)") else {
             print("Profile Update Error: Invalid URL or missing token")
             completion(false, NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL or missing token"]))
             return
@@ -123,7 +122,7 @@ class NetworkManager {
     
     // Function to fetch user locations and store them in UserDefaults
        func fetchUserLocations(userId: Int, completion: @escaping (Bool, Error?) -> Void) {
-           guard let url = URL(string: "http://localhost:9095/api/user-locations/user/\(userId)") else {
+           guard let url = URL(string: "\(APIConfig.userLocationsEndpoint)/user/\(userId)") else {
                print("Invalid URL for fetching user locations")
                completion(false, NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"]))
                return
@@ -197,7 +196,7 @@ class NetworkManager {
     
 
         // Proceed with the regular login if not the sudo user
-        guard let url = URL(string: "\(baseURL)?identifier=\(identifier)") else {
+        guard let url = URL(string: "\(APIConfig.usersEndpoint)?identifier=\(identifier)") else {
             completion(false, NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"]))
             return
         }
@@ -207,6 +206,19 @@ class NetworkManager {
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
 
         URLSession.shared.dataTask(with: request) { data, response, error in
+            if let httpResponse = response as? HTTPURLResponse {
+                print("🔁 Status Code: \(httpResponse.statusCode)")
+                print("🔁 Response Headers: \(httpResponse.allHeaderFields)")
+            }
+
+            if let error = error {
+                print("❌ URLSession Error: \(error.localizedDescription)")
+            }
+
+            if let data = data, let body = String(data: data, encoding: .utf8) {
+                print("📦 Response Body: \(body)")
+            }
+
             if let error = error {
                 print("Login Error: \(error.localizedDescription)")
                 completion(false, error)
@@ -258,7 +270,7 @@ class NetworkManager {
     
     // Function to create a new account
     func createAccount(userName: String, userNickName: String, email: String,userId: Int, password: String, completion: @escaping (Bool, Error?) -> Void) {
-        guard let url = URL(string: baseURL) else {
+        guard let url = URL(string: APIConfig.usersEndpoint) else {
             completion(false, NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"]))
             return
         }
@@ -323,7 +335,7 @@ class NetworkManager {
         
         print("Fetching profile for email: \(email)")
         
-        guard let url = URL(string: "\(baseURL)?email=\(email)") else {
+        guard let url = URL(string: "\(APIConfig.usersEndpoint)?email=\(email)") else {
             print("Profile Error: Invalid URL")
             completion(nil, nil, nil)
             return

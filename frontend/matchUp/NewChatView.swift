@@ -58,7 +58,7 @@ struct NewChatView: View {
 
     // Fetch all available locations from the API
     func fetchLocations() {
-        guard let url = URL(string: "http://localhost:9095/api/v1/locations") else {
+        guard let url = URL(string: APIConfig.locationsEndpoint) else {
             print("Invalid URL for fetching locations.")
             return
         }
@@ -102,7 +102,7 @@ struct NewChatView: View {
             }
 
             // Prepare API URL
-            guard let url = URL(string: "http://localhost:9095/api/user-locations") else {
+            guard let url = URL(string: APIConfig.userLocationsEndpoint) else {
                 print("Invalid URL for adding user location.")
                 return
             }
