@@ -31,6 +31,9 @@ public class User {
     private String userNickName;
     private String userEmail;
     private String userPassword;
+    private String userPosition;
+    private String userRegion;
+
 
     
 
@@ -57,23 +60,27 @@ public class User {
     //     }
     // }
 
-    public User(Long userId, String userName, String userNickName, String userEmail, String userPassword) {
+    public User(Long userId, String userName, String userNickName, String userEmail, String userPassword, String userPosition, String userRegion) {
         this.userId = userId;
         this.userName = userName;
         this.userNickName = userNickName;
         this.userEmail = userEmail;
         this.userPassword = userPassword;
+        this.userPosition = userPosition;
+        this.userRegion = userRegion;
         // this.userPassword = hashPassword(userPassword);
         // System.out.println(userPassword);
     }
 
 
 
-    public User(String userName, String userNickName, String userEmail, String userPassword) {
+    public User(String userName, String userNickName, String userEmail, String userPassword, String userPosition, String userRegion) {
         this.userName = userName;
         this.userNickName = userNickName;
         this.userEmail = userEmail;
         this.userPassword = userPassword;
+        this.userPosition = userPosition;
+        this.userRegion = userRegion;
         // this.userPassword = hashPassword(userPassword);
     }
 
@@ -103,6 +110,24 @@ public class User {
     public String getEmail() {
         return userEmail;
     }
+    public String getUserPosition() {
+        return userPosition;
+    }
+
+    public String getUserRegion() {
+        return userRegion;
+    }
+    
+    public void setUserPosition(String userPosition) {
+        this.userPosition = userPosition;
+    }
+    
+
+    
+    public void setUserRegion(String userRegion) {
+        this.userRegion = userRegion;
+    }
+    
 
 
 
@@ -140,8 +165,10 @@ public class User {
     @Override
     public String toString() {
         return "users [userId=" + userId + ", userName=" + userName + ", userNickName=" + userNickName 
-                + ", userEmail=" + userEmail + ", userPassword=" + userPassword +  "]";
+            + ", userEmail=" + userEmail + ", userPassword=" + userPassword 
+            + ", userPosition=" + userPosition + ", userRegion=" + userRegion + "]";
     }
+    
 
 
 
