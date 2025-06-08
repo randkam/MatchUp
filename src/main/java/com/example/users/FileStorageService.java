@@ -33,13 +33,8 @@ public class FileStorageService {
             Path targetLocation = this.fileStorageLocation.resolve(fileName);
             Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
 
-            // Create the download URL
-            String fileDownloadUri = ServletUriComponentsBuilder.fromCurrentContextPath()
-                    .path("/api/v1/users/profile-picture/")
-                    .path(fileName)
-                    .toUriString();
-
-            return fileDownloadUri;
+            // Create the download URL using the API endpoint pattern
+            return "/api/v1/users/profile-picture/" + fileName;
         } catch (IOException ex) {
             throw new RuntimeException("Could not store file. Please try again!", ex);
         }

@@ -283,15 +283,19 @@ class NetworkManager {
                 
                 if let data = data, let responseString = String(data: data, encoding: .utf8) {
                     print("uploadProfilePicture response: \(responseString)")
-                }
-                
-                if httpResponse.statusCode == 200,
-                   let data = data,
-                   let json = try? JSONSerialization.jsonObject(with: data) as? String {
-                    print("uploadProfilePicture success - URL: \(json)")
-                    completion(true, json)
+                    
+                    if httpResponse.statusCode == 200,
+                       let relativePath = try? JSONSerialization.jsonObject(with: data) as? String {
+                        let cleanPath = relativePath.starts(with: "/") ? String(relativePath.dropFirst()) : relativePath
+                        let fullUrl = "\(APIConfig.baseAPI)/\(cleanPath)"
+                        print("uploadProfilePicture success - Full URL: \(fullUrl)")
+                        completion(true, fullUrl)
+                    } else {
+                        print("uploadProfilePicture: Invalid response format")
+                        completion(false, nil)
+                    }
                 } else {
-                    print("uploadProfilePicture: Invalid response")
+                    print("uploadProfilePicture: Could not read response data")
                     completion(false, nil)
                 }
             } else {

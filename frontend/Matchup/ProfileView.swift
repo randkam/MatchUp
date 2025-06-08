@@ -194,12 +194,26 @@ struct ProfileView: View {
 
     private func uploadProfilePicture(_ image: UIImage) {
         print("Starting profile picture upload...")
-        guard let imageData = image.jpegData(compressionQuality: 0.7),
+        
+        // Resize image
+        let maxDimension: CGFloat = 800 // Maximum width or height
+        let scale = min(maxDimension / image.size.width, maxDimension / image.size.height, 1.0)
+        let newSize = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+        
+        UIGraphicsBeginImageContextWithOptions(newSize, false, 1.0)
+        image.draw(in: CGRect(origin: .zero, size: newSize))
+        let resizedImage = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        
+        guard let processedImage = resizedImage,
+              let imageData = processedImage.jpegData(compressionQuality: 0.5), // Reduced quality
               let userId = UserDefaults.standard.string(forKey: "loggedInUserId") else {
             print("Failed to prepare image data or get user ID")
             return
         }
-
+        
+        print("Processed image size: \(imageData.count / 1024)KB")
+        
         networkManager.uploadProfilePicture(userId: userId, imageData: imageData) { success, imageUrl in
             if success, let imageUrl = imageUrl {
                 print("Profile picture upload successful. URL: \(imageUrl)")
