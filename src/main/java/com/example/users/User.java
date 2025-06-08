@@ -33,6 +33,7 @@ public class User {
     private String userPassword;
     private String userPosition;
     private String userRegion;
+    private String profilePictureUrl;
 
 
     
@@ -160,13 +161,20 @@ public class User {
         this.userEmail = userEmail;
     }
 
+    public String getProfilePictureUrl() {
+        return profilePictureUrl;
+    }
 
+    public void setProfilePictureUrl(String profilePictureUrl) {
+        this.profilePictureUrl = profilePictureUrl;
+    }
 
     @Override
     public String toString() {
         return "users [userId=" + userId + ", userName=" + userName + ", userNickName=" + userNickName 
             + ", userEmail=" + userEmail + ", userPassword=" + userPassword 
-            + ", userPosition=" + userPosition + ", userRegion=" + userRegion + "]";
+            + ", userPosition=" + userPosition + ", userRegion=" + userRegion 
+            + ", profilePictureUrl=" + profilePictureUrl + "]";
     }
     
 

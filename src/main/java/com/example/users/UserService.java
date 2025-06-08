@@ -80,6 +80,13 @@ public class UserService {
 
 	}
 
+	@Transactional
+	public void updateProfilePicture(Long userId, String profilePictureUrl) {
+		User user = userRepository.findById(userId)
+				.orElseThrow(() -> new IllegalStateException("User not found"));
+		user.setProfilePictureUrl(profilePictureUrl);
+	}
+
 	public String getUsernameById(Long userId) {
 		User user = userRepository.findById(userId)
 				.orElseThrow(() -> new IllegalStateException("User not found"));
