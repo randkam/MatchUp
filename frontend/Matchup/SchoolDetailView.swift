@@ -138,7 +138,10 @@ struct BasketballCourtDetailView: View {
         }
         .background(ModernColorScheme.background.edgesIgnoringSafeArea(.all))
         .sheet(isPresented: $showChat) {
-//            CourtChatView(courtName: school.name)
+            ChatDetailedView(chat: Chat(
+                id: abs(school.id.hashValue), // Convert UUID to a positive Int using hashValue
+                name: school.name
+            ))
         }
     }
 }

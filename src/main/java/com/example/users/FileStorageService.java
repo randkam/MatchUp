@@ -15,10 +15,14 @@ import java.nio.file.StandardCopyOption;
 public class FileStorageService {
 
     private final Path fileStorageLocation;
+    private final String baseUrl;
 
-    public FileStorageService(@Value("${app.file.upload-dir}") String uploadDir) {
+    public FileStorageService(
+            @Value("${app.file.upload-dir}") String uploadDir,
+            @Value("${app.base-url}") String baseUrl) {
         this.fileStorageLocation = Paths.get(uploadDir)
                 .toAbsolutePath().normalize();
+        this.baseUrl = baseUrl;
 
         try {
             Files.createDirectories(this.fileStorageLocation);
@@ -33,8 +37,8 @@ public class FileStorageService {
             Path targetLocation = this.fileStorageLocation.resolve(fileName);
             Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
 
-            // Create the download URL using the API endpoint pattern
-            return "/api/v1/users/profile-picture/" + fileName;
+            // Return the full URL
+            return baseUrl + "/api/v1/users/profile-picture/" + fileName;
         } catch (IOException ex) {
             throw new RuntimeException("Could not store file. Please try again!", ex);
         }

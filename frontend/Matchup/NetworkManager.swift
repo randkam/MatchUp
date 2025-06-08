@@ -285,9 +285,7 @@ class NetworkManager {
                     print("uploadProfilePicture response: \(responseString)")
                     
                     if httpResponse.statusCode == 200,
-                       let relativePath = try? JSONSerialization.jsonObject(with: data) as? String {
-                        let cleanPath = relativePath.starts(with: "/") ? String(relativePath.dropFirst()) : relativePath
-                        let fullUrl = "\(APIConfig.baseAPI)/\(cleanPath)"
+                       let fullUrl = try? JSONSerialization.jsonObject(with: data) as? String {
                         print("uploadProfilePicture success - Full URL: \(fullUrl)")
                         completion(true, fullUrl)
                     } else {

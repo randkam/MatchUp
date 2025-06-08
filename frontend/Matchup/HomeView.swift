@@ -403,7 +403,10 @@ struct FeaturedGameCard: View {
             BasketballCourtDetailView(school: featuredSchool)
         }
         .sheet(isPresented: $showChat) {
-            CourtChatView(courtName: featuredSchool.name)
+            ChatDetailedView(chat: Chat(
+                id: abs(featuredSchool.id.hashValue), // Convert UUID to a positive Int using hashValue
+                name: featuredSchool.name
+            ))
         }
     }
 }
@@ -465,7 +468,10 @@ struct GameCard: View {
             BasketballCourtDetailView(school: school)
         }
         .sheet(isPresented: $showChat) {
-            CourtChatView(courtName: school.name)
+            ChatDetailedView(chat: Chat(
+                id: abs(school.id.hashValue), // Convert UUID to a positive Int using hashValue
+                name: school.name
+            ))
         }
     }
 }

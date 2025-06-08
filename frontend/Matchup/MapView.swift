@@ -535,7 +535,10 @@ struct SchoolAnnotationView: View {
         }
 
         .sheet(isPresented: $showChat) {
-            CourtChatView(courtName: school.name, isNewGame: school.activePlayers == 0)
+            ChatDetailedView(chat: Chat(
+                id: abs(school.id.hashValue), // Convert UUID to a positive Int using hashValue
+                name: school.name
+            ))
         }
     }
 }
