@@ -69,6 +69,7 @@ public class User {
         this.userPassword = userPassword;
         this.userPosition = userPosition;
         this.userRegion = userRegion;
+        this.profilePictureUrl = null;
         // this.userPassword = hashPassword(userPassword);
         // System.out.println(userPassword);
     }
@@ -82,6 +83,7 @@ public class User {
         this.userPassword = userPassword;
         this.userPosition = userPosition;
         this.userRegion = userRegion;
+        this.profilePictureUrl = null;
         // this.userPassword = hashPassword(userPassword);
     }
 

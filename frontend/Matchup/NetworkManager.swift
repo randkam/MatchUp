@@ -9,6 +9,7 @@ struct User: Codable {
     let userPassword: String
     let userPosition: String
     let userRegion: String
+    let profilePictureUrl: String?
     var token: String?
 }
 
@@ -144,7 +145,9 @@ class NetworkManager {
                         UserDefaults.standard.set(user.userId, forKey: "loggedInUserId")
                         UserDefaults.standard.set(user.userPosition, forKey: "loggedInUserPosition")
                         UserDefaults.standard.set(user.userRegion, forKey: "loggedInUserRegion")
-
+                        if let profilePictureUrl = user.profilePictureUrl {
+                            UserDefaults.standard.set(profilePictureUrl, forKey: "loggedInUserProfilePicture")
+                        }
                         completion(true, nil)
                     } else { completion(false, NSError(domain: "", code: -1, userInfo: nil)) }
                 } else {
@@ -171,11 +174,12 @@ class NetworkManager {
         }.resume()
     }
 
-    func getUserProfile(completion: @escaping (String?, String?, String?) -> Void) {
+    func getUserProfile(completion: @escaping (String?, String?, String?, String?) -> Void) {
         guard let email = UserDefaults.standard.string(forKey: "loggedInUserEmail"),
               let token = UserDefaults.standard.string(forKey: "userToken"),
               let url = URL(string: "\(APIConfig.usersEndpoint)?email=\(email)") else {
-            completion(nil, nil, nil)
+            print("getUserProfile: Failed to create URL or get credentials")
+            completion(nil, nil, nil, nil)
             return
         }
         var request = URLRequest(url: url)
@@ -183,17 +187,30 @@ class NetworkManager {
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-        URLSession.shared.dataTask(with: request) { data, _, error in
-            if let error = error { completion(nil, nil, nil); return }
-            guard let data = data else { completion(nil, nil, nil); return }
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                print("getUserProfile error: \(error)")
+                completion(nil, nil, nil, nil)
+                return
+            }
+            guard let data = data else {
+                print("getUserProfile: No data received")
+                completion(nil, nil, nil, nil)
+                return
+            }
             do {
                 let users = try JSONDecoder().decode([User].self, from: data)
                 if let user = users.first(where: { $0.email == email }) {
-                    completion(user.userName, user.userNickName, user.email)
+                    print("getUserProfile success - Profile picture URL: \(String(describing: user.profilePictureUrl))")
+                    completion(user.userName, user.userNickName, user.email, user.profilePictureUrl)
                 } else {
-                    completion(nil, nil, nil)
+                    print("getUserProfile: User not found in response")
+                    completion(nil, nil, nil, nil)
                 }
-            } catch { completion(nil, nil, nil) }
+            } catch {
+                print("getUserProfile decode error: \(error)")
+                completion(nil, nil, nil, nil)
+            }
         }.resume()
     }
     
@@ -226,5 +243,62 @@ class NetworkManager {
         }.resume()
     }
 
+    func uploadProfilePicture(userId: String, imageData: Data, completion: @escaping (Bool, String?) -> Void) {
+        let urlString = "\(APIConfig.usersEndpoint)/\(userId)/profile-picture"
+        print("Uploading profile picture to: \(urlString)")
+        
+        guard let url = URL(string: urlString),
+              let token = UserDefaults.standard.string(forKey: "userToken") else {
+            print("uploadProfilePicture: Failed to create URL or get token")
+            completion(false, nil)
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        
+        let boundary = "Boundary-\(UUID().uuidString)"
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        
+        var body = Data()
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"profile.jpg\"\r\n".data(using: .utf8)!)
+        body.append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
+        body.append(imageData)
+        body.append("\r\n".data(using: .utf8)!)
+        body.append("--\(boundary)--\r\n".data(using: .utf8)!)
+        
+        request.httpBody = body
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                print("uploadProfilePicture error: \(error)")
+                completion(false, nil)
+                return
+            }
+            
+            if let httpResponse = response as? HTTPURLResponse {
+                print("uploadProfilePicture response status: \(httpResponse.statusCode)")
+                
+                if let data = data, let responseString = String(data: data, encoding: .utf8) {
+                    print("uploadProfilePicture response: \(responseString)")
+                }
+                
+                if httpResponse.statusCode == 200,
+                   let data = data,
+                   let json = try? JSONSerialization.jsonObject(with: data) as? String {
+                    print("uploadProfilePicture success - URL: \(json)")
+                    completion(true, json)
+                } else {
+                    print("uploadProfilePicture: Invalid response")
+                    completion(false, nil)
+                }
+            } else {
+                print("uploadProfilePicture: No HTTP response")
+                completion(false, nil)
+            }
+        }.resume()
+    }
 
 }

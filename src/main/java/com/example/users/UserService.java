@@ -92,4 +92,9 @@ public class UserService {
 				.orElseThrow(() -> new IllegalStateException("User not found"));
 		return user.getUserName();
 	}
+
+	public User getUserById(Long userId) {
+		return userRepository.findById(userId)
+				.orElseThrow(() -> new IllegalStateException("User not found"));
+	}
 }

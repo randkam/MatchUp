@@ -62,9 +62,17 @@ public class UserController {
 
         try {
             String fileUrl = fileStorageService.storeFile(file, userId);
+            System.out.println("Generated file URL: " + fileUrl);
             userService.updateProfilePicture(userId, fileUrl);
+            
+            // Verify the update
+            User user = userService.getUserById(userId);
+            System.out.println("Updated user profile picture URL: " + user.getProfilePictureUrl());
+            
             return ResponseEntity.ok(fileUrl);
         } catch (Exception e) {
+            System.err.println("Error uploading profile picture: " + e.getMessage());
+            e.printStackTrace();
             return ResponseEntity.internalServerError().body("Could not upload file: " + e.getMessage());
         }
     }
