@@ -1,0 +1,40 @@
+# MatchUp Backend API Endpoints
+host: https://matchup-api.xyz
+Database: https://railway.com/project/13ac0113-fc09-424e-9a70-8dcd5422b2e1/service/7024637a-7411-4aef-b8c4-139975ab3158/data?environmentId=970eb6e3-cd13-4793-bc3f-e7a70f02658d&state=table&table=chats
+## User Endpoints (/api/v1/users)
+- GET    /api/v1/users
+  - Get all users
+- GET    /api/v1/users/{email}
+  - Get user by email
+- POST   /api/v1/users
+  - Register a new user (body: User JSON)
+- DELETE /api/v1/users/{userId}
+  - Delete user by userId
+- PUT    /api/v1/users/{userId}
+  - Update user (params: userName, userEmail, userNickName, userPassword)
+
+## Location Endpoints (/api/v1/locations)<- location represents basketball court
+- GET    /api/v1/locations
+  - Get all locations
+- POST   /api/v1/locations
+  - Register a new location (body: Location JSON)
+- DELETE /api/v1/locations/{locationId}
+  - Delete location by locationId
+- PUT    /api/v1/locations/{locationId}
+  - Update location (param: locationActivePlayers)
+
+## Message Endpoints (/api/messages) <- retrieve previous messages
+- GET    /api/messages/{locationId}
+  - Get all messages for a location
+
+## User-Location Endpoints (/api/user-locations) 
+- GET    /api/user-locations/user/{userId}
+  - Get all locations joined by a user
+- POST   /api/user-locations
+  - Add a user to a location (body: UserJoinedLocations JSON)
+- DELETE /api/user-locations/user/{userId}/location/{locationId}
+  - Remove a user from a location
+
+## WebSocket Endpoint
+- ws://<host>:9095/ws/chat?locationId={locationId}
+  - Connect to chat for a specific location/chat-room  (WebSocket)
