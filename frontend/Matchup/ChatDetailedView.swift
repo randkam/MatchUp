@@ -6,11 +6,8 @@ struct ChatDetailedView: View {
     @State private var messageText = ""
     @StateObject private var webSocketManager: WebSocketManager
     @Environment(\.presentationMode) var presentationMode
-    @FocusState private var isInputFocused: Bool
-    @State private var keyboardHeight: CGFloat = 0
-    @State private var scrollToBottom = false
-    @State private var isFullScreen = false
-    
+    @StateObject private var keyboardResponder = KeyboardResponder()
+
     private var currentUserId: Int? {
         UserDefaults.standard.value(forKey: "loggedInUserId") as? Int
     }
@@ -24,95 +21,101 @@ struct ChatDetailedView: View {
     }
 
     var body: some View {
-        GeometryReader { geometry in
-            VStack(spacing: 0) {
-                // Header
-                HStack {
-                    Text(chat.name)
-                        .font(ModernFontScheme.heading)
-                        .foregroundColor(ModernColorScheme.text)
-                    
-                    Spacer()
-                    
-                    Button(action: { presentationMode.wrappedValue.dismiss() }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.title2)
-                            .foregroundColor(ModernColorScheme.textSecondary)
-                    }
-                }
-                .padding()
-                .background(ModernColorScheme.surface)
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                Text(chat.name)
+                    .font(ModernFontScheme.heading)
+                    .foregroundColor(ModernColorScheme.text)
                 
-                // Chat Messages
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        VStack(spacing: 12) {
-                            ForEach(Array(webSocketManager.messages.enumerated()), id: \.offset) { index, message in
-                                MessageBubble(
-                                    message: message,
-                                    isCurrentUser: message.senderId == currentUserId
-                                )
-                            }
-                        }
-                        .padding()
-                        .id("messagesEnd")
-                    }
-                    .background(ModernColorScheme.background)
-                    .gesture(
-                        DragGesture()
-                            .onChanged { value in
-                                if value.translation.height > 50 && isInputFocused {
-                                    isInputFocused = false
-                                    isFullScreen = true
-                                }
-                            }
-                    )
-                    .onChange(of: webSocketManager.messages) { oldValue, newValue in
-                        withAnimation {
-                            proxy.scrollTo("messagesEnd", anchor: .bottom)
-                        }
-                    }
-                    .onChange(of: isInputFocused) { oldValue, newValue in
-                        if newValue {
-                            withAnimation {
-                                proxy.scrollTo("messagesEnd", anchor: .bottom)
-                            }
-                        }
-                    }
+                Spacer()
+                
+                Button(action: { presentationMode.wrappedValue.dismiss() }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title2)
+                        .foregroundColor(ModernColorScheme.textSecondary)
                 }
-                .frame(maxHeight: isFullScreen ? .infinity : geometry.size.height - (isInputFocused ? keyboardHeight + 60 : 60))
-
-                // Message Input
-                VStack(spacing: 0) {
-                    Divider()
-                        .background(ModernColorScheme.textSecondary.opacity(0.2))
-                    
-                    HStack(spacing: 12) {
-                        TextField("Type a message...", text: $messageText)
-                            .padding(12)
-                            .background(ModernColorScheme.surface)
-                            .cornerRadius(20)
-                            .foregroundColor(ModernColorScheme.text)
-                            .focused($isInputFocused)
-                        
-                        Button(action: {
-                            if let senderId = currentUserId, let userName = currentUserName {
-                                sendMessage(content: messageText, senderId: senderId, userName: userName)
-                            }
-                        }) {
-                            Image(systemName: "paperplane.fill")
-                                .font(.system(size: 20))
-                                .foregroundColor(.white)
-                                .padding(12)
-                                .background(ModernColorScheme.primary)
-                                .clipShape(Circle())
+            }
+            .padding()
+            .background(ModernColorScheme.surface)
+            
+            // Chat Messages
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(spacing: 12) {
+                        ForEach(Array(webSocketManager.messages.enumerated()), id: \.offset) { index, message in
+                            MessageBubble(
+                                message: message,
+                                isCurrentUser: message.senderId == currentUserId
+                            )
                         }
-                        .disabled(messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        Color.clear.frame(height: 0).id("bottomAnchor")
                     }
                     .padding(.horizontal)
-                    .padding(.vertical, 12)
-                    .background(ModernColorScheme.background)
+                    .padding(.top)
+                    .padding(.bottom, 16)
                 }
+                .background(ModernColorScheme.background)
+                .simultaneousGesture(DragGesture().onChanged({ _ in
+                    self.endEditing()
+                }))
+                .onTapGesture {
+                    self.endEditing()
+                }
+                .onAppear {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        proxy.scrollTo("bottomAnchor", anchor: .bottom)
+                    }
+                }
+                .onChange(of: webSocketManager.messages) { messages in
+                    if !messages.isEmpty {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            withAnimation {
+                                proxy.scrollTo("bottomAnchor", anchor: .bottom)
+                            }
+                        }
+                    }
+                }
+                .onChange(of: keyboardResponder.keyboardHeight) { newHeight in
+                    if newHeight > 0 {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            withAnimation(.spring(response: 0.5, dampingFraction: 0.8, blendDuration: 0)) {
+                                proxy.scrollTo("bottomAnchor", anchor: .bottom)
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Message Input
+            VStack(spacing: 0) {
+                Divider()
+                    .background(ModernColorScheme.textSecondary.opacity(0.2))
+                
+                HStack(spacing: 12) {
+                    TextField("Type a message...", text: $messageText)
+                        .padding(12)
+                        .background(ModernColorScheme.surface)
+                        .cornerRadius(20)
+                        .foregroundColor(ModernColorScheme.text)
+                    
+                    Button(action: {
+                        if let senderId = currentUserId, let userName = currentUserName {
+                            sendMessage(content: messageText, senderId: senderId, userName: userName)
+                        }
+                    }) {
+                        Image(systemName: "paperplane.fill")
+                            .font(.system(size: 20))
+                            .foregroundColor(.white)
+                            .padding(12)
+                            .background(ModernColorScheme.primary)
+                            .clipShape(Circle())
+                    }
+                    .disabled(messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 12)
+                .background(ModernColorScheme.background)
             }
         }
         .background(ModernColorScheme.background.edgesIgnoringSafeArea(.all))
@@ -123,28 +126,19 @@ struct ChatDetailedView: View {
                     print("Connected successfully to chat")
                     webSocketManager.loadOldMessages(locationId: locationIdInt) { oldMessages in
                         webSocketManager.messages = oldMessages
-                        // Scroll to bottom after loading messages
-                        scrollToBottom = true
                     }
                 } else {
                     print("Failed to connect to chat")
                 }
             }
-            
-            // Add keyboard observers
-            NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillShowNotification, object: nil, queue: .main) { notification in
-                if let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
-                    keyboardHeight = keyboardFrame.height
-                }
-            }
-            
-            NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillHideNotification, object: nil, queue: .main) { _ in
-                keyboardHeight = 0
-            }
         }
         .onDisappear {
             webSocketManager.disconnect()
         }
+    }
+
+    private func endEditing() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 
     func sendMessage(content: String, senderId: Int, userName: String) {
@@ -161,7 +155,6 @@ struct ChatDetailedView: View {
 
         webSocketManager.sendMessage(message)
         messageText = ""
-        scrollToBottom = true
     }
 
     struct MessageBubble: View {
@@ -193,5 +186,25 @@ struct ChatDetailedView: View {
                 }
             }
         }
+    }
+}
+
+final class KeyboardResponder: ObservableObject {
+    @Published private(set) var keyboardHeight: CGFloat = 0
+
+    private var cancellables = Set<AnyCancellable>()
+
+    init() {
+        let keyboardWillShow = NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)
+            .compactMap { $0.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect }
+            .map(\.height)
+
+        let keyboardWillHide = NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)
+            .map { _ in CGFloat(0) }
+
+        Publishers.Merge(keyboardWillShow, keyboardWillHide)
+            .subscribe(on: RunLoop.main)
+            .assign(to: \.keyboardHeight, on: self)
+            .store(in: &cancellables)
     }
 }

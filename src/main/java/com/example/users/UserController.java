@@ -69,7 +69,11 @@ public class UserController {
             User user = userService.getUserById(userId);
             System.out.println("Updated user profile picture URL: " + user.getProfilePictureUrl());
             
-            return ResponseEntity.ok(fileUrl);
+            // Return the URL as plain text
+            return ResponseEntity
+                .ok()
+                .contentType(MediaType.TEXT_PLAIN)
+                .body(fileUrl);
         } catch (Exception e) {
             System.err.println("Error uploading profile picture: " + e.getMessage());
             e.printStackTrace();

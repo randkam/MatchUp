@@ -284,12 +284,13 @@ class NetworkManager {
                 if let data = data, let responseString = String(data: data, encoding: .utf8) {
                     print("uploadProfilePicture response: \(responseString)")
                     
-                    if httpResponse.statusCode == 200,
-                       let fullUrl = try? JSONSerialization.jsonObject(with: data) as? String {
+                    if httpResponse.statusCode == 200 {
+                        // Remove any whitespace or newlines from the response
+                        let fullUrl = responseString.trimmingCharacters(in: .whitespacesAndNewlines)
                         print("uploadProfilePicture success - Full URL: \(fullUrl)")
                         completion(true, fullUrl)
                     } else {
-                        print("uploadProfilePicture: Invalid response format")
+                        print("uploadProfilePicture: Invalid response status code")
                         completion(false, nil)
                     }
                 } else {
