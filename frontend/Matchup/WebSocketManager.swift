@@ -1,148 +1,167 @@
 import Foundation
+import Combine
 
-// Enum for WebSocket connection state
 enum WebSocketState {
-    case connected
-    case disconnected
-    case error(Error)
+    case connected, disconnected, error(Error)
 }
 
-// Custom error type
 enum WebSocketError: Error {
-    case connectionFailed
-    case messageEncodingFailed
-    case notConnected
+    case connectionFailed, messageEncodingFailed, notConnected
 }
 
-class WebSocketManager: NSObject, ObservableObject, URLSessionWebSocketDelegate {
+final class WebSocketManager: NSObject, ObservableObject, URLSessionWebSocketDelegate {
+    
+    // MARK: – Public
     @Published var messages: [ChatMessage] = []
-    private var webSocket: URLSessionWebSocketTask?
-    private var isConnected = false
-
+    
     func connect(locationId: Int, completion: @escaping (Bool) -> Void) {
-        let urlString = APIConfig.wsChatEndpoint(locationId: locationId)
-        print("Connecting to WebSocket: \(urlString)")
+        currentLocationId = locationId
+        connectionCompletion = completion
+        
+        let urlString = APIConfig.wsChatEndpoint(locationId: locationId) // must return wss://…
         guard let url = URL(string: urlString) else {
-            print("Invalid WebSocket URL")
             completion(false)
             return
         }
-
-        let session = URLSession(configuration: .default, delegate: self, delegateQueue: OperationQueue())
-        webSocket = session.webSocketTask(with: url)
+        
+        session = URLSession(configuration: .default,
+                             delegate: self,
+                             delegateQueue: .main)            // main queue keeps UI work on main thread
+        webSocket = session!.webSocketTask(with: url)
         webSocket?.resume()
-
-        receiveMessage()
-        completion(true)
+        
+        receiveMessage()        // start listening immediately
+        startPingTimer()        // keep-alive
     }
-
-    private func receiveMessage() {
-        webSocket?.receive { [weak self] result in
-            switch result {
-            case .success(let message):
-                switch message {
-                case .string(let text):
-                    print("Received WebSocket message: \(text)")
-                    if let data = text.data(using: .utf8) {
-                        do {
-                            let chatMessage = try JSONDecoder().decode(ChatMessage.self, from: data)
-                            print("Successfully decoded message with timestamp: \(String(describing: chatMessage.timestamp))")
-                            DispatchQueue.main.async {
-                                self?.messages.append(chatMessage)
-                            }
-                        } catch {
-                            print("Failed to decode message: \(error)")
-                            if let jsonObject = try? JSONSerialization.jsonObject(with: data, options: []) {
-                                print("Raw JSON structure: \(jsonObject)")
-                            }
-                        }
-                    }
-                case .data(let data):
-                    print("Received unexpected binary message")
-                @unknown default:
-                    print("Received unknown message type")
-                }
-                self?.receiveMessage()
-
-            case .failure(let error):
-                print("Error receiving message: \(error)")
-            }
-        }
-    }
-
+    
     func sendMessage(_ message: ChatMessage) {
-        let encoder = JSONEncoder()
+        guard isConnected else {
+            print("WebSocket not connected – message not sent")
+            return
+        }
+        
         do {
-            let jsonData = try encoder.encode(message)
-            if let jsonString = String(data: jsonData, encoding: .utf8) {
-                print("Sending WebSocket message: \(jsonString)")
-                let message = URLSessionWebSocketTask.Message.string(jsonString)
-                webSocket?.send(message) { error in
-                    if let error = error {
-                        print("Error sending message: \(error)")
-                    }
+            let data = try JSONEncoder().encode(message)
+            if let json = String(data: data, encoding: .utf8) {
+                webSocket?.send(.string(json)) { error in
+                    if let error = error { print("Send error:", error) }
                 }
             }
         } catch {
-            print("Failed to encode message: \(error)")
+            print("Encoding error:", error)
         }
     }
-
+    
     func disconnect() {
-        print("Disconnecting WebSocket")
+        pingTimer?.invalidate()
+        pingTimer = nil
         webSocket?.cancel(with: .normalClosure, reason: nil)
         webSocket = nil
+        session = nil
+        isConnected = false
     }
-
+    
     func loadOldMessages(locationId: Int, completion: @escaping ([ChatMessage]) -> Void) {
         let urlString = "\(APIConfig.messagesEndpoint)/\(locationId)"
-        print("Loading old messages from: \(urlString)")
-        guard let url = URL(string: urlString) else {
-            print("Invalid URL for loading old messages")
-            return
-        }
-
-        URLSession.shared.dataTask(with: url) { data, response, error in
-            if let error = error {
-                print("Failed to load messages: \(error)")
+        guard let url = URL(string: urlString) else { return }
+        
+        URLSession.shared.dataTask(with: url) { data, _, error in
+            guard let data = data, error == nil,
+                  let msgs = try? JSONDecoder().decode([ChatMessage].self, from: data) else {
+                print("Load-old-messages error:", error ?? WebSocketError.connectionFailed)
                 return
             }
-
-            guard let data = data else {
-                print("No data received when loading old messages")
-                return
-            }
-
-            do {
-                if let jsonObject = try? JSONSerialization.jsonObject(with: data, options: []) {
-                    print("Raw JSON for old messages: \(jsonObject)")
-                }
-                
-                let messages = try JSONDecoder().decode([ChatMessage].self, from: data)
-                print("Successfully loaded \(messages.count) old messages")
-                DispatchQueue.main.async {
-                    self.messages = messages
-                    completion(messages)
-                }
-            } catch {
-                print("Failed to decode messages: \(error)")
+            DispatchQueue.main.async {
+                self.messages = msgs
+                completion(msgs)
             }
         }.resume()
     }
-
-    func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didOpenWithProtocol protocol: String?) {
-        isConnected = true
-        print("WebSocket Connected")
-    }
-
-    func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didCloseWith closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?) {
-        isConnected = false
-        print("WebSocket Disconnected with code: \(closeCode)")
-        if let reason = reason, let reasonString = String(data: reason, encoding: .utf8) {
-            print("Disconnect reason: \(reasonString)")
+    
+    // MARK: – Private
+    @Published private(set) var state: WebSocketState = .disconnected
+    
+    private var session: URLSession?
+    private var webSocket: URLSessionWebSocketTask?
+    private var isConnected = false
+    private var connectionCompletion: ((Bool) -> Void)?
+    private var currentLocationId: Int = 0
+    private var pingTimer: Timer?
+    private var reconnectionAttempts = 0
+    private let maxReconnections = 1         // simple back-off
+    
+    // Listen continuously
+    private func receiveMessage() {
+        webSocket?.receive { [weak self] result in
+            guard let self else { return }
+            switch result {
+            case .success(let msg):
+                if case .string(let text) = msg,
+                   let data = text.data(using: .utf8),
+                   let chat = try? JSONDecoder().decode(ChatMessage.self, from: data) {
+                    DispatchQueue.main.async { self.messages.append(chat) }
+                }
+                self.receiveMessage()            // loop!
+            case .failure(let err):
+                print("Receive error:", err)
+                self.state = .error(err)
+                self.attemptReconnect()
+            }
         }
     }
+    
+    // MARK: – Keep-alive
+    private func startPingTimer() {
+        pingTimer?.invalidate()
+        pingTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
+            self?.webSocket?.sendPing { error in
+                if let error = error {
+                    print("Ping failed:", error)
+                    self?.attemptReconnect()
+                }
+            }
+        }
+    }
+    
+    // MARK: – Reconnection
+    private func attemptReconnect() {
+        guard reconnectionAttempts < maxReconnections else {
+            print("Max reconnection attempts reached")
+            return
+        }
+        reconnectionAttempts += 1
+        disconnect()
+        print("Reconnecting attempt \(reconnectionAttempts)…")
+        connect(locationId: currentLocationId) { _ in }
+    }
+    
+    // MARK: – URLSessionWebSocketDelegate
+    func urlSession(_ session: URLSession,
+                    webSocketTask: URLSessionWebSocketTask,
+                    didOpenWithProtocol protocol: String?) {
+        isConnected = true
+        reconnectionAttempts = 0
+        state = .connected
+        connectionCompletion?(true); connectionCompletion = nil
+        print("WebSocket connected")
+    }
+    
+    func urlSession(_ session: URLSession,
+                    webSocketTask: URLSessionWebSocketTask,
+                    didCloseWith closeCode: URLSessionWebSocketTask.CloseCode,
+                    reason: Data?) {
+        isConnected = false
+        state = .disconnected
+        if let reason,
+           let reasonString = String(data: reason, encoding: .utf8) {
+            print("Socket closed: \(closeCode) – \(reasonString)")
+        } else {
+            print("Socket closed: \(closeCode)")
+        }
+        attemptReconnect()
+    }
 }
+
 
 struct ChatMessage: Identifiable, Codable, Equatable {
     let id: Int?

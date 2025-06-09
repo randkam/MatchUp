@@ -8,6 +8,7 @@ import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 import org.springframework.web.socket.CloseStatus;
 
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -42,6 +43,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         ChatMessage chatMessage = objectMapper.readValue(message.getPayload(), ChatMessage.class);
         
         // Save to database and get the saved message with timestamp
+        chatMessage.setTimestamp(LocalDateTime.now());
         ChatMessage savedMessage = chatService.save(chatMessage);
 
         // Convert the saved message (with timestamp) back to JSON
