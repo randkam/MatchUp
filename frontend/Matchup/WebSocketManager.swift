@@ -21,7 +21,9 @@ class WebSocketManager: NSObject, ObservableObject, URLSessionWebSocketDelegate 
 
     func connect(locationId: Int, completion: @escaping (Bool) -> Void) {
         let urlString = APIConfig.wsChatEndpoint(locationId: locationId)
+        print("Connecting to WebSocket: \(urlString)")
         guard let url = URL(string: urlString) else {
+            print("Invalid WebSocket URL")
             completion(false)
             return
         }
@@ -40,18 +42,25 @@ class WebSocketManager: NSObject, ObservableObject, URLSessionWebSocketDelegate 
             case .success(let message):
                 switch message {
                 case .string(let text):
+                    print("Received WebSocket message: \(text)")
                     if let data = text.data(using: .utf8) {
                         do {
                             let chatMessage = try JSONDecoder().decode(ChatMessage.self, from: data)
+                            print("Successfully decoded message with timestamp: \(String(describing: chatMessage.timestamp))")
                             DispatchQueue.main.async {
                                 self?.messages.append(chatMessage)
                             }
                         } catch {
                             print("Failed to decode message: \(error)")
+                            if let jsonObject = try? JSONSerialization.jsonObject(with: data, options: []) {
+                                print("Raw JSON structure: \(jsonObject)")
+                            }
                         }
                     }
-                default:
-                    break
+                case .data(let data):
+                    print("Received unexpected binary message")
+                @unknown default:
+                    print("Received unknown message type")
                 }
                 self?.receiveMessage()
 
@@ -66,6 +75,7 @@ class WebSocketManager: NSObject, ObservableObject, URLSessionWebSocketDelegate 
         do {
             let jsonData = try encoder.encode(message)
             if let jsonString = String(data: jsonData, encoding: .utf8) {
+                print("Sending WebSocket message: \(jsonString)")
                 let message = URLSessionWebSocketTask.Message.string(jsonString)
                 webSocket?.send(message) { error in
                     if let error = error {
@@ -79,12 +89,18 @@ class WebSocketManager: NSObject, ObservableObject, URLSessionWebSocketDelegate 
     }
 
     func disconnect() {
+        print("Disconnecting WebSocket")
         webSocket?.cancel(with: .normalClosure, reason: nil)
         webSocket = nil
     }
 
     func loadOldMessages(locationId: Int, completion: @escaping ([ChatMessage]) -> Void) {
-        let url = URL(string: "\(APIConfig.messagesEndpoint)/\(locationId)")!
+        let urlString = "\(APIConfig.messagesEndpoint)/\(locationId)"
+        print("Loading old messages from: \(urlString)")
+        guard let url = URL(string: urlString) else {
+            print("Invalid URL for loading old messages")
+            return
+        }
 
         URLSession.shared.dataTask(with: url) { data, response, error in
             if let error = error {
@@ -92,10 +108,18 @@ class WebSocketManager: NSObject, ObservableObject, URLSessionWebSocketDelegate 
                 return
             }
 
-            guard let data = data else { return }
+            guard let data = data else {
+                print("No data received when loading old messages")
+                return
+            }
 
             do {
+                if let jsonObject = try? JSONSerialization.jsonObject(with: data, options: []) {
+                    print("Raw JSON for old messages: \(jsonObject)")
+                }
+                
                 let messages = try JSONDecoder().decode([ChatMessage].self, from: data)
+                print("Successfully loaded \(messages.count) old messages")
                 DispatchQueue.main.async {
                     self.messages = messages
                     completion(messages)
@@ -113,7 +137,10 @@ class WebSocketManager: NSObject, ObservableObject, URLSessionWebSocketDelegate 
 
     func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didCloseWith closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?) {
         isConnected = false
-        print("WebSocket Disconnected")
+        print("WebSocket Disconnected with code: \(closeCode)")
+        if let reason = reason, let reasonString = String(data: reason, encoding: .utf8) {
+            print("Disconnect reason: \(reasonString)")
+        }
     }
 }
 
@@ -125,7 +152,7 @@ struct ChatMessage: Identifiable, Codable, Equatable {
     let senderUserName: String
     var timestamp: Date?
     
-    enum CodingKeys: CodingKey {
+    enum CodingKeys: String, CodingKey {
         case id
         case locationId
         case senderId
@@ -152,12 +179,28 @@ struct ChatMessage: Identifiable, Codable, Equatable {
         senderUserName = try container.decode(String.self, forKey: .senderUserName)
         
         // Handle timestamp from backend (ISO 8601 string)
-        if let timestampString = try container.decodeIfPresent(String.self, forKey: .timestamp) {
+        if let timestampString = try? container.decodeIfPresent(String.self, forKey: .timestamp) {
             let formatter = ISO8601DateFormatter()
             formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
             timestamp = formatter.date(from: timestampString)
         } else {
             timestamp = nil
+        }
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(id, forKey: .id)
+        try container.encode(locationId, forKey: .locationId)
+        try container.encode(senderId, forKey: .senderId)
+        try container.encode(content, forKey: .content)
+        try container.encode(senderUserName, forKey: .senderUserName)
+        
+        // Only encode timestamp if it exists
+        if let timestamp = timestamp {
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            try container.encode(formatter.string(from: timestamp), forKey: .timestamp)
         }
     }
 }
