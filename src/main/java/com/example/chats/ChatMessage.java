@@ -1,6 +1,6 @@
 package com.example.chats;
 
-
+import java.time.LocalDateTime;
 
 // import java.time.LocalDateTime;
 
@@ -10,6 +10,7 @@ public class ChatMessage {
     private int senderId;
     private String content;
     private String senderUserName;
+    private LocalDateTime timestamp;
 
     // private LocalDateTime timestamp;
 
@@ -25,6 +26,9 @@ public class ChatMessage {
     public String getSenderUserName() {
         return senderUserName;
     }
+    public LocalDateTime getTimestamp() {
+        return timestamp;
+    }
     // public LocalDateTime getTimestamp() {
     //     return timestamp;
     // }
@@ -36,6 +40,9 @@ public class ChatMessage {
     }
     public void setContent(String content) {
         this.content = content;
+    }
+    public void setTimestamp(LocalDateTime timestamp) {
+        this.timestamp = timestamp;
     }
     // public void setTimestamp(LocalDateTime timestamp) {
     //     this.timestamp = timestamp;
@@ -50,7 +57,8 @@ public class ChatMessage {
                "sender='" + senderId + '\'' +
                ", content='" + content + '\'' +
                ", locationId='" + locationId + '\'' +
-               "SenderUserName=" + senderUserName +
+               ", senderUserName=" + senderUserName + '\'' +
+               ", timestamp=" + timestamp +
                '}';
     }
 

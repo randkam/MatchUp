@@ -41,8 +41,12 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         // Parse the incoming message
         ChatMessage chatMessage = objectMapper.readValue(message.getPayload(), ChatMessage.class);
         
-        // Save to database
-        chatService.save(chatMessage);
+        // Save to database and get the saved message with timestamp
+        ChatMessage savedMessage = chatService.save(chatMessage);
+
+        // Convert the saved message (with timestamp) back to JSON
+        String updatedMessageJson = objectMapper.writeValueAsString(savedMessage);
+        TextMessage updatedTextMessage = new TextMessage(updatedMessageJson);
 
         // Get the location room and broadcast only to sessions in that room
         int locationId = (Integer) session.getAttributes().get("locationId");
@@ -51,7 +55,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         if (locationSessions != null) {
             for (WebSocketSession s : locationSessions) {
                 if (s.isOpen()) {
-                    s.sendMessage(message);
+                    s.sendMessage(updatedTextMessage);
                 }
             }
         }

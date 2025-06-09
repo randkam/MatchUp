@@ -123,4 +123,41 @@ struct ChatMessage: Identifiable, Codable, Equatable {
     let senderId: Int
     let content: String
     let senderUserName: String
+    var timestamp: Date?
+    
+    enum CodingKeys: CodingKey {
+        case id
+        case locationId
+        case senderId
+        case content
+        case senderUserName
+        case timestamp
+    }
+    
+    init(id: Int?, locationId: Int, senderId: Int, content: String, senderUserName: String, timestamp: Date? = nil) {
+        self.id = id
+        self.locationId = locationId
+        self.senderId = senderId
+        self.content = content
+        self.senderUserName = senderUserName
+        self.timestamp = timestamp
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(Int.self, forKey: .id)
+        locationId = try container.decode(Int.self, forKey: .locationId)
+        senderId = try container.decode(Int.self, forKey: .senderId)
+        content = try container.decode(String.self, forKey: .content)
+        senderUserName = try container.decode(String.self, forKey: .senderUserName)
+        
+        // Handle timestamp from backend (ISO 8601 string)
+        if let timestampString = try container.decodeIfPresent(String.self, forKey: .timestamp) {
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            timestamp = formatter.date(from: timestampString)
+        } else {
+            timestamp = nil
+        }
+    }
 }

@@ -7,7 +7,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 
-// import java.time.LocalDateTime;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "chats")
@@ -28,7 +28,8 @@ public class MessageEntity {
     private int senderId;
     private String senderUserName;
     private String content;
-    // private LocalDateTime timestamp;
+    private LocalDateTime timestamp;
+
     public int getLocationId() {
         return locationId;
     }
@@ -45,14 +46,13 @@ public class MessageEntity {
         return senderUserName;
     }
     
+    public LocalDateTime getTimestamp() {
+        return timestamp;
+    }
 
-    // public LocalDateTime getTimestamp() {
-    //     return timestamp;
-    // }
     public void setChatId(int chatId) {
         this.chatId = chatId;
     }
-
 
     public void setLocationId(int locationId) {
         this.locationId = locationId;
@@ -66,9 +66,9 @@ public class MessageEntity {
     public void setSenderUserName(String userName) {
         this.senderUserName = userName;
     }
-    // public void setTimestamp(LocalDateTime timestamp) {
-    //     this.timestamp = timestamp;
-    // }
+    public void setTimestamp(LocalDateTime timestamp) {
+        this.timestamp = timestamp;
+    }
 
     @Override
     public String toString() {
@@ -76,9 +76,9 @@ public class MessageEntity {
                "sender='" + senderId + '\'' +
                ", content='" + content + '\'' +
                ", locationId='" + locationId + '\'' +
-               "Sender UserName="+ senderUserName +
+               ", senderUserName="+ senderUserName + '\'' +
+               ", timestamp=" + timestamp +
                '}';
     }
-
 }
 

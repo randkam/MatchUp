@@ -3,6 +3,7 @@ package com.example.chats;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -17,8 +18,9 @@ public class ChatService {
         messageEntity.setContent(message.getContent());
         messageEntity.setSenderId(message.getSenderId());
         messageEntity.setSenderUserName(message.getSenderUserName());
-        // messageEntity.setTimestamp(message.getTimestamp());
+        messageEntity.setTimestamp(LocalDateTime.now());
         chatMessageRepository.save(messageEntity);
+        message.setTimestamp(messageEntity.getTimestamp());
         return message;
     }
 

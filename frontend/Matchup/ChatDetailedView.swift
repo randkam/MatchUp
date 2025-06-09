@@ -160,6 +160,40 @@ struct ChatDetailedView: View {
     struct MessageBubble: View {
         var message: ChatMessage
         var isCurrentUser: Bool?
+        
+        private func formatTimestamp(_ date: Date?) -> String? {
+            guard let date = date else { return nil }
+            
+            let calendar = Calendar.current
+            let now = Date()
+            
+            // If the message is from today, show only time
+            if calendar.isDateInToday(date) {
+                let formatter = DateFormatter()
+                formatter.timeStyle = .short
+                return formatter.string(from: date)
+            }
+            
+            // If the message is from yesterday, show "Yesterday" and time
+            if calendar.isDateInYesterday(date) {
+                let formatter = DateFormatter()
+                formatter.timeStyle = .short
+                return "Yesterday " + formatter.string(from: date)
+            }
+            
+            // If the message is from this week, show day name and time
+            if let daysAgo = calendar.dateComponents([.day], from: date, to: now).day, daysAgo < 7 {
+                let formatter = DateFormatter()
+                formatter.dateFormat = "EEEE h:mm a"
+                return formatter.string(from: date)
+            }
+            
+            // Otherwise show full date
+            let formatter = DateFormatter()
+            formatter.dateStyle = .medium
+            formatter.timeStyle = .short
+            return formatter.string(from: date)
+        }
 
         var body: some View {
             VStack(alignment: isCurrentUser == true ? .trailing : .leading, spacing: 2) {
@@ -173,14 +207,23 @@ struct ChatDetailedView: View {
                 HStack {
                     if isCurrentUser == true { Spacer() }
 
-                    Text(message.content)
-                        .font(ModernFontScheme.body)
-                        .padding(.vertical, 8)
-                        .padding(.horizontal, 12)
-                        .background(isCurrentUser == true ? ModernColorScheme.primary : ModernColorScheme.surface)
-                        .foregroundColor(isCurrentUser == true ? .white : ModernColorScheme.text)
-                        .cornerRadius(16)
-                        .frame(maxWidth: 280, alignment: isCurrentUser == true ? .trailing : .leading)
+                    VStack(alignment: isCurrentUser == true ? .trailing : .leading, spacing: 4) {
+                        Text(message.content)
+                            .font(ModernFontScheme.body)
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 12)
+                            .background(isCurrentUser == true ? ModernColorScheme.primary : ModernColorScheme.surface)
+                            .foregroundColor(isCurrentUser == true ? .white : ModernColorScheme.text)
+                            .cornerRadius(16)
+                            .frame(maxWidth: 280, alignment: isCurrentUser == true ? .trailing : .leading)
+                        
+                        if let timestampStr = formatTimestamp(message.timestamp) {
+                            Text(timestampStr)
+                                .font(.system(size: 11))
+                                .foregroundColor(ModernColorScheme.textSecondary.opacity(0.8))
+                                .padding(.horizontal, 4)
+                        }
+                    }
 
                     if isCurrentUser == false { Spacer() }
                 }
