@@ -8,7 +8,6 @@ import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 import org.springframework.web.socket.CloseStatus;
 
-import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -42,13 +41,8 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         // Parse the incoming message
         ChatMessage chatMessage = objectMapper.readValue(message.getPayload(), ChatMessage.class);
         
-        // Save to database and get the saved message with timestamp
-        chatMessage.setTimestamp(LocalDateTime.now());
-        ChatMessage savedMessage = chatService.save(chatMessage);
-
-        // Convert the saved message (with timestamp) back to JSON
-        String updatedMessageJson = objectMapper.writeValueAsString(savedMessage);
-        TextMessage updatedTextMessage = new TextMessage(updatedMessageJson);
+        // Save to database
+        chatService.save(chatMessage);
 
         // Get the location room and broadcast only to sessions in that room
         int locationId = (Integer) session.getAttributes().get("locationId");
@@ -57,7 +51,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         if (locationSessions != null) {
             for (WebSocketSession s : locationSessions) {
                 if (s.isOpen()) {
-                    s.sendMessage(updatedTextMessage);
+                    s.sendMessage(message);
                 }
             }
         }
