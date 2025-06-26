@@ -142,13 +142,3 @@ struct NewChatView: View {
     }
 
 }
-
-// Define the Location struct based on your API response
-struct Location: Identifiable, Codable {
-    var id: Int { locationId }
-    var locationId: Int
-    var locationName: String
-    var locationAddress: String
-    var locationZipCode: String
-    var locationActivePlayers: Int
-}

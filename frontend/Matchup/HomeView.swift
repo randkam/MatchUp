@@ -9,12 +9,6 @@ enum FilterOption: String, CaseIterable {
     case outdoor = "Outdoor"
 }
 
-enum LocationTypeFilter: String, CaseIterable {
-    case all = "All"
-    case indoor = "Indoor"
-    case outdoor = "Outdoor"
-}
-
 extension Location {
 //    var coordinate: CLLocationCoordinate2D {
 //        CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
@@ -29,7 +23,6 @@ struct HomeView: View {
     
     @Binding var selectedCoordinate: IdentifiableCoordinate?
     @State private var selectedFilter: FilterOption = .active
-    @State private var selectedTypeFilter: LocationTypeFilter = .all
     @State private var searchText = ""
     @State private var showProfile = false
     @State private var showNotifications = false
@@ -44,17 +37,14 @@ struct HomeView: View {
                     .padding(.horizontal)
                     .padding(.top, 0.5)
                 
-                // Filter Options
-                VStack(spacing: 12) {
-                    FilterOptionsView(selectedFilter: $selectedFilter)
-                    
-                    // Location Type Filter
-                    HStack(spacing: 15) {
-                        ForEach(LocationTypeFilter.allCases, id: \.self) { option in
+                // Single Filter Section
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(FilterOption.allCases, id: \.self) { option in
                             FilterButton(
                                 title: option.rawValue,
-                                isSelected: selectedTypeFilter == option,
-                                action: { selectedTypeFilter = option }
+                                isSelected: selectedFilter == option,
+                                action: { selectedFilter = option }
                             )
                         }
                     }
@@ -149,29 +139,35 @@ struct HomeView: View {
     // MARK: - Computed Properties
     
     private var filteredLocations: [Location] {
-        var locations = dataStore.locations
+        var locations: [Location]
         
-        // Apply filter based on selection
+        // First apply activity filter
         switch selectedFilter {
         case .active:
-            locations = locations.filter { $0.locationActivePlayers > 0 }
+            locations = dataStore.activeCourts
+            print("Filtered active courts: \(locations.count)")
         case .inactive:
-            locations = locations.filter { $0.locationActivePlayers == 0 }
+            locations = dataStore.inactiveCourts
+            print("Filtered inactive courts: \(locations.count)")
         case .indoor:
-            locations = locations.filter { $0.locationType == .indoor }
+            locations = dataStore.locations.filter { $0.locationType == .indoor }
+            print("Filtered indoor courts: \(locations.count)")
         case .outdoor:
-            locations = locations.filter { $0.locationType == .outdoor }
+            locations = dataStore.locations.filter { $0.locationType == .outdoor }
+            print("Filtered outdoor courts: \(locations.count)")
         }
         
         // Apply search filter if text is not empty
         if !searchText.isEmpty {
-//            locations = locations.filter {
-//                $0.locationName.localizedCaseInsensitiveContains(searchText) ||
-//                $0.locationDescription.localizedCaseInsensitiveContains(searchText)
-//            }
+            let beforeCount = locations.count
+            locations = locations.filter {
+                $0.locationName.localizedCaseInsensitiveContains(searchText) ||
+                $0.locationAddress.localizedCaseInsensitiveContains(searchText)
+            }
+            print("After search filter: \(locations.count) (was \(beforeCount))")
         }
         
-        // Sort by active players (descending) for active locations
+        // Sort by active players (descending) for active filter
         if selectedFilter == .active {
             locations.sort { $0.locationActivePlayers > $1.locationActivePlayers }
         }
@@ -205,23 +201,6 @@ struct SearchBarView: View {
         .background(ModernColorScheme.surface)
         .cornerRadius(12)
         .ignoresSafeArea(edges: .top)
-    }
-}
-
-struct FilterOptionsView: View {
-    @Binding var selectedFilter: FilterOption
-    
-    var body: some View {
-        HStack(spacing: 15) {
-            ForEach(FilterOption.allCases, id: \.self) { option in
-                FilterButton(
-                    title: option.rawValue,
-                    isSelected: selectedFilter == option,
-                    action: { selectedFilter = option }
-                )
-            }
-        }
-        .padding(.horizontal)
     }
 }
 

@@ -12,20 +12,18 @@ enum LocationType: String, Codable {
 }
 
 struct Location: Identifiable, Codable {
-    let locationId: Int
-    let locationName: String
-    let locationAddress: String
+    var id: Int{ locationId }
+    var locationId: Int  // Changed to Int64 to match backend's Long type
+    var locationName: String
+    var locationAddress: String
+    var locationZipCode: String
     var locationActivePlayers: Int
-    let locationDescription: String
-    let locationRating: Double
-    let openingHours: String
-    let courtType: String
-    let locationType: LocationType
-    let latitude: Double
-    let longitude: Double
+    var locationReviews: String?  // Added to match backend, optional since it might be null
+    let locationType: LocationType?  // Made optional since existing locations might not have it set
     
-    var coordinate: CLLocationCoordinate2D {
-        CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    var coordinate: CLLocationCoordinate2D? {
+        // Optional coordinate if needed later
+        nil
     }
 }
 
