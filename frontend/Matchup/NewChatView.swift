@@ -151,5 +151,4 @@ struct Location: Identifiable, Codable {
     var locationAddress: String
     var locationZipCode: String
     var locationActivePlayers: Int
-    var locationReviews: String
 }
