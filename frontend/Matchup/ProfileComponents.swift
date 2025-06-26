@@ -28,10 +28,9 @@ struct FavoriteCourtRow: View {
                     .font(ModernFontScheme.body)
                     .foregroundColor(ModernColorScheme.text)
                 
-                // Find the matching school to get the rating
-                let rating = SharedDataStore.shared.basketballCourts.first(where: { $0.name == courtName })?.rating ?? 4.0
-                
-                Text("⭐ \(String(format: "%.1f", rating))")
+                // TODO: Implement rating system
+                // let rating = SharedDataStore.shared.locations.first(where: { $0.locationName == courtName })?.locationRating ?? 4.0
+                Text("⭐ Coming Soon")
                     .font(ModernFontScheme.caption)
                     .foregroundColor(ModernColorScheme.textSecondary)
             }
@@ -112,22 +111,20 @@ struct AvailabilitySelectionView: View {
     let allTimes: [String]
     
     var body: some View {
-        List {
-            ForEach(allTimes, id: \.self) { time in
-                Button(action: {
+        List(allTimes, id: \.self) { time in
+            Button(action: {
+                if selectedTimes.contains(time) {
+                    selectedTimes.removeAll { $0 == time }
+                } else {
+                    selectedTimes.append(time)
+                }
+            }) {
+                HStack {
+                    Text(time)
+                    Spacer()
                     if selectedTimes.contains(time) {
-                        selectedTimes.removeAll { $0 == time }
-                    } else {
-                        selectedTimes.append(time)
-                    }
-                }) {
-                    HStack {
-                        Text(time)
-                        Spacer()
-                        if selectedTimes.contains(time) {
-                            Image(systemName: "checkmark")
-                                .foregroundColor(ModernColorScheme.primary)
-                        }
+                        Image(systemName: "checkmark")
+                            .foregroundColor(ModernColorScheme.primary)
                     }
                 }
             }
@@ -142,36 +139,33 @@ struct FavoriteCourtSelectionView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var selectedCourts: [String] = []
     
-    // Use the shared data store for court data
+    // Use the shared data store for location data
     @ObservedObject private var dataStore = SharedDataStore.shared
     
     var body: some View {
         List {
-            ForEach(dataStore.basketballCourts, id: \.id) { school in
+            ForEach(dataStore.locations, id: \.locationId) { location in
                 Button(action: {
-                    if selectedCourts.contains(school.name) {
-                        selectedCourts.removeAll { $0 == school.name }
+                    if selectedCourts.contains(location.locationName) {
+                        selectedCourts.removeAll { $0 == location.locationName }
                     } else {
-                        selectedCourts.append(school.name)
+                        selectedCourts.append(location.locationName)
                     }
                 }) {
                     HStack {
                         VStack(alignment: .leading) {
-                            Text(school.name)
+                            Text(location.locationName)
                                 .font(ModernFontScheme.body)
                             
-                            HStack {
-                                Text("⭐ \(String(format: "%.1f", school.rating))")
-                                Text("•")
-                                Text("\(school.courtType)")
-                            }
-                            .font(ModernFontScheme.caption)
-                            .foregroundColor(ModernColorScheme.textSecondary)
+                            // TODO: Implement rating and court type
+                            Text("Details coming soon")
+                                .font(ModernFontScheme.caption)
+                                .foregroundColor(ModernColorScheme.textSecondary)
                         }
                         
                         Spacer()
                         
-                        if selectedCourts.contains(school.name) {
+                        if selectedCourts.contains(location.locationName) {
                             Image(systemName: "heart.fill")
                                 .foregroundColor(.red)
                         } else {

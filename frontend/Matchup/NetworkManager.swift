@@ -304,4 +304,46 @@ class NetworkManager {
         }.resume()
     }
 
+    func joinLocation(locationId: Int, completion: @escaping (Bool, Error?) -> Void) {
+        guard let userId = UserDefaults.standard.integer(forKey: "loggedInUserId") as Int?,
+              let url = URL(string: "\(APIConfig.userLocationsEndpoint)") else {
+            completion(false, NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to create URL or get user ID"]))
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: Any] = [
+            "userId": userId,
+            "locationId": locationId
+        ]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                completion(false, error)
+                return
+            }
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                completion(false, NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid response"]))
+                return
+            }
+
+            if (200...299).contains(httpResponse.statusCode) {
+                // Update local storage of joined locations
+                var joinedLocations = UserDefaults.standard.array(forKey: "joinedLocations") as? [Int] ?? []
+                if !joinedLocations.contains(locationId) {
+                    joinedLocations.append(locationId)
+                    UserDefaults.standard.set(joinedLocations, forKey: "joinedLocations")
+                }
+                completion(true, nil)
+            } else {
+                completion(false, NSError(domain: "", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "Server error"]))
+            }
+        }.resume()
+    }
+
 }

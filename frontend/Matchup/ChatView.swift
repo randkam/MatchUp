@@ -66,15 +66,14 @@ struct ChatView: View {
     }
 
     func getBasketballCourtChats() -> [Chat] {
-        let schools = SharedDataStore.shared.basketballCourts
+        let schools = SharedDataStore.shared.locations
         return schools.map { school in
             Chat(
-                id: Int.random(in: 1000...9999),
-                name: school.name,
-                lastMessage: "\(school.activePlayers) active players",
-                timestamp: Date(),
-                unreadCount: school.activePlayers > 0 ? Int.random(in: 0...school.activePlayers) : 0,
-                isActive: school.activePlayers > 0
+                id: school.id,
+                name: school.locationName
+//                lastMessage: "test",
+//                timestamp: Date(),
+//                isActive: school.locationActivePlayers > 0
             )
         }
     }
@@ -151,27 +150,27 @@ struct ChatView: View {
     }
 }
 
-struct Chat: Identifiable, Decodable {
-    var id: Int
-    var name: String
-    var lastMessage: String = ""
-    var timestamp: Date = Date()
-    var unreadCount: Int = 0
-    var isActive: Bool = false
-
-    init(id: Int, name: String, lastMessage: String = "", timestamp: Date = Date(), unreadCount: Int = 0, isActive: Bool = false) {
-        self.id = id
-        self.name = name
-        self.lastMessage = lastMessage
-        self.timestamp = timestamp
-        self.unreadCount = unreadCount
-        self.isActive = isActive
-    }
-
-    enum CodingKeys: String, CodingKey {
-        case id, name
-    }
-}
+//struct Chat: Identifiable, Decodable {
+//    var id: Int
+//    var name: String
+//    var lastMessage: String = ""
+//    var timestamp: Date = Date()
+//    var unreadCount: Int = 0
+//    var isActive: Bool = false
+//
+//    init(id: Int, name: String, lastMessage: String = "", timestamp: Date = Date(), unreadCount: Int = 0, isActive: Bool = false) {
+//        self.id = id
+//        self.name = name
+//        self.lastMessage = lastMessage
+//        self.timestamp = timestamp
+//        self.unreadCount = unreadCount
+//        self.isActive = isActive
+//    }
+//
+//    enum CodingKeys: String, CodingKey {
+//        case id, name
+//    }
+//}
 
 struct SearchBar: View {
     @Binding var text: String
@@ -214,7 +213,7 @@ struct ChatRow: View {
         HStack {
             ZStack {
                 Circle()
-                    .fill(chat.isActive ? Color.green : Color.blue)
+//                    .fill(chat.isActive ? Color.green : Color.blue)
                     .frame(width: 50, height: 50)
                     .overlay(
                         Image(systemName: "basketball.fill")
@@ -222,19 +221,19 @@ struct ChatRow: View {
                             .font(.system(size: 24))
                     )
 
-                if chat.unreadCount > 0 {
-                    ZStack {
-                        Circle()
-                            .fill(Color.red)
-                            .frame(width: 22, height: 22)
-
-                        Text("\(chat.unreadCount)")
-                            .font(.caption2)
-                            .bold()
-                            .foregroundColor(.white)
-                    }
-                    .offset(x: 18, y: -18)
-                }
+//                if chat.unreadCount > 0 {
+//                    ZStack {
+//                        Circle()
+//                            .fill(Color.red)
+//                            .frame(width: 22, height: 22)
+//
+//                        Text("\(chat.unreadCount)")
+//                            .font(.caption2)
+//                            .bold()
+//                            .foregroundColor(.white)
+//                    }
+//                    .offset(x: 18, y: -18)
+//                }
             }
 
             VStack(alignment: .leading, spacing: 4) {
@@ -242,21 +241,21 @@ struct ChatRow: View {
                     .font(.headline)
                     .lineLimit(1)
 
-                if !chat.lastMessage.isEmpty {
-                    Text(chat.lastMessage)
-                        .font(.subheadline)
-                        .foregroundColor(.gray)
-                        .lineLimit(1)
-                }
+//                if !chat.lastMessage.isEmpty {
+//                    Text(chat.lastMessage)
+//                        .font(.subheadline)
+//                        .foregroundColor(.gray)
+//                        .lineLimit(1)
+//                }
             }
 
             Spacer()
 
-            if chat.timestamp > Date(timeIntervalSince1970: 0) {
-                Text(formatTimestamp(chat.timestamp))
-                    .font(.caption)
-                    .foregroundColor(.gray)
-            }
+//            if chat.timestamp > Date(timeIntervalSince1970: 0) {
+//                Text(formatTimestamp(chat.timestamp))
+//                    .font(.caption)
+//                    .foregroundColor(.gray)
+//            }
         }
         .padding(.vertical, 8)
     }

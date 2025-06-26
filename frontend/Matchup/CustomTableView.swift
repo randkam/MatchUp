@@ -18,7 +18,19 @@ struct CustomTabView: View {
                 .tag(0)
                 
                 NavigationStack {
-                    MapViewContent()
+//                    MapViewContent()
+                    VStack {
+                        Spacer()
+                        Image(systemName: "map")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 100, height: 100)
+                            .foregroundColor(.gray)
+                        Text("Map Placeholder")
+                            .font(.headline)
+                            .foregroundColor(.gray)
+                        Spacer()
+                    }
                 }
                 .tabItem {
                     Label("Map", systemImage: "map.fill")

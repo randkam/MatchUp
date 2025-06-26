@@ -34,8 +34,6 @@ struct LoginView: View {
                         Image(systemName: "basketball.fill")
                             .font(.system(size: 40))
                             .foregroundColor(ModernColorScheme.primary)
-                            .rotationEffect(.degrees(isAnimating ? 360 : 0))
-                            .animation(.linear(duration: 2).repeatForever(autoreverses: false), value: isAnimating)
 
                         Text("Welcome Back")
                             .font(ModernFontScheme.title)

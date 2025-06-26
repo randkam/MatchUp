@@ -7,10 +7,17 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 
 @Entity
 @Table(name ="locations")
 public class Location {
+
+    public enum LocationType {
+        INDOOR,
+        OUTDOOR
+    }
 
     @Id
     @SequenceGenerator(
@@ -31,25 +38,20 @@ public class Location {
     private int locationActivePlayers;
     private String locationReviews;
 
-
-
-    
+    @Enumerated(EnumType.STRING)
+    private LocationType locationType;
 
     public Location() {
     }
 
-
-
-    public Location(Long locationId, String locationName, String locationAdress, int locationActivePlayers, String locationZipCode, String locationReviews) {
+    public Location(Long locationId, String locationName, String locationAdress, int locationActivePlayers, String locationZipCode, String locationReviews, LocationType locationType) {
         this.locationId = locationId;
         this.locationName = locationName;
         this.locationActivePlayers = locationActivePlayers;
         this.locationZipCode = locationZipCode;
         this.locationReviews = locationReviews;
-
+        this.locationType = locationType;
     }
-
-
 
     public Location(String locationName, String locationAddress) {
         this.locationName = locationName;
@@ -62,79 +64,60 @@ public class Location {
         return locationId;
     }
 
-
-
     public String getLocationName() {
         return locationName;
     }
-
-
 
     public String getLocationAddress() {
         return locationAddress;
     }
 
-
-
     public String getLocationZipCode() {
         return locationZipCode;
     }
-
-
 
     public int getLocationActivePlayers() {
         return locationActivePlayers;
     }
 
-
-
     public String getLocationReviews() {
         return locationReviews;
     }
 
-
+    public LocationType getLocationType() {
+        return locationType;
+    }
 
     public void setLocationId(Long locationId) {
         this.locationId = locationId;
     }
 
-
-
     public void setLocationName(String locationName) {
         this.locationName = locationName;
     }
-
-
 
     public void setLocationAddress(String locationAddress) {
         this.locationAddress = locationAddress;
     }
 
-
-
     public void setLocationZipCode(String locationZipCode) {
         this.locationZipCode = locationZipCode;
     }
-
-
 
     public void setLocationActivePlayers(int locationActivePlayers) {
         this.locationActivePlayers = locationActivePlayers;
     }
 
-
-
     public void setLocationReviews(String locationReviews) {
         this.locationReviews = locationReviews;
     }
 
+    public void setLocationType(LocationType locationType) {
+        this.locationType = locationType;
+    }
 
     @Override
     public String toString() {
-        return "locations [locationId=" + locationId + ", locationName=" + locationName + ", locationAddress=" + locationAddress +  "]";
+        return "locations [locationId=" + locationId + ", locationName=" + locationName + ", locationAddress=" + locationAddress + ", locationType=" + locationType + "]";
     }
-
-    
-
-
 }
