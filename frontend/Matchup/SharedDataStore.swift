@@ -46,15 +46,19 @@ class SharedDataStore: ObservableObject {
         guard let url = URL(string: APIConfig.locationsEndpoint) else { return }
         isLoading = true
         
+        print("Fetching locations from: \(APIConfig.locationsEndpoint)")
+        
         URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 self?.isLoading = false
                 if let error = error {
+                    print("Error fetching locations: \(error)")
                     self?.error = error
                     return
                 }
                 
                 guard let data = data else {
+                    print("No data received from API")
                     self?.error = NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "No data received"])
                     return
                 }
@@ -63,8 +67,20 @@ class SharedDataStore: ObservableObject {
                     let decoder = JSONDecoder()
                     decoder.keyDecodingStrategy = .convertFromSnakeCase
                     let locations = try decoder.decode([Location].self, from: data)
+                    print("Received \(locations.count) locations")
+                    print("Active courts: \(locations.filter { $0.locationActivePlayers > 0 }.count)")
+                    print("Inactive courts: \(locations.filter { $0.locationActivePlayers == 0 }.count)")
+                    print("Indoor courts: \(locations.filter { $0.locationType == .indoor }.count)")
+                    print("Outdoor courts: \(locations.filter { $0.locationType == .outdoor }.count)")
+                    for location in locations {
+                        print("Location: \(location.locationName), Active Players: \(location.locationActivePlayers), Type: \(location.locationType)")
+                    }
                     self?.locations = locations
                 } catch {
+                    print("Failed to decode locations: \(error)")
+                    if let dataString = String(data: data, encoding: .utf8) {
+                        print("Raw data: \(dataString)")
+                    }
                     self?.error = error
                 }
             }
@@ -72,11 +88,15 @@ class SharedDataStore: ObservableObject {
     }
     
     var activeCourts: [Location] {
-        locations.filter { $0.locationActivePlayers > 0 }
+        let courts = locations.filter { $0.locationActivePlayers > 0 }
+        print("Active courts count: \(courts.count)")
+        return courts
     }
     
     var inactiveCourts: [Location] {
-        locations.filter { $0.locationActivePlayers == 0 }
+        let courts = locations.filter { $0.locationActivePlayers == 0 }
+        print("Inactive courts count: \(courts.count)")
+        return courts
     }
     
     func findCourt(by id: Int) -> Location? {
