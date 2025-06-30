@@ -56,6 +56,7 @@ struct LocationDetailView: View {
                     DetailRowView(icon: "person.3.fill", text: "\(location.locationActivePlayers) active players")
                     DetailRowView(icon: "building.2.fill", text: location.locationType == .indoor ? "Indoor Court" : "Outdoor Court")
                     DetailRowView(icon: "mappin.and.ellipse", text: location.locationAddress)
+                    DetailRowView(icon: "lightbulb.fill", text: location.isLitAtNight ? "Lit at night" : "Not lit at night")
                 }
                 .padding(.horizontal)
                 
@@ -100,8 +101,10 @@ struct LocationDetailView: View {
             }
         }
         .background(ModernColorScheme.background.edgesIgnoringSafeArea(.all))
-        .sheet(isPresented: $showChat) {
+        NavigationLink(isActive: $showChat) {
             ChatDetailedView(chat: locationChat)
+        } label: {
+            EmptyView()
         }
         .onAppear {
             checkIfJoinedChat()

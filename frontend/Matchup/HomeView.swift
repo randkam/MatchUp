@@ -236,17 +236,35 @@ struct LocationCard: View {
                 
                 Spacer()
                 
-                HStack(spacing: 4) {
-                    Image(systemName: location.locationType == .indoor ? "building.2.fill" : "sun.max.fill")
-                        .foregroundColor(ModernColorScheme.primary)
-                    Text(location.locationType == .indoor ? "Indoor" : "Outdoor")
-                        .font(ModernFontScheme.caption)
-                        .foregroundColor(ModernColorScheme.textSecondary)
+                HStack(spacing: 8) {
+                    // Court Type Badge
+                    HStack(spacing: 4) {
+                        Image(systemName: location.locationType == .indoor ? "building.2.fill" : "sun.max.fill")
+                            .foregroundColor(ModernColorScheme.primary)
+                        Text(location.locationType == .indoor ? "Indoor" : "Outdoor")
+                            .font(ModernFontScheme.caption)
+                            .foregroundColor(ModernColorScheme.textSecondary)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(ModernColorScheme.surface.opacity(0.6))
+                    .cornerRadius(8)
+                    
+                    // Lit at Night Badge
+                    if location.isLitAtNight {
+                        HStack(spacing: 4) {
+                            Image(systemName: "lightbulb.fill")
+                                .foregroundColor(.yellow)
+                            Text("Lit")
+                                .font(ModernFontScheme.caption)
+                                .foregroundColor(ModernColorScheme.textSecondary)
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(ModernColorScheme.surface.opacity(0.6))
+                        .cornerRadius(8)
+                    }
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(ModernColorScheme.surface.opacity(0.6))
-                .cornerRadius(8)
             }
             
             // Active Players
