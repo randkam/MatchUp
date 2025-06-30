@@ -73,7 +73,7 @@ class SharedDataStore: ObservableObject {
                     print("Indoor courts: \(locations.filter { $0.locationType == .indoor }.count)")
                     print("Outdoor courts: \(locations.filter { $0.locationType == .outdoor }.count)")
                     for location in locations {
-                        print("Location: \(location.locationName), Active Players: \(location.locationActivePlayers), Type: \(location.locationType)")
+                        print("Location: \(location.locationName), Active Players: \(location.locationActivePlayers), Type: \(location.locationType), Lit: \(String(describing: location.isLitAtNight))")
                     }
                     self?.locations = locations
                 } catch {
