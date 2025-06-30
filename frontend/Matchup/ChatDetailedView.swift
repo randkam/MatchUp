@@ -7,6 +7,9 @@ struct ChatDetailedView: View {
     @StateObject private var webSocketManager: WebSocketManager
     @Environment(\.presentationMode) var presentationMode
     @StateObject private var keyboardResponder = KeyboardResponder()
+    @State private var showLocationDetails = false
+    @State private var location: Location?
+    @State private var isLoading = true
 
     private var currentUserId: Int? {
         UserDefaults.standard.value(forKey: "loggedInUserId") as? Int
@@ -23,21 +26,71 @@ struct ChatDetailedView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Header
-            HStack {
-                Text(chat.name)
-                    .font(ModernFontScheme.heading)
-                    .foregroundColor(ModernColorScheme.text)
-                
-                Spacer()
-                
-                Button(action: { presentationMode.wrappedValue.dismiss() }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.title2)
-                        .foregroundColor(ModernColorScheme.textSecondary)
+            VStack(spacing: 0) {
+                if let location = location {
+                    Button(action: { showLocationDetails = true }) {
+                        HStack(spacing: 12) {
+                            // Location Icon and Info
+                            HStack(spacing: 12) {
+                                Image(systemName: "mappin.circle.fill")
+                                    .font(.system(size: 22))
+                                    .foregroundColor(ModernColorScheme.primary)
+                                
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(chat.name)
+                                        .font(.system(size: 17, weight: .semibold))
+                                        .foregroundColor(ModernColorScheme.text)
+                                    
+                                    HStack(spacing: 8) {
+                                        HStack(spacing: 4) {
+                                            Image(systemName: "person.3.fill")
+                                                .font(.system(size: 12))
+                                            Text("\(location.locationActivePlayers) active")
+                                        }
+                                        
+                                        Text("•")
+                                        
+                                        Text(location.locationType?.rawValue.capitalized ?? "Outdoor")
+                                        
+                                        if location.isLitAtNight {
+                                            Text("•")
+                                            
+                                            HStack(spacing: 4) {
+                                                Image(systemName: "lightbulb.fill")
+                                                    .font(.system(size: 12))
+                                                    .foregroundColor(.yellow)
+                                                Text("Lit")
+                                            }
+                                        }
+                                    }
+                                    .font(.system(size: 13))
+                                    .foregroundColor(ModernColorScheme.textSecondary)
+                                }
+                            }
+                            
+                            Spacer()
+                        }
+                        .padding(.horizontal)
+                        .padding(.vertical, 12)
+                        .background(ModernColorScheme.surface)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                } else if isLoading {
+                    HStack {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: ModernColorScheme.primary))
+                        Text("Loading location details...")
+                            .font(.system(size: 15))
+                            .foregroundColor(ModernColorScheme.textSecondary)
+                        
+                        Spacer()
+                    }
+                    .padding()
+                    .background(ModernColorScheme.surface)
                 }
             }
-            .padding()
             .background(ModernColorScheme.surface)
+            .navigationBarBackButtonHidden(false)
             
             // Chat Messages
             ScrollViewReader { proxy in
@@ -119,6 +172,11 @@ struct ChatDetailedView: View {
             }
         }
         .background(ModernColorScheme.background.edgesIgnoringSafeArea(.all))
+        .sheet(isPresented: $showLocationDetails) {
+            if let location = location {
+                LocationDetailView(location: location)
+            }
+        }
         .onAppear {
             let locationIdInt = Int(chat.id)
             webSocketManager.connect(locationId: locationIdInt) { success in
@@ -131,10 +189,48 @@ struct ChatDetailedView: View {
                     print("Failed to connect to chat")
                 }
             }
+            
+            // Fetch location details
+            fetchLocationDetails()
         }
         .onDisappear {
             webSocketManager.disconnect()
         }
+    }
+
+    private func fetchLocationDetails() {
+        guard let url = URL(string: "\(APIConfig.locationsEndpoint)/\(chat.id)") else { return }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                isLoading = false
+                
+                if let error = error {
+                    print("Error fetching location: \(error.localizedDescription)")
+                    return
+                }
+                
+                guard let data = data else {
+                    print("No data received")
+                    return
+                }
+                
+                do {
+                    let decoder = JSONDecoder()
+                    decoder.keyDecodingStrategy = .useDefaultKeys
+                    let location = try decoder.decode(Location.self, from: data)
+                    self.location = location
+                } catch {
+                    print("Error decoding location: \(error.localizedDescription)")
+                    // Try fetching from SharedDataStore as fallback
+                    self.location = SharedDataStore.shared.findCourt(by: chat.id)
+                }
+            }
+        }.resume()
     }
 
     private func endEditing() {

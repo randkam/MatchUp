@@ -37,6 +37,7 @@ public class Location {
     private String locationZipCode;
     private int locationActivePlayers;
     private String locationReviews;
+    private boolean isLitAtNight;
 
     @Enumerated(EnumType.STRING)
     private LocationType locationType;
@@ -88,6 +89,10 @@ public class Location {
         return locationType;
     }
 
+    public boolean isLitAtNight() {
+        return isLitAtNight;
+    }
+
     public void setLocationId(Long locationId) {
         this.locationId = locationId;
     }
@@ -114,6 +119,10 @@ public class Location {
 
     public void setLocationType(LocationType locationType) {
         this.locationType = locationType;
+    }
+
+    public void setLitAtNight(boolean litAtNight) {
+        isLitAtNight = litAtNight;
     }
 
     @Override
