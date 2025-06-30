@@ -6,6 +6,9 @@ struct LocationDetailView: View {
     let location: Location
     @State private var showChat = false
     @State private var hasJoinedChat = false
+    @State private var averageRating: Double = 0.0
+    @State private var reviewCount: Int = 0
+    @State private var showingReviews = false
     
     // Create a computed property for the chat object
     private var locationChat: Chat {
@@ -59,6 +62,21 @@ struct LocationDetailView: View {
                     if let isLit = location.isLitAtNight {
                         DetailRowView(icon: "lightbulb.fill", text: isLit ? "Lit at night" : "Not lit at night")
                     }
+                    
+                    // Rating Row
+                    Button(action: { showingReviews = true }) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "star.fill")
+                                .foregroundColor(.yellow)
+                            Text(String(format: "%.1f", averageRating))
+                                .foregroundColor(ModernColorScheme.text)
+                            Text("(\(reviewCount) reviews)")
+                                .foregroundColor(ModernColorScheme.textSecondary)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .foregroundColor(ModernColorScheme.textSecondary)
+                        }
+                    }
                 }
                 .padding(.horizontal)
                 
@@ -103,6 +121,9 @@ struct LocationDetailView: View {
             }
         }
         .background(ModernColorScheme.background.edgesIgnoringSafeArea(.all))
+        .sheet(isPresented: $showingReviews) {
+            ReviewsView(locationId: location.locationId)
+        }
         NavigationLink(isActive: $showChat) {
             ChatDetailedView(chat: locationChat)
         } label: {
@@ -110,12 +131,31 @@ struct LocationDetailView: View {
         }
         .onAppear {
             checkIfJoinedChat()
+            loadReviewStats()
         }
     }
     
     private func checkIfJoinedChat() {
         if let joinedLocations = UserDefaults.standard.array(forKey: "joinedLocations") as? [Int] {
             hasJoinedChat = joinedLocations.contains(location.locationId)
+        }
+    }
+    
+    private func loadReviewStats() {
+        ReviewManager.shared.getLocationReviews(locationId: location.locationId) { reviews, error in
+            if let reviews = reviews {
+                DispatchQueue.main.async {
+                    self.reviewCount = reviews.count
+                }
+            }
+        }
+        
+        ReviewManager.shared.getAverageRating(locationId: location.locationId) { rating, error in
+            if let rating = rating {
+                DispatchQueue.main.async {
+                    self.averageRating = rating
+                }
+            }
         }
     }
     
