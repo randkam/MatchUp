@@ -251,7 +251,7 @@ struct LocationCard: View {
                     .cornerRadius(8)
                     
                     // Lit at Night Badge
-                    if location.isLitAtNight {
+                    if let isLit = location.isLitAtNight, isLit {
                         HStack(spacing: 4) {
                             Image(systemName: "lightbulb.fill")
                                 .foregroundColor(.yellow)

@@ -52,7 +52,7 @@ struct ChatDetailedView: View {
                                         
                                         Text(location.locationType?.rawValue.capitalized ?? "Outdoor")
                                         
-                                        if location.isLitAtNight {
+                                        if let isLit = location.isLitAtNight, isLit {
                                             Text("•")
                                             
                                             HStack(spacing: 4) {
