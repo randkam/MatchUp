@@ -65,4 +65,22 @@ struct Chat: Identifiable {
 //    let rating: Double
 //    let openHours: String
 //    let courtType: String
-//} 
+//}
+
+struct Review: Codable, Identifiable {
+    let id: Int
+    let locationId: Int
+    let userId: Int
+    let rating: Float
+    let comment: String?
+    let createdAt: Date
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case locationId = "location_id"
+        case userId = "user_id"
+        case rating
+        case comment
+        case createdAt = "created_at"
+    }
+} 
