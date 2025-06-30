@@ -223,9 +223,13 @@ struct ChatDetailedView: View {
                     let decoder = JSONDecoder()
                     decoder.keyDecodingStrategy = .useDefaultKeys
                     let location = try decoder.decode(Location.self, from: data)
+                    print("Decoded location: \(location.locationName), Lit: \(String(describing: location.isLitAtNight))")
                     self.location = location
                 } catch {
                     print("Error decoding location: \(error.localizedDescription)")
+                    if let dataString = String(data: data, encoding: .utf8) {
+                        print("Raw location data: \(dataString)")
+                    }
                     // Try fetching from SharedDataStore as fallback
                     self.location = SharedDataStore.shared.findCourt(by: chat.id)
                 }

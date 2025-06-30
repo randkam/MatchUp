@@ -9,6 +9,7 @@ import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 @Entity
 @Table(name ="locations")
@@ -37,6 +38,8 @@ public class Location {
     private String locationZipCode;
     private int locationActivePlayers;
     private String locationReviews;
+    
+    @JsonProperty("is_lit_at_night")
     private Boolean isLitAtNight;
 
     @Enumerated(EnumType.STRING)
