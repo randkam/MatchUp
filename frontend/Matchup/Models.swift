@@ -18,7 +18,7 @@ struct Location: Identifiable, Codable {
     let locationZipCode: String
     let locationActivePlayers: Int
     let locationReviews: String
-    let isLitAtNight: Bool
+    let isLitAtNight: Bool?
     var locationType: LocationType?
     
     var id: Int { locationId }

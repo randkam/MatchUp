@@ -56,7 +56,9 @@ struct LocationDetailView: View {
                     DetailRowView(icon: "person.3.fill", text: "\(location.locationActivePlayers) active players")
                     DetailRowView(icon: "building.2.fill", text: location.locationType == .indoor ? "Indoor Court" : "Outdoor Court")
                     DetailRowView(icon: "mappin.and.ellipse", text: location.locationAddress)
-                    DetailRowView(icon: "lightbulb.fill", text: location.isLitAtNight ? "Lit at night" : "Not lit at night")
+                    if let isLit = location.isLitAtNight {
+                        DetailRowView(icon: "lightbulb.fill", text: isLit ? "Lit at night" : "Not lit at night")
+                    }
                 }
                 .padding(.horizontal)
                 

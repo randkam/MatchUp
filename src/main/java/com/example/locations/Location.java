@@ -37,28 +37,30 @@ public class Location {
     private String locationZipCode;
     private int locationActivePlayers;
     private String locationReviews;
-    private boolean isLitAtNight;
+    private Boolean isLitAtNight;
 
     @Enumerated(EnumType.STRING)
     private LocationType locationType;
 
     public Location() {
+        this.isLitAtNight = null;  // Set default to null for new locations
     }
 
-    public Location(Long locationId, String locationName, String locationAdress, int locationActivePlayers, String locationZipCode, String locationReviews, LocationType locationType) {
+    public Location(Long locationId, String locationName, String locationAddress, int locationActivePlayers, String locationZipCode, String locationReviews, LocationType locationType) {
         this.locationId = locationId;
         this.locationName = locationName;
+        this.locationAddress = locationAddress;
         this.locationActivePlayers = locationActivePlayers;
         this.locationZipCode = locationZipCode;
         this.locationReviews = locationReviews;
         this.locationType = locationType;
+        this.isLitAtNight = null;  // Set default to null for new locations
     }
 
     public Location(String locationName, String locationAddress) {
         this.locationName = locationName;
         this.locationAddress = locationAddress;
-        // this.userEmail = userEmail;
-        // this.userPassword = hashPassword(userPassword);
+        this.isLitAtNight = null;  // Set default to null for new locations
     }
 
     public Long getLocationId() {
@@ -89,7 +91,7 @@ public class Location {
         return locationType;
     }
 
-    public boolean isLitAtNight() {
+    public Boolean isLitAtNight() {
         return isLitAtNight;
     }
 
@@ -121,7 +123,7 @@ public class Location {
         this.locationType = locationType;
     }
 
-    public void setLitAtNight(boolean litAtNight) {
+    public void setLitAtNight(Boolean litAtNight) {
         isLitAtNight = litAtNight;
     }
 

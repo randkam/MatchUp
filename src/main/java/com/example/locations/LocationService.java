@@ -29,6 +29,10 @@ public class LocationService {
 
 
 	public void addNewLocation( Location location){
+		// Ensure isLitAtNight is explicitly set to null if not provided
+		if (location.isLitAtNight() == null) {
+			location.setLitAtNight(null);
+		}
 		locationRepository.save(location);
     }	
 
@@ -42,7 +46,7 @@ public class LocationService {
 	@Transactional
 	public void updateUser(Long locationId, int locationActivePlayers) {
 		Location location = locationRepository.findById(locationId)
-				.orElseThrow(() -> new IllegalStateException("User not found"));
+				.orElseThrow(() -> new IllegalStateException("Location not found"));
 		
 		if (locationActivePlayers >= 0) {
 				location.setLocationActivePlayers(locationActivePlayers);
