@@ -2,6 +2,7 @@ package com.example.reviews;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 @Entity
 @Table(name = "reviews")
@@ -14,10 +15,17 @@ public class Review {
     )
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "review_sequence")
     private Long id;
+    
+    @JsonProperty("location_id")
     private Long locationId;
+    
+    @JsonProperty("user_id")
     private Long userId;
+    
     private Float rating;
     private String comment;
+    
+    @JsonProperty("created_at")
     private LocalDateTime createdAt;
 
     // Default constructor
