@@ -167,7 +167,7 @@ struct ReviewCard: View {
         NetworkManager().getUser(userId: review.userId) { user in
             if let user = user {
                 DispatchQueue.main.async {
-                    self.username = user.username
+                    self.username = user.userName
                 }
             }
         }
