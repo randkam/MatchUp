@@ -67,6 +67,62 @@ struct Chat: Identifiable {
 //    let courtType: String
 //}
 
+// Model for creating a new review
+struct CreateReviewRequest: Codable {
+    let locationId: Int
+    let userId: Int
+    let rating: Float
+    let comment: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case locationId = "location_id"
+        case userId = "user_id"
+        case rating
+        case comment
+    }
+}
+
+// Model for handling the server's response when creating a review
+struct ReviewResponse: Codable {
+    let id: Int?
+    let locationId: Int
+    let userId: Int
+    let rating: Float
+    let comment: String?
+    let createdAt: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case locationId = "location_id"
+        case userId = "user_id"
+        case rating
+        case comment
+        case createdAt = "created_at"
+    }
+    
+    // Convert ReviewResponse to Review
+    func toReview() -> Review? {
+        guard let id = id else { return nil }
+        
+        let date: Date
+        if let createdAtString = createdAt,
+           let parsedDate = ISO8601DateFormatter().date(from: createdAtString) {
+            date = parsedDate
+        } else {
+            date = Date()
+        }
+        
+        return Review(
+            id: id,
+            locationId: locationId,
+            userId: userId,
+            rating: rating,
+            comment: comment,
+            createdAt: date
+        )
+    }
+}
+
 struct Review: Codable, Identifiable {
     let id: Int
     let locationId: Int
@@ -77,10 +133,41 @@ struct Review: Codable, Identifiable {
     
     enum CodingKeys: String, CodingKey {
         case id
-        case locationId = "location_id"
-        case userId = "user_id"
+        case locationId
+        case userId
         case rating
         case comment
         case createdAt = "created_at"
+    }
+    
+    init(id: Int, locationId: Int, userId: Int, rating: Float, comment: String?, createdAt: Date) {
+        self.id = id
+        self.locationId = locationId
+        self.userId = userId
+        self.rating = rating
+        self.comment = comment
+        self.createdAt = createdAt
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(Int.self, forKey: .id)
+        locationId = try container.decode(Int.self, forKey: .locationId)
+        userId = try container.decode(Int.self, forKey: .userId)
+        rating = try container.decode(Float.self, forKey: .rating)
+        comment = try container.decodeIfPresent(String.self, forKey: .comment)
+        
+        // Handle the date decoding
+        if let dateString = try? container.decode(String.self, forKey: .createdAt) {
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let date = formatter.date(from: dateString) {
+                createdAt = date
+            } else {
+                createdAt = Date() // Fallback to current date if parsing fails
+            }
+        } else {
+            createdAt = Date() // Fallback to current date if no date provided
+        }
     }
 } 

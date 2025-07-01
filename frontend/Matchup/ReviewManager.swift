@@ -32,18 +32,33 @@ class ReviewManager {
     
     func addReview(locationId: Int, userId: Int, rating: Float, comment: String?, completion: @escaping (Review?, Error?) -> Void) {
         let endpoint = APIConfig.reviewsEndpoint
-        let parameters: [String: Any] = [
-            "location_id": locationId,
-            "user_id": userId,
-            "rating": rating,
-            "comment": comment ?? ""
-        ]
         
-        networkManager.post(endpoint, parameters: parameters) { (result: Result<Review, Error>) in
+        // Create the request object
+        let reviewRequest = CreateReviewRequest(
+            locationId: locationId,
+            userId: userId,
+            rating: rating,
+            comment: comment
+        )
+        
+        // Convert the request object to dictionary
+        guard let parameters = try? reviewRequest.asDictionary() else {
+            completion(nil, NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to encode review request"]))
+            return
+        }
+        
+        print("Sending review parameters: \(parameters)") // Debug log
+        
+        networkManager.post(endpoint, parameters: parameters) { (result: Result<ReviewResponse, Error>) in
             switch result {
-            case .success(let review):
-                completion(review, nil)
+            case .success(let response):
+                if let review = response.toReview() {
+                    completion(review, nil)
+                } else {
+                    completion(nil, NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to convert response to review"]))
+                }
             case .failure(let error):
+                print("Review submission error: \(error)") // Debug log
                 completion(nil, error)
             }
         }
@@ -78,5 +93,16 @@ class ReviewManager {
                 completion(nil, error)
             }
         }
+    }
+}
+
+// Helper extension to convert Encodable to dictionary
+extension Encodable {
+    func asDictionary() throws -> [String: Any] {
+        let data = try JSONEncoder().encode(self)
+        guard let dictionary = try JSONSerialization.jsonObject(with: data, options: .allowFragments) as? [String: Any] else {
+            throw NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to convert to dictionary"])
+        }
+        return dictionary
     }
 } 

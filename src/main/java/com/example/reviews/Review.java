@@ -7,22 +7,17 @@ import java.time.LocalDateTime;
 @Table(name = "reviews")
 public class Review {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @SequenceGenerator(
+        name = "review_sequence",
+        sequenceName = "review_sequence",
+        allocationSize = 1
+    )
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "review_sequence")
     private Long id;
-
-    @Column(name = "location_id", nullable = false)
     private Long locationId;
-
-    @Column(name = "user_id", nullable = false)
     private Long userId;
-
-    @Column(nullable = false)
     private Float rating;
-
-    @Column(columnDefinition = "TEXT")
     private String comment;
-
-    @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
     // Default constructor
