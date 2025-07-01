@@ -18,7 +18,10 @@ public class ReviewController {
 
     @GetMapping("/location/{locationId}")
     public ResponseEntity<List<Review>> getLocationReviews(@PathVariable Long locationId) {
-        return ResponseEntity.ok(reviewService.getReviewsByLocation(locationId));
+        System.out.println("Fetching reviews for location: " + locationId);
+        List<Review> reviews = reviewService.getReviewsByLocation(locationId);
+        System.out.println("Found " + reviews.size() + " reviews: " + reviews);
+        return ResponseEntity.ok(reviews);
     }
 
     @GetMapping("/user/{userId}")
@@ -28,7 +31,10 @@ public class ReviewController {
 
     @PostMapping
     public ResponseEntity<Review> addReview(@RequestBody Review review) {
-        return ResponseEntity.ok(reviewService.addReview(review));
+        System.out.println("Adding new review: " + review);
+        Review savedReview = reviewService.addReview(review);
+        System.out.println("Saved review: " + savedReview);
+        return ResponseEntity.ok(savedReview);
     }
 
     @DeleteMapping("/{reviewId}")

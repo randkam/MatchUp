@@ -14,7 +14,10 @@ public class ReviewService {
     }
 
     public List<Review> getReviewsByLocation(Long locationId) {
-        return reviewRepository.findByLocationIdOrderByCreatedAtDesc(locationId);
+        System.out.println("ReviewService: Getting reviews for location " + locationId);
+        List<Review> reviews = reviewRepository.findByLocationIdOrderByCreatedAtDesc(locationId);
+        System.out.println("ReviewService: Found " + reviews.size() + " reviews");
+        return reviews;
     }
 
     public List<Review> getReviewsByUser(Long userId) {
@@ -26,7 +29,10 @@ public class ReviewService {
         if (review.getRating() < 1.0f || review.getRating() > 5.0f) {
             throw new IllegalArgumentException("Rating must be between 1 and 5");
         }
-        return reviewRepository.save(review);
+        System.out.println("ReviewService: Saving review: " + review);
+        Review savedReview = reviewRepository.save(review);
+        System.out.println("ReviewService: Saved review: " + savedReview);
+        return savedReview;
     }
 
     public void deleteReview(Long reviewId) {

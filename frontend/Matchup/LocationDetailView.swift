@@ -9,6 +9,7 @@ struct LocationDetailView: View {
     @State private var averageRating: Double = 0.0
     @State private var reviewCount: Int = 0
     @State private var showingReviews = false
+    @State private var showingReviewsSheet = false
     
     // Create a computed property for the chat object
     private var locationChat: Chat {
@@ -42,18 +43,6 @@ struct LocationDetailView: View {
                     .padding()
                 }
                 
-                // Location Title and Description
-//                VStack(alignment: .leading, spacing: 8) {
-//                    Text(location.locationName)
-//                        .font(ModernFontScheme.title)
-//                        .foregroundColor(ModernColorScheme.text)
-//                    
-//                    Text(location.locationDescription)
-//                        .font(ModernFontScheme.body)
-//                        .foregroundColor(ModernColorScheme.textSecondary)
-//                }
-                .padding(.horizontal)
-                
                 // Location Details
                 VStack(alignment: .leading, spacing: 15) {
                     DetailRowView(icon: "person.3.fill", text: "\(location.locationActivePlayers) active players")
@@ -62,27 +51,42 @@ struct LocationDetailView: View {
                     if let isLit = location.isLitAtNight {
                         DetailRowView(icon: "lightbulb.fill", text: isLit ? "Lit at night" : "Not lit at night")
                     }
-                    
-                    // Rating Row
-                    Button(action: { showingReviews = true }) {
-                        HStack(spacing: 12) {
-                            Image(systemName: "star.fill")
-                                .foregroundColor(.yellow)
-                            Text(String(format: "%.1f", averageRating))
+                }
+                .padding(.horizontal)
+                
+                // Reviews Section
+                Button(action: {
+                    showingReviewsSheet = true
+                }) {
+                    HStack {
+                        VStack(alignment: .leading) {
+                            Text("Reviews")
+                                .font(.title3)
                                 .foregroundColor(ModernColorScheme.text)
-                            Text("(\(reviewCount) reviews)")
-                                .foregroundColor(ModernColorScheme.textSecondary)
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .foregroundColor(ModernColorScheme.textSecondary)
+                            HStack {
+                                Image(systemName: "star.fill")
+                                    .foregroundColor(.yellow)
+                                Text(String(format: "%.1f", averageRating))
+                                    .foregroundColor(ModernColorScheme.text)
+                                Text("•")
+                                    .foregroundColor(ModernColorScheme.secondary)
+                                Text("\(reviewCount) reviews")
+                                    .foregroundColor(ModernColorScheme.secondary)
+                            }
                         }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .foregroundColor(ModernColorScheme.secondary)
                     }
+                    .padding()
+                    .background(Color(UIColor.secondarySystemBackground))
+                    .cornerRadius(12)
                 }
                 .padding(.horizontal)
                 
                 // Action Buttons
                 VStack(spacing: 15) {
-                    // Join/View Chat Button (if there are active players)
+                    // Join/View Chat Button
                     Button(action: {
                         if !hasJoinedChat {
                             joinChat()
@@ -100,10 +104,8 @@ struct LocationDetailView: View {
                         .cornerRadius(15)
                     }
                     
-                    
                     // Navigate Button
                     Button(action: {
-                        // Handle navigation to map
                         presentationMode.wrappedValue.dismiss()
                     }) {
                         HStack {
@@ -121,13 +123,14 @@ struct LocationDetailView: View {
             }
         }
         .background(ModernColorScheme.background.edgesIgnoringSafeArea(.all))
-        .sheet(isPresented: $showingReviews) {
+        .sheet(isPresented: $showingReviewsSheet) {
             ReviewsView(locationId: location.locationId)
+                .onDisappear {
+                    loadReviewStats()
+                }
         }
-        NavigationLink(isActive: $showChat) {
+        .fullScreenCover(isPresented: $showChat) {
             ChatDetailedView(chat: locationChat)
-        } label: {
-            EmptyView()
         }
         .onAppear {
             checkIfJoinedChat()

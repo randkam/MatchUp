@@ -133,8 +133,8 @@ struct Review: Codable, Identifiable {
     
     enum CodingKeys: String, CodingKey {
         case id
-        case locationId
-        case userId
+        case locationId = "location_id"
+        case userId = "user_id"
         case rating
         case comment
         case createdAt = "created_at"
