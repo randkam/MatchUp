@@ -77,9 +77,9 @@ struct ReviewsView: View {
         .sheet(isPresented: $showingAddReview) {
             AddReviewView(locationId: locationId) { newReview in
                 if let review = newReview {
-                    reviews.insert(review, at: 0)
-                    hasUserReviewed = true
+                    loadReviews()
                     loadAverageRating()
+                    hasUserReviewed = true
                 }
             }
         }

@@ -352,25 +352,35 @@ class NetworkManager {
             return
         }
         
+        print("Making GET request to: \(endpoint)")
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         
         URLSession.shared.dataTask(with: request) { data, response, error in
             if let error = error {
+                print("Network error: \(error)")
                 completion(.failure(error))
                 return
             }
             
             guard let data = data else {
+                print("No data received")
                 completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "No data received"])))
                 return
             }
             
+            // Print raw response
+            if let responseString = String(data: data, encoding: .utf8) {
+                print("Raw response: \(responseString)")
+            }
+            
             do {
                 let decodedResponse = try JSONDecoder().decode(T.self, from: data)
+                print("Successfully decoded response of type: \(T.self)")
                 completion(.success(decodedResponse))
             } catch {
+                print("Decoding error: \(error)")
                 completion(.failure(error))
             }
         }.resume()
