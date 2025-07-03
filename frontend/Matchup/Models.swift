@@ -170,4 +170,40 @@ struct Review: Codable, Identifiable {
             createdAt = Date() // Fallback to current date if no date provided
         }
     }
+}
+
+// Feedback Models
+struct FeedbackItem: Identifiable, Codable {
+    let id: Int
+    let userId: Int
+    let type: FeedbackType
+    let title: String
+    let description: String
+    let status: FeedbackStatus
+    let createdAt: String
+    
+    var formattedDate: String {
+        // Convert createdAt string to formatted date
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
+        guard let date = dateFormatter.date(from: createdAt) else { return createdAt }
+        
+        dateFormatter.dateFormat = "MMM d, yyyy"
+        return dateFormatter.string(from: date)
+    }
+}
+
+enum FeedbackType: String, Codable {
+    case newLocation = "NEW_LOCATION"
+    case locationUpdate = "LOCATION_UPDATE"
+    case appConcern = "APP_CONCERN"
+    case generalFeedback = "GENERAL_FEEDBACK"
+}
+
+enum FeedbackStatus: String, Codable {
+    case pending = "PENDING"
+    case inReview = "IN_REVIEW"
+    case approved = "APPROVED"
+    case rejected = "REJECTED"
+    case resolved = "RESOLVED"
 } 

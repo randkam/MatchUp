@@ -184,3 +184,25 @@ struct FavoriteCourtSelectionView: View {
         }
     }
 }
+
+struct ProfileSettingsRow: View {
+    let icon: String
+    let title: String
+    
+    var body: some View {
+        HStack {
+            Image(systemName: icon)
+                .foregroundColor(ModernColorScheme.primary)
+            Text(title)
+                .font(ModernFontScheme.body)
+                .foregroundColor(ModernColorScheme.text)
+            Spacer()
+            Image(systemName: "chevron.right")
+                .foregroundColor(ModernColorScheme.textSecondary)
+        }
+        .padding()
+        .background(ModernColorScheme.surface)
+        .cornerRadius(15)
+        .padding(.horizontal)
+    }
+}

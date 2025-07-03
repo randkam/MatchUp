@@ -42,7 +42,6 @@ struct HomeView: View {
     @State private var showProfile = false
     @State private var showNotifications = false
     @State private var isAnimating = false
-    @State private var showFeedback = false
     
     // MARK: - Body
     var body: some View {
@@ -73,15 +72,6 @@ struct HomeView: View {
                         }
                     } label: {
                         Image(systemName: "arrow.up.arrow.down")
-                            .foregroundColor(ModernColorScheme.primary)
-                            .padding(8)
-                            .background(ModernColorScheme.surface)
-                            .cornerRadius(8)
-                    }
-                    .padding(.trailing)
-                    
-                    Button(action: { showFeedback = true }) {
-                        Image(systemName: "plus.bubble")
                             .foregroundColor(ModernColorScheme.primary)
                             .padding(8)
                             .background(ModernColorScheme.surface)
@@ -119,9 +109,6 @@ struct HomeView: View {
                 }
             }
             .background(ModernColorScheme.background)
-        }
-        .sheet(isPresented: $showFeedback) {
-            FeedbackView()
         }
         .onAppear {
             // Set navigation bar appearance
