@@ -2,11 +2,24 @@ import SwiftUI
 import CoreLocation
 
 // Filter options for sorting the courts
-enum FilterOption: String, CaseIterable {
-    case active = "Active"
-    case inactive = "Inactive"
-    case indoor = "Indoor"
-    case outdoor = "Outdoor"
+struct FilterOptions {
+    var indoor: Bool = false
+    var outdoor: Bool = false
+    var hasLights: Bool = false
+}
+
+enum SortOption {
+    case activePlayersDesc
+    case activePlayersAsc
+    
+    var description: String {
+        switch self {
+        case .activePlayersDesc:
+            return "Most Active Players"
+        case .activePlayersAsc:
+            return "Least Active Players"
+        }
+    }
 }
 
 extension Location {
@@ -22,11 +35,14 @@ struct HomeView: View {
     @ObservedObject private var dataStore = SharedDataStore.shared
     
     @Binding var selectedCoordinate: IdentifiableCoordinate?
-    @State private var selectedFilter: FilterOption = .active
+    @State private var filters = FilterOptions()
+    @State private var sortOption: SortOption = .activePlayersDesc
+    @State private var showSortMenu = false
     @State private var searchText = ""
     @State private var showProfile = false
     @State private var showNotifications = false
     @State private var isAnimating = false
+    @State private var showFeedback = false
     
     // MARK: - Body
     var body: some View {
@@ -37,18 +53,41 @@ struct HomeView: View {
                     .padding(.horizontal)
                     .padding(.top, 0.5)
                 
-                // Single Filter Section
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 10) {
-                        ForEach(FilterOption.allCases, id: \.self) { option in
-                            FilterButton(
-                                title: option.rawValue,
-                                isSelected: selectedFilter == option,
-                                action: { selectedFilter = option }
-                            )
+                // Filters and Sort Button
+                HStack {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 10) {
+                            FilterToggle(title: "Indoor", isSelected: $filters.indoor)
+                            FilterToggle(title: "Outdoor", isSelected: $filters.outdoor)
+                            FilterToggle(title: "Has Lights", isSelected: $filters.hasLights)
                         }
+                        .padding(.horizontal)
                     }
-                    .padding(.horizontal)
+                    
+                    Menu {
+                        Button(action: { sortOption = .activePlayersDesc }) {
+                            Label("Most Active", systemImage: "arrow.down")
+                        }
+                        Button(action: { sortOption = .activePlayersAsc }) {
+                            Label("Least Active", systemImage: "arrow.up")
+                        }
+                    } label: {
+                        Image(systemName: "arrow.up.arrow.down")
+                            .foregroundColor(ModernColorScheme.primary)
+                            .padding(8)
+                            .background(ModernColorScheme.surface)
+                            .cornerRadius(8)
+                    }
+                    .padding(.trailing)
+                    
+                    Button(action: { showFeedback = true }) {
+                        Image(systemName: "plus.bubble")
+                            .foregroundColor(ModernColorScheme.primary)
+                            .padding(8)
+                            .background(ModernColorScheme.surface)
+                            .cornerRadius(8)
+                    }
+                    .padding(.trailing)
                 }
                 .padding(.vertical, 8)
                 
@@ -63,41 +102,7 @@ struct HomeView: View {
                     ScrollView {
                         LazyVStack(spacing: 16) {
                             if filteredLocations.isEmpty {
-                                VStack(spacing: 12) {
-                                    Image(systemName: {
-                                        switch selectedFilter {
-                                        case .active:
-                                            return "figure.basketball"
-                                        case .inactive:
-                                            return "basketball.fill"
-                                        case .indoor:
-                                            return "building.2.fill"
-                                        case .outdoor:
-                                            return "sun.max.fill"
-                                        }
-                                    }())
-                                    .font(.system(size: 50))
-                                    .foregroundColor(ModernColorScheme.textSecondary)
-                                    .padding(.bottom, 8)
-                                    
-                                    Text({
-                                        switch selectedFilter {
-                                        case .active:
-                                            return "No active courts at the moment"
-                                        case .inactive:
-                                            return "No inactive courts at the moment"
-                                        case .indoor:
-                                            return "No indoor courts available"
-                                        case .outdoor:
-                                            return "No outdoor courts available"
-                                        }
-                                    }())
-                                    .font(ModernFontScheme.body)
-                                    .foregroundColor(ModernColorScheme.textSecondary)
-                                    .multilineTextAlignment(.center)
-                                }
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 40)
+                                EmptyStateView(filters: filters)
                             } else {
                                 ForEach(filteredLocations) { location in
                                     NavigationLink(destination: LocationDetailView(location: location)) {
@@ -114,6 +119,9 @@ struct HomeView: View {
                 }
             }
             .background(ModernColorScheme.background)
+        }
+        .sheet(isPresented: $showFeedback) {
+            FeedbackView()
         }
         .onAppear {
             // Set navigation bar appearance
@@ -139,37 +147,33 @@ struct HomeView: View {
     // MARK: - Computed Properties
     
     private var filteredLocations: [Location] {
-        var locations: [Location]
+        var locations = dataStore.locations
         
-        // First apply activity filter
-        switch selectedFilter {
-        case .active:
-            locations = dataStore.activeCourts
-            print("Filtered active courts: \(locations.count)")
-        case .inactive:
-            locations = dataStore.inactiveCourts
-            print("Filtered inactive courts: \(locations.count)")
-        case .indoor:
-            locations = dataStore.locations.filter { $0.locationType == .indoor }
-            print("Filtered indoor courts: \(locations.count)")
-        case .outdoor:
-            locations = dataStore.locations.filter { $0.locationType == .outdoor }
-            print("Filtered outdoor courts: \(locations.count)")
+        // Apply filters
+        if filters.indoor && !filters.outdoor {
+            locations = locations.filter { $0.locationType == .indoor }
+        } else if !filters.indoor && filters.outdoor {
+            locations = locations.filter { $0.locationType == .outdoor }
+        }
+        
+        if filters.hasLights {
+            locations = locations.filter { $0.isLitAtNight == true }
         }
         
         // Apply search filter if text is not empty
         if !searchText.isEmpty {
-            let beforeCount = locations.count
             locations = locations.filter {
                 $0.locationName.localizedCaseInsensitiveContains(searchText) ||
                 $0.locationAddress.localizedCaseInsensitiveContains(searchText)
             }
-            print("After search filter: \(locations.count) (was \(beforeCount))")
         }
         
-        // Sort by active players (descending) for active filter
-        if selectedFilter == .active {
+        // Apply sorting
+        switch sortOption {
+        case .activePlayersDesc:
             locations.sort { $0.locationActivePlayers > $1.locationActivePlayers }
+        case .activePlayersAsc:
+            locations.sort { $0.locationActivePlayers < $1.locationActivePlayers }
         }
         
         return locations
@@ -204,13 +208,12 @@ struct SearchBarView: View {
     }
 }
 
-struct FilterButton: View {
+struct FilterToggle: View {
     let title: String
-    let isSelected: Bool
-    let action: () -> Void
+    @Binding var isSelected: Bool
     
     var body: some View {
-        Button(action: action) {
+        Button(action: { isSelected.toggle() }) {
             Text(title)
                 .font(ModernFontScheme.body)
                 .foregroundColor(isSelected ? .white : ModernColorScheme.text)
@@ -290,6 +293,42 @@ struct LocationCard: View {
         .background(ModernColorScheme.surface)
         .cornerRadius(16)
         .shadow(color: ModernColorScheme.primary.opacity(0.1), radius: 5, x: 0, y: 2)
+    }
+}
+
+struct EmptyStateView: View {
+    let filters: FilterOptions
+    
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 50))
+                .foregroundColor(ModernColorScheme.textSecondary)
+                .padding(.bottom, 8)
+            
+            Text(getEmptyStateMessage())
+                .font(ModernFontScheme.body)
+                .foregroundColor(ModernColorScheme.textSecondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 40)
+    }
+    
+    private func getEmptyStateMessage() -> String {
+        var message = "No courts found"
+        
+        if filters.indoor && !filters.outdoor {
+            message += " for indoor courts"
+        } else if !filters.indoor && filters.outdoor {
+            message += " for outdoor courts"
+        }
+        
+        if filters.hasLights {
+            message += " with lights"
+        }
+        
+        return message
     }
 }
 

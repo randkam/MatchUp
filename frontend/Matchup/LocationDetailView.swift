@@ -31,17 +31,15 @@ struct LocationDetailView: View {
                         .frame(height: 200)
                         .clipped()
                         .cornerRadius(20)
-                    
-                    Button(action: { presentationMode.wrappedValue.dismiss() }) {
-                        Image(systemName: "xmark")
-                            .font(.title2)
-                            .foregroundColor(ModernColorScheme.text)
-                            .padding(10)
-                            .background(ModernColorScheme.surface.opacity(0.8))
-                            .clipShape(Circle())
-                    }
-                    .padding()
                 }
+                .padding(.horizontal)
+                
+                // Location Name
+                Text(location.locationName)
+                    .font(.title)
+                    .fontWeight(.bold)
+                    .foregroundColor(ModernColorScheme.text)
+                    .padding(.horizontal)
                 
                 // Location Details
                 VStack(alignment: .leading, spacing: 15) {
@@ -130,7 +128,20 @@ struct LocationDetailView: View {
                 }
         }
         .fullScreenCover(isPresented: $showChat) {
-            ChatDetailedView(chat: locationChat)
+            NavigationView {
+                ChatDetailedView(chat: locationChat)
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarLeading) {
+                            Button(action: { showChat = false }) {
+                                HStack {
+                                    Image(systemName: "chevron.left")
+                                    Text("Back")
+                                }
+                            }
+                        }
+                    }
+            }
         }
         .onAppear {
             checkIfJoinedChat()
