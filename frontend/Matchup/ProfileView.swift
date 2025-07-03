@@ -12,11 +12,13 @@ struct ProfileView: View {
     @State private var showImagePicker = false
     @State private var selectedImage: UIImage?
     @State private var profileImageUrl: String?
+    @State private var showEditCredentials = false
+    @State private var showFeedbackForm = false
 
-    @State private var userNickName = ""
-    @State private var userName = ""
-    @State private var userRegion = ""
-    @State private var userPosition = ""
+    @State private var userNickName: String = ""
+    @State private var userName: String = ""
+    @State private var userRegion: String = ""
+    @State private var userPosition: String = ""
     let networkManager = NetworkManager()
 
     var body: some View {
@@ -114,21 +116,18 @@ struct ProfileView: View {
                     .offset(y: isAnimating ? 0 : -50)
                     .animation(.easeOut(duration: 0.8).delay(0.2), value: isAnimating)
 
+                    // Settings Section
                     Button(action: { showSettings = true }) {
-                        HStack {
-                            Image(systemName: "gearshape.fill")
-                                .foregroundColor(ModernColorScheme.primary)
-                            Text("User Settings")
-                                .font(ModernFontScheme.body)
-                                .foregroundColor(ModernColorScheme.text)
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .foregroundColor(ModernColorScheme.textSecondary)
-                        }
-                        .padding()
-                        .background(ModernColorScheme.surface)
-                        .cornerRadius(15)
-                        .padding(.horizontal)
+                        ProfileSettingsRow(icon: "gearshape.fill", title: "Settings")
+                    }
+
+                    // Feedback Section
+                    Button(action: { showFeedbackForm = true }) {
+                        ProfileSettingsRow(icon: "plus.bubble", title: "Submit Feedback")
+                    }
+                    
+                    NavigationLink(destination: FeedbackHistoryView()) {
+                        ProfileSettingsRow(icon: "clock.arrow.circlepath", title: "Feedback History")
                     }
                 }
                 .padding(.bottom)
@@ -149,8 +148,14 @@ struct ProfileView: View {
                         }
                     }
             }
-            .onChange(of: authCoordinator.authState) { oldValue, newValue in
-                if case .unauthenticated = newValue {
+            .sheet(isPresented: $showEditCredentials) {
+                EditCredentialsView(userName: $userName, userNickName: $userNickName)
+            }
+            .sheet(isPresented: $showFeedbackForm) {
+                FeedbackView()
+            }
+            .onChange(of: authCoordinator.authState) { state in
+                if case .unauthenticated = state {
                     dismiss()
                 }
             }

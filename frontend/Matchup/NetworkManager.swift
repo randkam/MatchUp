@@ -19,7 +19,6 @@ struct UserLocation: Codable {
     let locationId: Int
 }
 
-
 class NetworkManager {
     let baseURL = APIConfig.usersEndpoint
     let secretKey = "your_secret_key"
@@ -512,7 +511,7 @@ class NetworkManager {
     }
 
     func submitFeedback(feedback: [String: Any], completion: @escaping (Bool, Error?) -> Void) {
-        guard let url = URL(string: "\(APIConfig.baseURL)/api/v1/feedback") else {
+        guard let url = URL(string: "\(APIConfig.baseAPI)/api/v1/feedback") else {
             completion(false, NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"]))
             return
         }
@@ -540,6 +539,37 @@ class NetworkManager {
             }
             
             completion(httpResponse.statusCode == 200, nil)
+        }.resume()
+    }
+
+    func getFeedbackHistory(userId: Int, completion: @escaping (Result<[FeedbackItem], Error>) -> Void) {
+        guard let url = URL(string: "\(APIConfig.baseAPI)/api/v1/feedback/user/\(userId)") else {
+            completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])))
+            return
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                completion(.failure(error))
+                return
+            }
+            
+            guard let data = data else {
+                completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "No data received"])))
+                return
+            }
+            
+            do {
+                let decoder = JSONDecoder()
+                let feedback = try decoder.decode([FeedbackItem].self, from: data)
+                completion(.success(feedback))
+            } catch {
+                completion(.failure(error))
+            }
         }.resume()
     }
 }
