@@ -1,6 +1,7 @@
 package com.example.chats;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,11 +17,11 @@ public class MessageController {
     private ChatService chatService;
 
     @GetMapping("/{locationId}")
-    public List<MessageEntity> getMessagesByLocation(@PathVariable Long locationId) {
-        return chatService.getMessageById(locationId);
+    public List<ChatMessage> getMessagesByLocation(@PathVariable Long locationId) {
+        List<MessageEntity> entities = chatService.getMessageById(locationId);
+        return entities.stream()
+                .map(ChatMessage::new)
+                .collect(Collectors.toList());
     }
-    // public List<ChatMessageDTO> getMessagesWithUserDetailsByLocation(@PathVariable Long locationId) {
-    //     return chatService.getMessagesWithUserDetailsForLocation(locationId);
-    // }
 }
 

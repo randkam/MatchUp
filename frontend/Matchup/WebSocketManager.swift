@@ -143,17 +143,40 @@ struct ChatMessage: Identifiable, Codable, Equatable {
         senderUserName = try container.decode(String.self, forKey: .senderUserName)
         
         // Handle ISO 8601 timestamp from server
-        if let timestampString = try? container.decode(String.self, forKey: .timestamp) {
-            let formatter = ISO8601DateFormatter()
-            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let timestampString = try container.decode(String.self, forKey: .timestamp)
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        
+        if let date = formatter.date(from: timestampString) {
+            timestamp = date
+        } else {
+            // Try without fractional seconds if the first attempt fails
+            formatter.formatOptions = [.withInternetDateTime]
             if let date = formatter.date(from: timestampString) {
                 timestamp = date
             } else {
-                timestamp = Date() // Fallback to current date if parsing fails
+                throw DecodingError.dataCorruptedError(
+                    forKey: .timestamp,
+                    in: container,
+                    debugDescription: "Date string does not match expected format: \(timestampString)"
+                )
             }
-        } else {
-            timestamp = Date() // Use current date if no timestamp provided
         }
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(id, forKey: .id)
+        try container.encode(locationId, forKey: .locationId)
+        try container.encode(senderId, forKey: .senderId)
+        try container.encode(content, forKey: .content)
+        try container.encode(senderUserName, forKey: .senderUserName)
+        
+        // Convert Date to ISO 8601 string
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let timestampString = formatter.string(from: timestamp)
+        try container.encode(timestampString, forKey: .timestamp)
     }
     
     init(id: Int?, locationId: Int, senderId: Int, content: String, senderUserName: String, timestamp: Date = Date()) {
