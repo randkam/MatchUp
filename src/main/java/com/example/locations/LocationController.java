@@ -25,8 +25,8 @@ public class LocationController {
 
     @GetMapping
     public List<Location> getLocations() {
-        return locationService.getLocations();
-    }
+       return locationService.getLocations();
+	}
 
     @GetMapping(path = "{locationId}")
     public ResponseEntity<Location> getLocation(@PathVariable("locationId") Long locationId) {
