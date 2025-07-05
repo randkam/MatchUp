@@ -250,7 +250,8 @@ struct ChatDetailedView: View {
             locationId: locationIdInt,
             senderId: senderId,
             content: content,
-            senderUserName: userName
+            senderUserName: userName,
+            timestamp: Date()
         )
 
         webSocketManager.sendMessage(message)
@@ -260,6 +261,12 @@ struct ChatDetailedView: View {
     struct MessageBubble: View {
         var message: ChatMessage
         var isCurrentUser: Bool?
+
+        private func formatTimestamp(_ date: Date) -> String {
+            let formatter = DateFormatter()
+            formatter.timeStyle = .short
+            return formatter.string(from: date)
+        }
 
         var body: some View {
             VStack(alignment: isCurrentUser == true ? .trailing : .leading, spacing: 2) {
@@ -273,14 +280,21 @@ struct ChatDetailedView: View {
                 HStack {
                     if isCurrentUser == true { Spacer() }
 
-                    Text(message.content)
-                        .font(ModernFontScheme.body)
-                        .padding(.vertical, 8)
-                        .padding(.horizontal, 12)
-                        .background(isCurrentUser == true ? ModernColorScheme.primary : ModernColorScheme.surface)
-                        .foregroundColor(isCurrentUser == true ? .white : ModernColorScheme.text)
-                        .cornerRadius(16)
-                        .frame(maxWidth: 280, alignment: isCurrentUser == true ? .trailing : .leading)
+                    VStack(alignment: isCurrentUser == true ? .trailing : .leading, spacing: 4) {
+                        Text(message.content)
+                            .font(ModernFontScheme.body)
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 12)
+                            .background(isCurrentUser == true ? ModernColorScheme.primary : ModernColorScheme.surface)
+                            .foregroundColor(isCurrentUser == true ? .white : ModernColorScheme.text)
+                            .cornerRadius(16)
+                            .frame(maxWidth: 280, alignment: isCurrentUser == true ? .trailing : .leading)
+
+                        Text(formatTimestamp(message.timestamp))
+                            .font(.system(size: 10))
+                            .foregroundColor(ModernColorScheme.textSecondary)
+                            .padding(.horizontal, 4)
+                    }
 
                     if isCurrentUser == false { Spacer() }
                 }

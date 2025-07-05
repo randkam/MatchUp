@@ -123,4 +123,5 @@ struct ChatMessage: Identifiable, Codable, Equatable {
     let senderId: Int
     let content: String
     let senderUserName: String
+    let timestamp: Date
 }
