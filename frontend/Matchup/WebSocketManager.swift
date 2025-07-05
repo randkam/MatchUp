@@ -44,7 +44,15 @@ class WebSocketManager: NSObject, ObservableObject, URLSessionWebSocketDelegate 
                         do {
                             let chatMessage = try JSONDecoder().decode(ChatMessage.self, from: data)
                             DispatchQueue.main.async {
-                                self?.messages.append(chatMessage)
+                                // Check if message already exists to avoid duplicates
+                                if let messages = self?.messages {
+                                    // Only add if the message doesn't exist and has a valid ID
+                                    if let messageId = chatMessage.id, !messages.contains(where: { $0.id == messageId }) {
+                                        self?.messages.append(chatMessage)
+                                        // Sort messages by timestamp
+                                        self?.messages.sort { $0.timestamp < $1.timestamp }
+                                    }
+                                }
                             }
                         } catch {
                             print("Failed to decode message: \(error)")
@@ -53,10 +61,15 @@ class WebSocketManager: NSObject, ObservableObject, URLSessionWebSocketDelegate 
                 default:
                     break
                 }
+                // Continue listening for new messages
                 self?.receiveMessage()
 
             case .failure(let error):
                 print("Error receiving message: \(error)")
+                // Try to reconnect or handle error
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                    self?.receiveMessage()
+                }
             }
         }
     }
@@ -66,10 +79,19 @@ class WebSocketManager: NSObject, ObservableObject, URLSessionWebSocketDelegate 
         do {
             let jsonData = try encoder.encode(message)
             if let jsonString = String(data: jsonData, encoding: .utf8) {
-                let message = URLSessionWebSocketTask.Message.string(jsonString)
-                webSocket?.send(message) { error in
+                let wsMessage = URLSessionWebSocketTask.Message.string(jsonString)
+                webSocket?.send(wsMessage) { [weak self] error in
                     if let error = error {
                         print("Error sending message: \(error)")
+                    } else {
+                        // Optimistically add message to the local array
+                        DispatchQueue.main.async {
+                            self?.messages.append(message)
+                            // Sort messages by timestamp
+                            if let messages = self?.messages {
+                                self?.messages = messages.sorted { $0.timestamp < $1.timestamp }
+                            }
+                        }
                     }
                 }
             }
@@ -86,7 +108,7 @@ class WebSocketManager: NSObject, ObservableObject, URLSessionWebSocketDelegate 
     func loadOldMessages(locationId: Int, completion: @escaping ([ChatMessage]) -> Void) {
         let url = URL(string: "\(APIConfig.messagesEndpoint)/\(locationId)")!
 
-        URLSession.shared.dataTask(with: url) { data, response, error in
+        URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
             if let error = error {
                 print("Failed to load messages: \(error)")
                 return
@@ -97,7 +119,7 @@ class WebSocketManager: NSObject, ObservableObject, URLSessionWebSocketDelegate 
             do {
                 let messages = try JSONDecoder().decode([ChatMessage].self, from: data)
                 DispatchQueue.main.async {
-                    self.messages = messages
+                    self?.messages = messages.sorted { $0.timestamp < $1.timestamp }
                     completion(messages)
                 }
             } catch {
@@ -142,24 +164,30 @@ struct ChatMessage: Identifiable, Codable, Equatable {
         content = try container.decode(String.self, forKey: .content)
         senderUserName = try container.decode(String.self, forKey: .senderUserName)
         
-        // Handle ISO 8601 timestamp from server
+        // Handle timestamp from server
         let timestampString = try container.decode(String.self, forKey: .timestamp)
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSSSS"
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
         
         if let date = formatter.date(from: timestampString) {
             timestamp = date
         } else {
-            // Try without fractional seconds if the first attempt fails
-            formatter.formatOptions = [.withInternetDateTime]
+            // Try other common formats as fallback
+            formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
             if let date = formatter.date(from: timestampString) {
                 timestamp = date
             } else {
-                throw DecodingError.dataCorruptedError(
-                    forKey: .timestamp,
-                    in: container,
-                    debugDescription: "Date string does not match expected format: \(timestampString)"
-                )
+                let isoFormatter = ISO8601DateFormatter()
+                if let date = isoFormatter.date(from: timestampString) {
+                    timestamp = date
+                } else {
+                    throw DecodingError.dataCorruptedError(
+                        forKey: .timestamp,
+                        in: container,
+                        debugDescription: "Date string does not match expected format: \(timestampString)"
+                    )
+                }
             }
         }
     }
@@ -172,9 +200,10 @@ struct ChatMessage: Identifiable, Codable, Equatable {
         try container.encode(content, forKey: .content)
         try container.encode(senderUserName, forKey: .senderUserName)
         
-        // Convert Date to ISO 8601 string
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        // Convert Date to server format with microseconds
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSSSS"
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
         let timestampString = formatter.string(from: timestamp)
         try container.encode(timestampString, forKey: .timestamp)
     }
