@@ -21,6 +21,11 @@ public class LocationService {
 
 	}
 
+	public Location getLocation(Long locationId) {
+        return locationRepository.findById(locationId)
+            .orElseThrow(() -> new IllegalStateException("Location with id " + locationId + " not found"));
+    }
+
 
 	// public Location getUser (String userEmail){
 	// 	return userRepository.findUserByUserEmail(userEmail)

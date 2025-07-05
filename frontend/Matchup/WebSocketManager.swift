@@ -124,4 +124,44 @@ struct ChatMessage: Identifiable, Codable, Equatable {
     let content: String
     let senderUserName: String
     let timestamp: Date
+    
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case locationId
+        case senderId
+        case content
+        case senderUserName
+        case timestamp
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(Int.self, forKey: .id)
+        locationId = try container.decode(Int.self, forKey: .locationId)
+        senderId = try container.decode(Int.self, forKey: .senderId)
+        content = try container.decode(String.self, forKey: .content)
+        senderUserName = try container.decode(String.self, forKey: .senderUserName)
+        
+        // Handle ISO 8601 timestamp from server
+        if let timestampString = try? container.decode(String.self, forKey: .timestamp) {
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let date = formatter.date(from: timestampString) {
+                timestamp = date
+            } else {
+                timestamp = Date() // Fallback to current date if parsing fails
+            }
+        } else {
+            timestamp = Date() // Use current date if no timestamp provided
+        }
+    }
+    
+    init(id: Int?, locationId: Int, senderId: Int, content: String, senderUserName: String, timestamp: Date = Date()) {
+        self.id = id
+        self.locationId = locationId
+        self.senderId = senderId
+        self.content = content
+        self.senderUserName = senderUserName
+        self.timestamp = timestamp
+    }
 }
