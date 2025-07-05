@@ -1,6 +1,7 @@
 package com.example.chats;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.TextMessage;
@@ -13,16 +14,22 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.time.LocalDateTime;
 
 @Component
 public class ChatWebSocketHandler extends TextWebSocketHandler {
 
     // Map of locationId to Set of sessions for that location
     private static final Map<Integer, Set<WebSocketSession>> locationRooms = new HashMap<>();
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
     
     @Autowired
     private ChatService chatService;
+
+    public ChatWebSocketHandler() {
+        this.objectMapper = new ObjectMapper();
+        this.objectMapper.registerModule(new JavaTimeModule());
+    }
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
@@ -41,8 +48,17 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         // Parse the incoming message
         ChatMessage chatMessage = objectMapper.readValue(message.getPayload(), ChatMessage.class);
         
+        // Set timestamp if not present
+        if (chatMessage.getTimestamp() == null) {
+            chatMessage.setTimestamp(LocalDateTime.now());
+        }
+        
         // Save to database
-        chatService.save(chatMessage);
+        ChatMessage savedMessage = chatService.save(chatMessage);
+
+        // Convert saved message to JSON and broadcast
+        String jsonMessage = objectMapper.writeValueAsString(savedMessage);
+        TextMessage outMessage = new TextMessage(jsonMessage);
 
         // Get the location room and broadcast only to sessions in that room
         int locationId = (Integer) session.getAttributes().get("locationId");
@@ -51,7 +67,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         if (locationSessions != null) {
             for (WebSocketSession s : locationSessions) {
                 if (s.isOpen()) {
-                    s.sendMessage(message);
+                    s.sendMessage(outMessage);
                 }
             }
         }
