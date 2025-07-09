@@ -207,39 +207,3 @@ enum FeedbackStatus: String, Codable {
     case rejected = "REJECTED"
     case resolved = "RESOLVED"
 } 
-
-struct MessageGroup: Identifiable {
-    let id: String
-    let date: Date
-    var messages: [ChatMessage]
-    
-    static func groupMessages(_ messages: [ChatMessage]) -> [MessageGroup] {
-        let calendar = Calendar.current
-        let grouped = Dictionary(grouping: messages) { message in
-            calendar.startOfDay(for: message.timestamp)
-        }
-        
-        return grouped.map { (date, messages) in
-            MessageGroup(id: date.ISO8601Format(), date: date, messages: messages.sorted(by: { $0.timestamp < $1.timestamp }))
-        }.sorted(by: { $0.date < $1.date })
-    }
-    
-    var dateHeader: String {
-        let calendar = Calendar.current
-        let now = Date()
-        
-        if calendar.isDateInToday(date) {
-            return "Today"
-        } else if calendar.isDateInYesterday(date) {
-            return "Yesterday"
-        } else if calendar.isDate(date, equalTo: now, toGranularity: .weekOfYear) {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "EEEE" // Full day name
-            return formatter.string(from: date)
-        } else {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "MMMM d, yyyy"
-            return formatter.string(from: date)
-        }
-    }
-} 
