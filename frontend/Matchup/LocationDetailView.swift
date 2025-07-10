@@ -1,5 +1,6 @@
 import SwiftUI
 import CoreLocation
+import MapKit
 
 struct LocationDetailView: View {
     @Environment(\.presentationMode) var presentationMode
@@ -10,14 +11,44 @@ struct LocationDetailView: View {
     @State private var reviewCount: Int = 0
     @State private var showingReviews = false
     @State private var showingReviewsSheet = false
+    @State private var showingNavigationOptions = false
     
     // Create a computed property for the chat object
     private var locationChat: Chat {
         Chat(
             id: location.locationId,
             name: location.locationName
-//            isActive: location.locationActivePlayers > 0
         )
+    }
+    
+    private func openInAppleMaps() {
+        guard let coordinate = location.coordinate else { return }
+        
+        let placemark = MKPlacemark(coordinate: coordinate)
+        let mapItem = MKMapItem(placemark: placemark)
+        mapItem.name = location.locationName
+        
+        mapItem.openInMaps(launchOptions: [
+            MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving
+        ])
+    }
+    
+    private func openInGoogleMaps() {
+        guard let coordinate = location.coordinate else { return }
+        
+        let urlString = "comgooglemaps://?daddr=\(coordinate.latitude),\(coordinate.longitude)&directionsmode=driving"
+        
+        if let url = URL(string: urlString) {
+            if UIApplication.shared.canOpenURL(url) {
+                UIApplication.shared.open(url, options: [:], completionHandler: nil)
+            } else {
+                // If Google Maps app is not installed, open in browser
+                let webUrlString = "https://www.google.com/maps/dir/?api=1&destination=\(coordinate.latitude),\(coordinate.longitude)"
+                if let webUrl = URL(string: webUrlString) {
+                    UIApplication.shared.open(webUrl, options: [:], completionHandler: nil)
+                }
+            }
+        }
     }
     
     var body: some View {
@@ -104,11 +135,11 @@ struct LocationDetailView: View {
                     
                     // Navigate Button
                     Button(action: {
-                        presentationMode.wrappedValue.dismiss()
+                        showingNavigationOptions = true
                     }) {
                         HStack {
                             Image(systemName: "location.fill")
-                            Text("Navigate")
+                            Text("Get Directions")
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -142,6 +173,21 @@ struct LocationDetailView: View {
                         }
                     }
             }
+        }
+        .actionSheet(isPresented: $showingNavigationOptions) {
+            ActionSheet(
+                title: Text("Get Directions"),
+                message: Text("Choose your preferred navigation app"),
+                buttons: [
+                    .default(Text("Apple Maps")) {
+                        openInAppleMaps()
+                    },
+                    .default(Text("Google Maps")) {
+                        openInGoogleMaps()
+                    },
+                    .cancel()
+                ]
+            )
         }
         .onAppear {
             checkIfJoinedChat()
