@@ -4,7 +4,6 @@ import Combine
 struct MessageBubble: View {
     let message: ChatMessage
     let isCurrentUser: Bool
-    let showTimestamp: Bool
     
     private var timestampString: String {
         let formatter = DateFormatter()
@@ -32,14 +31,10 @@ struct MessageBubble: View {
                     .foregroundColor(isCurrentUser ? .white : ModernColorScheme.text)
                     .cornerRadius(20)
                 
-                if showTimestamp {
-                    Text(timestampString)
-                        .font(.system(size: 12))
-                        .foregroundColor(ModernColorScheme.textSecondary)
-                        .padding(.horizontal, 4)
-                        .opacity(showTimestamp ? 1 : 0)
-                        .animation(.easeInOut(duration: 0.2), value: showTimestamp)
-                }
+                Text(timestampString)
+                    .font(.system(size: 12))
+                    .foregroundColor(ModernColorScheme.textSecondary)
+                    .padding(.horizontal, 4)
             }
             
             if !isCurrentUser {
@@ -64,7 +59,6 @@ struct DateHeader: View {
 struct MessageGroupView: View {
     let group: MessageGroup
     let currentUserId: Int?
-    let showTimestamps: Bool
     
     var body: some View {
         VStack(spacing: 12) {
@@ -73,8 +67,7 @@ struct MessageGroupView: View {
             ForEach(group.messages, id: \.id) { message in
                 MessageBubble(
                     message: message,
-                    isCurrentUser: message.senderId == currentUserId,
-                    showTimestamp: showTimestamps
+                    isCurrentUser: message.senderId == currentUserId
                 )
             }
         }
@@ -84,15 +77,13 @@ struct MessageGroupView: View {
 struct MessageListView: View {
     let messageGroups: [MessageGroup]
     let currentUserId: Int?
-    let showTimestamps: Bool
     
     var body: some View {
         VStack(spacing: 12) {
             ForEach(messageGroups) { group in
                 MessageGroupView(
                     group: group,
-                    currentUserId: currentUserId,
-                    showTimestamps: showTimestamps
+                    currentUserId: currentUserId
                 )
             }
             Color.clear.frame(height: 0).id("bottomAnchor")
@@ -113,7 +104,6 @@ struct ChatDetailedView: View {
     @State private var location: Location?
     @State private var isLoading = true
     @State private var scrollViewProxy: ScrollViewProxy?
-    @State private var showTimestamps = false
     
     private var currentUserId: Int? {
         UserDefaults.standard.value(forKey: "loggedInUserId") as? Int
@@ -218,19 +208,10 @@ struct ChatDetailedView: View {
                 ScrollView {
                     MessageListView(
                         messageGroups: messageGroups,
-                        currentUserId: currentUserId,
-                        showTimestamps: showTimestamps
+                        currentUserId: currentUserId
                     )
                 }
                 .background(ModernColorScheme.background)
-                .simultaneousGesture(
-                    TapGesture()
-                        .onEnded { _ in
-                            withAnimation {
-                                showTimestamps.toggle()
-                            }
-                        }
-                )
                 .onTapGesture {
                     self.endEditing()
                 }

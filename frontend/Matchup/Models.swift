@@ -20,12 +20,17 @@ struct Location: Identifiable, Codable {
     let locationReviews: String
     let isLitAtNight: Bool?
     var locationType: LocationType?
+    let locationLatitude: Double?
+    let locationLongitude: Double?
     
     var id: Int { locationId }
     
     var coordinate: CLLocationCoordinate2D? {
-        // Optional coordinate if needed later
-        nil
+        guard let lat = locationLatitude,
+              let lon = locationLongitude else {
+            return nil
+        }
+        return CLLocationCoordinate2D(latitude: lat, longitude: lon)
     }
 }
 

@@ -38,6 +38,8 @@ public class Location {
     private String locationZipCode;
     private int locationActivePlayers;
     private String locationReviews;
+    private Double locationLatitude;
+    private Double locationLongitude;
     
     @JsonProperty("is_lit_at_night")
     private Boolean isLitAtNight;
@@ -98,6 +100,14 @@ public class Location {
         return isLitAtNight;
     }
 
+    public Double getLocationLatitude() {
+        return locationLatitude;
+    }
+
+    public Double getLocationLongitude() {
+        return locationLongitude;
+    }
+
     public void setLocationId(Long locationId) {
         this.locationId = locationId;
     }
@@ -130,8 +140,21 @@ public class Location {
         isLitAtNight = litAtNight;
     }
 
+    public void setLocationLatitude(Double locationLatitude) {
+        this.locationLatitude = locationLatitude;
+    }
+
+    public void setLocationLongitude(Double locationLongitude) {
+        this.locationLongitude = locationLongitude;
+    }
+
     @Override
     public String toString() {
-        return "locations [locationId=" + locationId + ", locationName=" + locationName + ", locationAddress=" + locationAddress + ", locationType=" + locationType + "]";
+        return "locations [locationId=" + locationId + 
+               ", locationName=" + locationName + 
+               ", locationAddress=" + locationAddress + 
+               ", locationType=" + locationType + 
+               ", locationLatitude=" + locationLatitude + 
+               ", locationLongitude=" + locationLongitude + "]";
     }
 }
