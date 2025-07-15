@@ -2,7 +2,7 @@ import SwiftUI
 import CoreLocation
 
 // Filter options for sorting the courts
-struct FilterOptions {
+struct FilterOptions: Equatable {
     var indoor: Bool = false
     var outdoor: Bool = false
     var hasLights: Bool = false
@@ -11,6 +11,7 @@ struct FilterOptions {
 enum SortOption {
     case activePlayersDesc
     case activePlayersAsc
+    case distance
     
     var description: String {
         switch self {
@@ -18,6 +19,8 @@ enum SortOption {
             return "Most Active Players"
         case .activePlayersAsc:
             return "Least Active Players"
+        case .distance:
+            return "Nearest First"
         }
     }
 }
@@ -42,6 +45,7 @@ struct HomeView: View {
     @State private var showProfile = false
     @State private var showNotifications = false
     @State private var isAnimating = false
+    @State private var isRefreshing = false
     
     // MARK: - Body
     var body: some View {
@@ -51,6 +55,14 @@ struct HomeView: View {
                 SearchBarView(text: $searchText)
                     .padding(.horizontal)
                     .padding(.top, 0.5)
+                    .onChange(of: searchText) { _ in
+                        dataStore.fetchLocations(
+                            search: searchText.isEmpty ? nil : searchText,
+                            isIndoor: filters.indoor ? true : (filters.outdoor ? false : nil),
+                            isLit: filters.hasLights ? true : nil,
+                            refresh: true
+                        )
+                    }
                 
                 // Filters and Sort Button
                 HStack {
@@ -64,6 +76,9 @@ struct HomeView: View {
                     }
                     
                     Menu {
+                        Button(action: { sortOption = .distance }) {
+                            Label("Nearest First", systemImage: "location")
+                        }
                         Button(action: { sortOption = .activePlayersDesc }) {
                             Label("Most Active", systemImage: "arrow.down")
                         }
@@ -80,8 +95,16 @@ struct HomeView: View {
                     .padding(.trailing)
                 }
                 .padding(.vertical, 8)
+                .onChange(of: filters) { _ in
+                    dataStore.fetchLocations(
+                        search: searchText.isEmpty ? nil : searchText,
+                        isIndoor: filters.indoor ? true : (filters.outdoor ? false : nil),
+                        isLit: filters.hasLights ? true : nil,
+                        refresh: true
+                    )
+                }
                 
-                if dataStore.isLoading {
+                if dataStore.isLoading && dataStore.locations.isEmpty {
                     Spacer()
                     ProgressView()
                         .scaleEffect(1.5)
@@ -100,11 +123,22 @@ struct HomeView: View {
                                             // Empty closure since navigation is handled by NavigationLink
                                         }
                                         .padding(.horizontal)
+                                        .onAppear {
+                                            dataStore.loadMoreIfNeeded(currentItem: location)
+                                        }
                                     }
+                                }
+                                
+                                if dataStore.isLoading {
+                                    ProgressView()
+                                        .padding()
                                 }
                             }
                         }
                         .padding(.vertical)
+                    }
+                    .refreshable {
+                        await refresh()
                     }
                 }
             }
@@ -121,6 +155,13 @@ struct HomeView: View {
             
             isAnimating = true
             locationManager.requestLocation()
+            
+            dataStore.fetchLocations(
+                search: searchText.isEmpty ? nil : searchText,
+                isIndoor: filters.indoor ? true : (filters.outdoor ? false : nil),
+                isLit: filters.hasLights ? true : nil,
+                refresh: true
+            )
         }
         .alert("Error", isPresented: .constant(dataStore.error != nil)) {
             Button("OK") {
@@ -132,28 +173,8 @@ struct HomeView: View {
     }
     
     // MARK: - Computed Properties
-    
     private var filteredLocations: [Location] {
         var locations = dataStore.locations
-        
-        // Apply filters
-        if filters.indoor && !filters.outdoor {
-            locations = locations.filter { $0.locationType == .indoor }
-        } else if !filters.indoor && filters.outdoor {
-            locations = locations.filter { $0.locationType == .outdoor }
-        }
-        
-        if filters.hasLights {
-            locations = locations.filter { $0.isLitAtNight == true }
-        }
-        
-        // Apply search filter if text is not empty
-        if !searchText.isEmpty {
-            locations = locations.filter {
-                $0.locationName.localizedCaseInsensitiveContains(searchText) ||
-                $0.locationAddress.localizedCaseInsensitiveContains(searchText)
-            }
-        }
         
         // Apply sorting
         switch sortOption {
@@ -161,17 +182,39 @@ struct HomeView: View {
             locations.sort { $0.locationActivePlayers > $1.locationActivePlayers }
         case .activePlayersAsc:
             locations.sort { $0.locationActivePlayers < $1.locationActivePlayers }
+        case .distance:
+            // Sort by distance from user's current location
+            if let userLocation = locationManager.location?.coordinate {
+                locations.sort { loc1, loc2 in
+                    guard let lat1 = loc1.locationLatitude,
+                          let lon1 = loc1.locationLongitude,
+                          let lat2 = loc2.locationLatitude,
+                          let lon2 = loc2.locationLongitude else {
+                        return false
+                    }
+                    
+                    let coord1 = CLLocation(latitude: lat1, longitude: lon1)
+                    let coord2 = CLLocation(latitude: lat2, longitude: lon2)
+                    let userCLLocation = CLLocation(latitude: userLocation.latitude, longitude: userLocation.longitude)
+                    
+                    return coord1.distance(from: userCLLocation) < coord2.distance(from: userCLLocation)
+                }
+            }
         }
         
         return locations
     }
     
     // MARK: - Helper Methods
-    
-    private func refreshData() async {
-        await MainActor.run {
-            dataStore.fetchLocations()
-        }
+    private func refresh() async {
+        isRefreshing = true
+        dataStore.fetchLocations(
+            search: searchText.isEmpty ? nil : searchText,
+            isIndoor: filters.indoor ? true : (filters.outdoor ? false : nil),
+            isLit: filters.hasLights ? true : nil,
+            refresh: true
+        )
+        isRefreshing = false
     }
 }
 
@@ -323,23 +366,99 @@ struct EmptyStateView: View {
 class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     private let manager = CLLocationManager()
     @Published var location: CLLocation?
+    private let networkManager = NetworkManager()
+    private var updateTimer: Timer?
+    private let updateInterval: TimeInterval = 300 // Update every 5 minutes
     
     override init() {
         super.init()
         manager.delegate = self
-        manager.desiredAccuracy = kCLLocationAccuracyBest
+        manager.desiredAccuracy = kCLLocationAccuracyHundredMeters // Lower accuracy to save battery
+        manager.allowsBackgroundLocationUpdates = true
+        manager.pausesLocationUpdatesAutomatically = true
+        manager.activityType = .fitness
     }
     
     func requestLocation() {
         manager.requestWhenInUseAuthorization()
-        manager.requestLocation()
+        startUpdatingLocation()
+    }
+    
+    private func startUpdatingLocation() {
+        print("LocationManager: Starting location updates")
+        manager.startUpdatingLocation()
+        // Start timer for periodic updates
+        updateTimer = Timer.scheduledTimer(withTimeInterval: updateInterval, repeats: true) { [weak self] _ in
+            print("LocationManager: Timer triggered - requesting location update")
+            self?.manager.requestLocation()
+        }
+    }
+    
+    func stopUpdatingLocation() {
+        print("LocationManager: Stopping location updates")
+        manager.stopUpdatingLocation()
+        updateTimer?.invalidate()
+        updateTimer = nil
     }
     
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        location = locations.first
+        guard let location = locations.first else { return }
+        self.location = location
+        
+        print("LocationManager: Received location update - lat: \(location.coordinate.latitude), lon: \(location.coordinate.longitude)")
+        
+        // Get userId from UserDefaults
+        guard let userId = UserDefaults.standard.value(forKey: "loggedInUserId") as? Int else {
+            print("LocationManager: User ID not found in UserDefaults")
+            return
+        }
+        
+        print("LocationManager: Updating location for user \(userId)")
+        
+        // Update location on server
+        networkManager.updateUserLocation(
+            userId: userId,
+            latitude: location.coordinate.latitude,
+            longitude: location.coordinate.longitude
+        ) { success, error in
+            if let error = error {
+                print("LocationManager: Failed to update location on server - \(error.localizedDescription)")
+            } else if success {
+                print("LocationManager: Successfully updated location on server")
+            } else {
+                print("LocationManager: Failed to update location on server")
+            }
+        }
     }
     
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        print("Location manager failed with error: \(error.localizedDescription)")
+        print("LocationManager: Failed to get location - \(error.localizedDescription)")
+        
+        if let clError = error as? CLError {
+            switch clError.code {
+            case .denied:
+                print("LocationManager: Location access denied by user")
+                stopUpdatingLocation()
+            case .locationUnknown:
+                print("LocationManager: Location currently unavailable")
+            default:
+                print("LocationManager: Other location error: \(clError.localizedDescription)")
+            }
+        }
+    }
+    
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        switch manager.authorizationStatus {
+        case .authorizedWhenInUse, .authorizedAlways:
+            print("LocationManager: Location access authorized")
+            startUpdatingLocation()
+        case .denied, .restricted:
+            print("LocationManager: Location access denied or restricted")
+            stopUpdatingLocation()
+        case .notDetermined:
+            print("LocationManager: Location access not determined")
+        @unknown default:
+            print("LocationManager: Unknown authorization status")
+        }
     }
 }

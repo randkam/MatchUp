@@ -1,63 +1,48 @@
 package com.example.locations;
-import java.util.List;
-
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
-
-import jakarta.transaction.Transactional;
-
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class LocationService {
-    private final LocationRepository locationRepository;
-	@Autowired
-	public LocationService(LocationRepository locationRepository) {
-		this.locationRepository = locationRepository;
-	}
 
-	public List<Location> getLocations(){
-        return locationRepository.findAll();
+    @Autowired
+    private LocationRepository locationRepository;
 
-	}
+    public Page<Location> getAllLocations(PageRequest pageRequest, String search, Boolean isIndoor, Boolean isLit) {
+        // If no filters are applied, return all locations with pagination
+        if (search == null && isIndoor == null && isLit == null) {
+            return locationRepository.findAll(pageRequest);
+        }
 
-	public Location getLocation(Long locationId) {
-        return locationRepository.findById(locationId)
-            .orElseThrow(() -> new IllegalStateException("Location with id " + locationId + " not found"));
+        // Apply filters based on provided parameters
+        if (search != null) {
+            return locationRepository.findByLocationNameContainingIgnoreCaseOrLocationAddressContainingIgnoreCase(
+                search, search, pageRequest);
+        }
+
+        if (isIndoor != null && isLit != null) {
+            return locationRepository.findByLocationTypeAndIsLitAtNight(
+                isIndoor ? LocationType.INDOOR : LocationType.OUTDOOR, isLit, pageRequest);
+        }
+
+        if (isIndoor != null) {
+            return locationRepository.findByLocationType(
+                isIndoor ? LocationType.INDOOR : LocationType.OUTDOOR, pageRequest);
+        }
+
+        if (isLit != null) {
+            return locationRepository.findByIsLitAtNight(isLit, pageRequest);
+        }
+
+        return locationRepository.findAll(pageRequest);
     }
 
-
-	// public Location getUser (String userEmail){
-	// 	return userRepository.findUserByUserEmail(userEmail)
-	// 	.orElseThrow(() -> new IllegalStateException("User not found"));
-	// }
-
-
-	public void addNewLocation( Location location){
-		// Ensure isLitAtNight is explicitly set to null if not provided
-		if (location.isLitAtNight() == null) {
-			location.setLitAtNight(null);
-		}
-		locationRepository.save(location);
-    }	
-
-
-
-	public void deleteUser( Long locationId){
-		locationRepository.deleteById(locationId);
-	  
+    public Location getLocationById(int id) {
+        return locationRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Location not found with id: " + id));
     }
-
-	@Transactional
-	public void updateUser(Long locationId, int locationActivePlayers) {
-		Location location = locationRepository.findById(locationId)
-				.orElseThrow(() -> new IllegalStateException("Location not found"));
-		
-		if (locationActivePlayers >= 0) {
-				location.setLocationActivePlayers(locationActivePlayers);
-			}
-		
-		
-
-	}
 }

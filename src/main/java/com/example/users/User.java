@@ -34,6 +34,8 @@ public class User {
     private String userPosition;
     private String userRegion;
     private String profilePictureUrl;
+    private Double userLongitude;
+    private Double userLatitude;
 
 
     
@@ -70,6 +72,8 @@ public class User {
         this.userPosition = userPosition;
         this.userRegion = userRegion;
         this.profilePictureUrl = null;
+        this.userLongitude = null;
+        this.userLatitude = null;
         // this.userPassword = hashPassword(userPassword);
         // System.out.println(userPassword);
     }
@@ -84,6 +88,8 @@ public class User {
         this.userPosition = userPosition;
         this.userRegion = userRegion;
         this.profilePictureUrl = null;
+        this.userLongitude = null;
+        this.userLatitude = null;
         // this.userPassword = hashPassword(userPassword);
     }
 
@@ -171,12 +177,29 @@ public class User {
         this.profilePictureUrl = profilePictureUrl;
     }
 
+    public Double getUserLongitude() {
+        return userLongitude;
+    }
+
+    public void setUserLongitude(Double userLongitude) {
+        this.userLongitude = userLongitude;
+    }
+
+    public Double getUserLatitude() {
+        return userLatitude;
+    }
+
+    public void setUserLatitude(Double userLatitude) {
+        this.userLatitude = userLatitude;
+    }
+
     @Override
     public String toString() {
         return "users [userId=" + userId + ", userName=" + userName + ", userNickName=" + userNickName 
             + ", userEmail=" + userEmail + ", userPassword=" + userPassword 
             + ", userPosition=" + userPosition + ", userRegion=" + userRegion 
-            + ", profilePictureUrl=" + profilePictureUrl + "]";
+            + ", profilePictureUrl=" + profilePictureUrl 
+            + ", userLongitude=" + userLongitude + ", userLatitude=" + userLatitude + "]";
     }
     
 

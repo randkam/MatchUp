@@ -104,6 +104,10 @@ struct ChatDetailedView: View {
     @State private var location: Location?
     @State private var isLoading = true
     @State private var scrollViewProxy: ScrollViewProxy?
+    @State private var currentPage = 0
+    @State private var hasMorePages = true
+    @State private var isLoadingMore = false
+    @State private var isRefreshing = false
     
     private var currentUserId: Int? {
         UserDefaults.standard.value(forKey: "loggedInUserId") as? Int
@@ -149,6 +153,56 @@ struct ChatDetailedView: View {
                 }
             }
         }
+    }
+    
+    private func loadMessages(refresh: Bool = false) {
+        if refresh {
+            currentPage = 0
+            webSocketManager.messages = []
+            hasMorePages = true
+        }
+        
+        guard hasMorePages && !isLoadingMore else { return }
+        isLoadingMore = true
+        
+        NetworkManager().getPaginatedMessages(
+            locationId: chat.id,
+            page: currentPage,
+            size: 20
+        ) { result in
+            DispatchQueue.main.async {
+                isLoadingMore = false
+                
+                switch result {
+                case .success(let response):
+                    if currentPage == 0 {
+                        webSocketManager.messages = response.content
+                    } else {
+                        webSocketManager.messages.insert(contentsOf: response.content, at: 0)
+                    }
+                    hasMorePages = !response.last
+                    currentPage += 1
+                    
+                case .failure(let error):
+                    print("Failed to load messages: \(error)")
+                }
+            }
+        }
+    }
+    
+    private func loadMoreIfNeeded(currentItem item: ChatMessage) {
+        guard !isLoadingMore else { return }
+        
+        let thresholdIndex = 5
+        if webSocketManager.messages.firstIndex(where: { $0.id == item.id }) == thresholdIndex {
+            loadMessages()
+        }
+    }
+    
+    private func refresh() async {
+        isRefreshing = true
+        loadMessages(refresh: true)
+        isRefreshing = false
     }
     
     private func fetchLocationDetails() {
@@ -204,41 +258,63 @@ struct ChatDetailedView: View {
                 .navigationBarBackButtonHidden(false)
             
             // Chat Messages
-            ScrollViewReader { proxy in
-                ScrollView {
-                    MessageListView(
-                        messageGroups: messageGroups,
-                        currentUserId: currentUserId
-                    )
-                }
-                .background(ModernColorScheme.background)
-                .onTapGesture {
-                    self.endEditing()
-                }
-                .onAppear {
-                    scrollViewProxy = proxy
-                    DispatchQueue.main.async {
-                        withAnimation {
-                            proxy.scrollTo("bottomAnchor", anchor: .bottom)
+            ScrollView {
+                ScrollViewReader { proxy in
+                    LazyVStack(spacing: 0) {
+                        if isLoadingMore && webSocketManager.messages.isEmpty {
+                            ProgressView()
+                                .padding()
                         }
+                        
+                        ForEach(messageGroups) { group in
+                            MessageGroupView(
+                                group: group,
+                                currentUserId: currentUserId
+                            )
+                            .onAppear {
+                                if let firstMessage = group.messages.first {
+                                    loadMoreIfNeeded(currentItem: firstMessage)
+                                }
+                            }
+                        }
+                        .padding(.horizontal)
+                        .padding(.top)
+                        .padding(.bottom, 16)
+                        
+                        Color.clear.frame(height: 0).id("bottomAnchor")
                     }
-                }
-                .onChange(of: webSocketManager.messages) { messages in
-                    if !messages.isEmpty {
+                    .background(ModernColorScheme.background)
+                    .onTapGesture {
+                        self.endEditing()
+                    }
+                    .onAppear {
+                        scrollViewProxy = proxy
                         DispatchQueue.main.async {
                             withAnimation {
                                 proxy.scrollTo("bottomAnchor", anchor: .bottom)
                             }
                         }
                     }
-                }
-                .onChange(of: keyboardResponder.keyboardHeight) { newHeight in
-                    if newHeight > 0 {
-                        DispatchQueue.main.async {
-                            withAnimation(.spring(response: 0.5, dampingFraction: 0.8, blendDuration: 0)) {
-                                proxy.scrollTo("bottomAnchor", anchor: .bottom)
+                    .onChange(of: webSocketManager.messages) { messages in
+                        if !messages.isEmpty {
+                            DispatchQueue.main.async {
+                                withAnimation {
+                                    proxy.scrollTo("bottomAnchor", anchor: .bottom)
+                                }
                             }
                         }
+                    }
+                    .onChange(of: keyboardResponder.keyboardHeight) { newHeight in
+                        if newHeight > 0 {
+                            DispatchQueue.main.async {
+                                withAnimation(.spring(response: 0.5, dampingFraction: 0.8, blendDuration: 0)) {
+                                    proxy.scrollTo("bottomAnchor", anchor: .bottom)
+                                }
+                            }
+                        }
+                    }
+                    .refreshable {
+                        await refresh()
                     }
                 }
             }
@@ -258,13 +334,11 @@ struct ChatDetailedView: View {
             }
         }
         .onAppear {
-            let locationIdInt = Int(chat.id)
+            let locationIdInt = chat.id
             webSocketManager.connect(locationId: locationIdInt) { success in
                 if success {
                     print("Connected successfully to chat")
-                    webSocketManager.loadOldMessages(locationId: locationIdInt) { oldMessages in
-                        webSocketManager.messages = oldMessages
-                    }
+                    loadMessages(refresh: true)
                 } else {
                     print("Failed to connect to chat")
                 }

@@ -32,6 +32,33 @@ struct Location: Identifiable, Codable {
         }
         return CLLocationCoordinate2D(latitude: lat, longitude: lon)
     }
+    
+    enum CodingKeys: String, CodingKey {
+        case locationId = "locationId"
+        case locationName = "locationName"
+        case locationAddress = "locationAddress"
+        case locationZipCode = "locationZipCode"
+        case locationActivePlayers = "locationActivePlayers"
+        case locationReviews = "locationReviews"
+        case isLitAtNight = "is_lit_at_night"
+        case locationType = "locationType"
+        case locationLatitude = "locationLatitude"
+        case locationLongitude = "locationLongitude"
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        locationId = try container.decode(Int.self, forKey: .locationId)
+        locationName = try container.decode(String.self, forKey: .locationName)
+        locationAddress = try container.decode(String.self, forKey: .locationAddress)
+        locationZipCode = try container.decode(String.self, forKey: .locationZipCode)
+        locationActivePlayers = try container.decode(Int.self, forKey: .locationActivePlayers)
+        locationReviews = try container.decode(String.self, forKey: .locationReviews)
+        isLitAtNight = try container.decodeIfPresent(Bool.self, forKey: .isLitAtNight)
+        locationType = try container.decodeIfPresent(LocationType.self, forKey: .locationType)
+        locationLatitude = try container.decodeIfPresent(Double.self, forKey: .locationLatitude)
+        locationLongitude = try container.decodeIfPresent(Double.self, forKey: .locationLongitude)
+    }
 }
 
 struct Chat: Identifiable {
@@ -160,7 +187,14 @@ struct Review: Codable, Identifiable {
         locationId = try container.decode(Int.self, forKey: .locationId)
         userId = try container.decode(Int.self, forKey: .userId)
         rating = try container.decode(Float.self, forKey: .rating)
-        comment = try container.decodeIfPresent(String.self, forKey: .comment)
+        
+        // Try to decode comment, handle null or empty string
+        if let commentString = try container.decodeIfPresent(String.self, forKey: .comment),
+           !commentString.isEmpty {
+            comment = commentString
+        } else {
+            comment = nil
+        }
         
         // Handle the date decoding
         if let dateString = try? container.decode(String.self, forKey: .createdAt) {
@@ -169,7 +203,14 @@ struct Review: Codable, Identifiable {
             if let date = formatter.date(from: dateString) {
                 createdAt = date
             } else {
-                createdAt = Date() // Fallback to current date if parsing fails
+                // Try alternative date format
+                let backupFormatter = DateFormatter()
+                backupFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
+                if let date = backupFormatter.date(from: dateString) {
+                    createdAt = date
+                } else {
+                    createdAt = Date() // Fallback to current date if parsing fails
+                }
             }
         } else {
             createdAt = Date() // Fallback to current date if no date provided

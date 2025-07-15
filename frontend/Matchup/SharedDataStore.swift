@@ -34,6 +34,11 @@ class SharedDataStore: ObservableObject {
     @Published var courtChatMessages: [CourtChatData] = []
     @Published var isLoading = false
     @Published var error: Error?
+    @Published var currentPage = 0
+    @Published var hasMorePages = true
+    
+    private let networkManager = NetworkManager()
+    private let pageSize = 20
     
     private init() {
         // Initialize with empty data
@@ -42,49 +47,58 @@ class SharedDataStore: ObservableObject {
     
     // MARK: - Location Methods
     
-    func fetchLocations() {
-        guard let url = URL(string: APIConfig.locationsEndpoint) else { return }
+    func fetchLocations(search: String? = nil, isIndoor: Bool? = nil, isLit: Bool? = nil, refresh: Bool = false) {
+        if refresh {
+            currentPage = 0
+            locations = []
+            hasMorePages = true
+        }
+        
+        guard hasMorePages else { return }
         isLoading = true
         
-        print("Fetching locations from: \(APIConfig.locationsEndpoint)")
-        
-        URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
+        networkManager.getPaginatedLocations(
+            page: currentPage,
+            size: pageSize,
+            search: search,
+            isIndoor: isIndoor,
+            isLit: isLit
+        ) { [weak self] result in
             DispatchQueue.main.async {
                 self?.isLoading = false
-                if let error = error {
-                    print("Error fetching locations: \(error)")
-                    self?.error = error
-                    return
-                }
                 
-                guard let data = data else {
-                    print("No data received from API")
-                    self?.error = NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "No data received"])
-                    return
-                }
-                
-                do {
-                    let decoder = JSONDecoder()
-                    decoder.keyDecodingStrategy = .convertFromSnakeCase
-                    let locations = try decoder.decode([Location].self, from: data)
-                    print("Received \(locations.count) locations")
-                    print("Active courts: \(locations.filter { $0.locationActivePlayers > 0 }.count)")
-                    print("Inactive courts: \(locations.filter { $0.locationActivePlayers == 0 }.count)")
-                    print("Indoor courts: \(locations.filter { $0.locationType == .indoor }.count)")
-                    print("Outdoor courts: \(locations.filter { $0.locationType == .outdoor }.count)")
-                    for location in locations {
-                        print("Location: \(location.locationName), Active Players: \(location.locationActivePlayers), Type: \(location.locationType), Lit: \(String(describing: location.isLitAtNight))")
+                switch result {
+                case .success(let response):
+                    if self?.currentPage == 0 {
+                        self?.locations = response.content
+                    } else {
+                        self?.locations.append(contentsOf: response.content)
                     }
-                    self?.locations = locations
-                } catch {
-                    print("Failed to decode locations: \(error)")
-                    if let dataString = String(data: data, encoding: .utf8) {
-                        print("Raw data: \(dataString)")
-                    }
+                    self?.hasMorePages = !response.last
+                    self?.currentPage += 1
+                    
+                    // Debug logging
+                    print("Received \(response.content.count) locations")
+                    print("Active courts: \(response.content.filter { $0.locationActivePlayers > 0 }.count)")
+                    print("Inactive courts: \(response.content.filter { $0.locationActivePlayers == 0 }.count)")
+                    print("Indoor courts: \(response.content.filter { $0.locationType == .indoor }.count)")
+                    print("Outdoor courts: \(response.content.filter { $0.locationType == .outdoor }.count)")
+                    
+                case .failure(let error):
+                    print("Failed to fetch locations: \(error)")
                     self?.error = error
                 }
             }
-        }.resume()
+        }
+    }
+    
+    func loadMoreIfNeeded(currentItem item: Location) {
+        guard !isLoading else { return }
+        
+        let thresholdIndex = locations.index(locations.endIndex, offsetBy: -5)
+        if locations.firstIndex(where: { $0.id == item.id }) == thresholdIndex {
+            fetchLocations()
+        }
     }
     
     var activeCourts: [Location] {

@@ -10,6 +10,12 @@ struct ReviewsView: View {
     @State private var hasUserReviewed = false
     @State private var isLoading = true
     @State private var errorMessage: String?
+    @State private var currentPage = 0
+    @State private var hasMorePages = true
+    @State private var isRefreshing = false
+    
+    private let networkManager = NetworkManager()
+    private let pageSize = 20
     
     var body: some View {
         ZStack {
@@ -55,21 +61,41 @@ struct ReviewsView: View {
                 }
                 
                 // Reviews List
-                if isLoading {
+                if isLoading && reviews.isEmpty {
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                } else if reviews.isEmpty {
+                        .onAppear {
+                            print("Showing loading state")
+                        }
+                } else if !isLoading && reviews.isEmpty {
                     Text("No reviews yet")
                         .foregroundColor(.gray)
                         .padding()
+                        .onAppear {
+                            print("Showing no reviews state")
+                        }
                 } else {
                     ScrollView {
                         LazyVStack(spacing: 16) {
                             ForEach(reviews) { review in
                                 ReviewCard(review: review)
+                                    .onAppear {
+                                        loadMoreIfNeeded(currentItem: review)
+                                    }
+                            }
+                            .onAppear {
+                                print("Showing \(reviews.count) reviews")
+                            }
+                            
+                            if isLoading {
+                                ProgressView()
+                                    .padding()
                             }
                         }
                         .padding()
+                    }
+                    .refreshable {
+                        await refresh()
                     }
                 }
             }
@@ -77,36 +103,50 @@ struct ReviewsView: View {
         .sheet(isPresented: $showingAddReview) {
             AddReviewView(locationId: locationId) { newReview in
                 if let review = newReview {
-                    loadReviews()
+                    loadReviews(refresh: true)
                     loadAverageRating()
                     hasUserReviewed = true
                 }
             }
         }
         .onAppear {
-            loadReviews()
+            loadReviews(refresh: true)
             loadAverageRating()
             checkUserReview()
         }
     }
     
-    private func loadReviews() {
+    private func loadReviews(refresh: Bool = false) {
+        print("Loading reviews for locationId: \(locationId)")
+        isLoading = true
+        
         ReviewManager.shared.getLocationReviews(locationId: locationId) { reviews, error in
             DispatchQueue.main.async {
-                isLoading = false
-                if let error = error {
-                    errorMessage = error.localizedDescription
-                } else if let reviews = reviews {
+                self.isLoading = false
+                if let reviews = reviews {
+                    print("Successfully loaded \(reviews.count) reviews")
                     self.reviews = reviews
+                } else if let error = error {
+                    print("Failed to load reviews: \(error)")
+                    self.errorMessage = error.localizedDescription
                 }
             }
         }
     }
     
+    private func loadMoreIfNeeded(currentItem item: Review) {
+        guard !isLoading else { return }
+        
+        let thresholdIndex = reviews.index(reviews.endIndex, offsetBy: -5)
+        if reviews.firstIndex(where: { $0.id == item.id }) == thresholdIndex {
+            loadReviews()
+        }
+    }
+    
     private func loadAverageRating() {
         ReviewManager.shared.getAverageRating(locationId: locationId) { rating, error in
-            DispatchQueue.main.async {
-                if let rating = rating {
+            if let rating = rating {
+                DispatchQueue.main.async {
                     self.averageRating = rating
                 }
             }
@@ -122,6 +162,14 @@ struct ReviewsView: View {
             }
         }
     }
+    
+    private func refresh() async {
+        isRefreshing = true
+        loadReviews(refresh: true)
+        loadAverageRating()
+        checkUserReview()
+        isRefreshing = false
+    }
 }
 
 struct ReviewCard: View {
@@ -129,9 +177,9 @@ struct ReviewCard: View {
     @State private var username: String = ""
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 12) {  // Increased spacing
             HStack {
-                Text(username)
+                Text(username.isEmpty ? "Anonymous" : username)
                     .font(.headline)
                     .foregroundColor(.white)
                 
@@ -145,10 +193,13 @@ struct ReviewCard: View {
                 }
             }
             
-            if let comment = review.comment, !comment.isEmpty {
+            if let comment = review.comment {
                 Text(comment)
                     .foregroundColor(.white)
-                    .padding(.top, 4)
+                    .padding(8)  // Added padding
+                    .background(Color.gray.opacity(0.2))  // Added background
+                    .cornerRadius(8)  // Added corner radius
+                    .fixedSize(horizontal: false, vertical: true)
             }
             
             Text(formatDate(review.createdAt))

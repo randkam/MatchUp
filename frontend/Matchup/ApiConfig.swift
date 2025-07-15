@@ -1,7 +1,13 @@
 import Foundation
 
 struct APIConfig {
-    static let baseAPI = "https://matchup-api.xyz"
+     static let baseAPI = "https://matchup-api.xyz"
+//    static let baseAPI = "http://localhost:9095"
+
+    // Determine if we're using local or remote environment
+    private static var isLocal: Bool {
+        return baseAPI.contains("localhost")
+    }
     
     // API endpoints
     static let usersEndpoint = "\(baseAPI)/api/v1/users"
@@ -10,10 +16,23 @@ struct APIConfig {
     static let userLocationsEndpoint = "\(baseAPI)/api/user-locations"
     static let reviewsEndpoint = "\(baseAPI)/api/reviews"
     
-    static let wsBase = "wss://matchup-api.xyz"
+    // WebSocket configuration
+    private static let wsHost = isLocal ? "localhost" : "matchup-api.xyz"
+    private static let wsPort = isLocal ? 9095 : nil
+    private static let wsProtocol = isLocal ? "ws" : "wss"
+    
+    static let wsBase: String = {
+        if let port = wsPort {
+            return "\(wsProtocol)://\(wsHost):\(port)"
+        } else {
+            return "\(wsProtocol)://\(wsHost)"
+        }
+    }()
 
     static func wsChatEndpoint(locationId: Int) -> String {
-        return "\(wsBase)/ws/chat?locationId=\(locationId)"
+        let url = "\(wsBase)/ws/chat?locationId=\(locationId)"
+        print("WebSocket URL: \(url)")  // Debug print
+        return url
     }
     
     // Review endpoints

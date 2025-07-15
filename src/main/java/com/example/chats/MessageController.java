@@ -1,13 +1,10 @@
 package com.example.chats;
 
-import java.util.List;
-import java.util.stream.Collectors;
-
+import com.example.config.PaginationConfig;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.data.domain.Page;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/messages")
@@ -17,11 +14,14 @@ public class MessageController {
     private ChatService chatService;
 
     @GetMapping("/{locationId}")
-    public List<ChatMessage> getMessagesByLocation(@PathVariable Long locationId) {
-        List<MessageEntity> entities = chatService.getMessageById(locationId);
-        return entities.stream()
-                .map(ChatMessage::new)
-                .collect(Collectors.toList());
+    public ResponseEntity<Page<ChatMessage>> getLocationMessages(
+            @PathVariable int locationId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String direction) {
+        return ResponseEntity.ok(chatService.getLocationMessages(
+            locationId, PaginationConfig.createPageRequest(page, size, sortBy, direction)));
     }
 }
 

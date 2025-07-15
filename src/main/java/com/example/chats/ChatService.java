@@ -1,9 +1,10 @@
 package com.example.chats;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class ChatService {
@@ -11,19 +12,13 @@ public class ChatService {
     @Autowired
     private ChatMessageRepository chatMessageRepository;
 
-    public ChatMessage save(ChatMessage message) {
-        MessageEntity messageEntity = new MessageEntity();
-        messageEntity.setLocationId(message.getLocationId());
-        messageEntity.setContent(message.getContent());
-        messageEntity.setSenderId(message.getSenderId());
-        messageEntity.setSenderUserName(message.getSenderUserName());
-        messageEntity.setTimestamp(message.getTimestamp());
-        
-        MessageEntity savedEntity = chatMessageRepository.save(messageEntity);
-        return new ChatMessage(savedEntity);
+    public Page<ChatMessage> getLocationMessages(int locationId, PageRequest pageRequest) {
+        Page<MessageEntity> messages = chatMessageRepository.findByLocationId((long) locationId, pageRequest);
+        return messages.map(ChatMessage::new);
     }
 
-    public List<MessageEntity> getMessageById(Long locationId) {
-        return chatMessageRepository.findByLocationId(locationId);
+    @Transactional
+    public MessageEntity saveMessage(MessageEntity message) {
+        return chatMessageRepository.save(message);
     }
 }

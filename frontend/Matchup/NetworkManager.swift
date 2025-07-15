@@ -11,12 +11,38 @@ struct User: Codable {
     let userRegion: String
     let profilePictureUrl: String?
     var token: String?
+    var userLatitude: Double?
+    var userLongitude: Double?
 }
 
 struct UserLocation: Codable {
     let id: Int
     let userId: Int
     let locationId: Int
+}
+
+struct PaginatedResponse<T: Codable>: Codable {
+    let content: [T]
+    let totalPages: Int
+    let totalElements: Int
+    let last: Bool
+    let size: Int
+    let number: Int
+    let first: Bool
+    let numberOfElements: Int
+    let empty: Bool
+    
+    init(content: [T], totalPages: Int, totalElements: Int, last: Bool, size: Int, number: Int, first: Bool, numberOfElements: Int, empty: Bool) {
+        self.content = content
+        self.totalPages = totalPages
+        self.totalElements = totalElements
+        self.last = last
+        self.size = size
+        self.number = number
+        self.first = first
+        self.numberOfElements = numberOfElements
+        self.empty = empty
+    }
 }
 
 class NetworkManager {
@@ -571,5 +597,210 @@ class NetworkManager {
                 completion(.failure(error))
             }
         }.resume()
+    }
+
+    func updateUserLocation(userId: Int, latitude: Double, longitude: Double, completion: @escaping (Bool, Error?) -> Void) {
+        // Create URL components for proper URL encoding
+        var components = URLComponents(string: "\(baseURL)/\(userId)/location")
+        components?.queryItems = [
+            URLQueryItem(name: "latitude", value: String(format: "%.6f", latitude)),
+            URLQueryItem(name: "longitude", value: String(format: "%.6f", longitude))
+        ]
+        
+        guard let url = components?.url else {
+            completion(false, NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"]))
+            return
+        }
+        
+        print("NetworkManager: Making request to URL: \(url.absoluteString)")
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                print("NetworkManager: Request failed with error: \(error.localizedDescription)")
+                completion(false, error)
+                return
+            }
+            
+            guard let httpResponse = response as? HTTPURLResponse else {
+                print("NetworkManager: Invalid response type")
+                completion(false, NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid response"]))
+                return
+            }
+            
+            print("NetworkManager: Received response with status code: \(httpResponse.statusCode)")
+            
+            if let data = data, let responseString = String(data: data, encoding: .utf8) {
+                print("NetworkManager: Response body: \(responseString)")
+            }
+            
+            if (200...299).contains(httpResponse.statusCode) {
+                print("NetworkManager: Successfully updated location")
+                completion(true, nil)
+            } else {
+                print("NetworkManager: Failed to update location - Status code: \(httpResponse.statusCode)")
+                completion(false, NSError(domain: "", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "Server error"]))
+            }
+        }.resume()
+    }
+}
+
+extension NetworkManager {
+    func getPaginatedLocations(page: Int = 0, size: Int = 20, search: String? = nil, isIndoor: Bool? = nil, isLit: Bool? = nil, completion: @escaping (Result<PaginatedResponse<Location>, Error>) -> Void) {
+        var components = URLComponents(string: APIConfig.locationsEndpoint)
+        var queryItems = [
+            URLQueryItem(name: "page", value: String(page)),
+            URLQueryItem(name: "size", value: String(size))
+        ]
+        
+        if let search = search {
+            queryItems.append(URLQueryItem(name: "search", value: search))
+        }
+        if let isIndoor = isIndoor {
+            queryItems.append(URLQueryItem(name: "isIndoor", value: String(isIndoor)))
+        }
+        if let isLit = isLit {
+            queryItems.append(URLQueryItem(name: "isLit", value: String(isLit)))
+        }
+        
+        components?.queryItems = queryItems
+        
+        guard let url = components?.url else {
+            completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])))
+            return
+        }
+        
+        print("Fetching locations from URL: \(url.absoluteString)")
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                print("Error fetching locations: \(error)")
+                completion(.failure(error))
+                return
+            }
+            
+            guard let data = data else {
+                print("No data received from locations endpoint")
+                completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "No data received"])))
+                return
+            }
+            
+            // Print raw response for debugging
+            if let responseString = String(data: data, encoding: .utf8) {
+                print("Raw locations response: \(responseString)")
+            }
+            
+            do {
+                let decoder = JSONDecoder()
+                decoder.keyDecodingStrategy = .useDefaultKeys
+                
+                // First try to decode as PaginatedResponse
+                if let paginatedResponse = try? decoder.decode(PaginatedResponse<Location>.self, from: data) {
+                    print("Successfully decoded paginated response with \(paginatedResponse.content.count) locations")
+                    completion(.success(paginatedResponse))
+                } else {
+                    // If that fails, try to decode as array of locations
+                    let locations = try decoder.decode([Location].self, from: data)
+                    print("Successfully decoded \(locations.count) locations")
+                    
+                    // Create a PaginatedResponse wrapper
+                    let paginatedResponse = PaginatedResponse(
+                        content: locations,
+                        totalPages: 1,
+                        totalElements: locations.count,
+                        last: true,
+                        size: locations.count,
+                        number: 0,
+                        first: true,
+                        numberOfElements: locations.count,
+                        empty: locations.isEmpty
+                    )
+                    completion(.success(paginatedResponse))
+                }
+            } catch {
+                print("Error decoding locations: \(error)")
+                if let decodingError = error as? DecodingError {
+                    switch decodingError {
+                    case .keyNotFound(let key, let context):
+                        print("Key '\(key)' not found: \(context.debugDescription)")
+                    case .valueNotFound(let type, let context):
+                        print("Value of type '\(type)' not found: \(context.debugDescription)")
+                    case .typeMismatch(let type, let context):
+                        print("Type '\(type)' mismatch: \(context.debugDescription)")
+                    case .dataCorrupted(let context):
+                        print("Data corrupted: \(context.debugDescription)")
+                    @unknown default:
+                        print("Unknown decoding error: \(error)")
+                    }
+                }
+                completion(.failure(error))
+            }
+        }.resume()
+    }
+    
+    func getPaginatedReviews(locationId: Int, page: Int = 0, size: Int = 20, completion: @escaping (Result<PaginatedResponse<Review>, Error>) -> Void) {
+        let endpoint = "\(APIConfig.reviewsEndpoint)/location/\(locationId)?page=\(page)&size=\(size)"
+        print("Fetching reviews from endpoint: \(endpoint)")
+        
+        var request = URLRequest(url: URL(string: endpoint)!)
+        request.httpMethod = "GET"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                print("Error fetching reviews: \(error)")
+                completion(.failure(error))
+                return
+            }
+            
+            guard let data = data else {
+                print("No data received from reviews endpoint")
+                completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "No data received"])))
+                return
+            }
+            
+            // Print raw response for debugging
+            if let responseString = String(data: data, encoding: .utf8) {
+                print("Raw reviews response: \(responseString)")
+            }
+            
+            do {
+                let decoder = JSONDecoder()
+                decoder.keyDecodingStrategy = .useDefaultKeys
+                let response = try decoder.decode(PaginatedResponse<Review>.self, from: data)
+                print("Successfully decoded \(response.content.count) reviews")
+                print("Reviews content: \(response.content)")
+                completion(.success(response))
+            } catch {
+                print("Error decoding reviews: \(error)")
+                if let decodingError = error as? DecodingError {
+                    switch decodingError {
+                    case .keyNotFound(let key, let context):
+                        print("Key '\(key)' not found: \(context.debugDescription)")
+                    case .valueNotFound(let type, let context):
+                        print("Value of type '\(type)' not found: \(context.debugDescription)")
+                    case .typeMismatch(let type, let context):
+                        print("Type '\(type)' mismatch: \(context.debugDescription)")
+                    case .dataCorrupted(let context):
+                        print("Data corrupted: \(context.debugDescription)")
+                    @unknown default:
+                        print("Unknown decoding error: \(error)")
+                    }
+                }
+                completion(.failure(error))
+            }
+        }.resume()
+    }
+    
+    func getPaginatedMessages(locationId: Int, page: Int = 0, size: Int = 20, completion: @escaping (Result<PaginatedResponse<ChatMessage>, Error>) -> Void) {
+        let endpoint = "\(APIConfig.messagesEndpoint)/\(locationId)?page=\(page)&size=\(size)"
+        get(endpoint, completion: completion)
     }
 }

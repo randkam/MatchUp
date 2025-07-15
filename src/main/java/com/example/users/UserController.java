@@ -51,6 +51,19 @@ public class UserController {
         userService.updateUser(userId, userName, userEmail, userNickName, userPassword);
     }
 
+    @PutMapping(path = "{userId}/location")
+    public ResponseEntity<String> updateUserLocation(
+            @PathVariable("userId") Long userId,
+            @RequestParam("latitude") Double latitude,
+            @RequestParam("longitude") Double longitude) {
+        try {
+            userService.updateUserLocation(userId, longitude, latitude);
+            return ResponseEntity.ok().build();
+        } catch (IllegalStateException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
     @PostMapping("/{userId}/profile-picture")
     public ResponseEntity<String> uploadProfilePicture(
             @PathVariable Long userId,

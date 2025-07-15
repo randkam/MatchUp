@@ -81,6 +81,14 @@ public class UserService {
 	}
 
 	@Transactional
+	public void updateUserLocation(Long userId, Double longitude, Double latitude) {
+		User user = userRepository.findById(userId)
+				.orElseThrow(() -> new IllegalStateException("User not found"));
+		user.setUserLatitude(latitude);
+		user.setUserLongitude(longitude);
+	}
+
+	@Transactional
 	public void updateProfilePicture(Long userId, String profilePictureUrl) {
 		User user = userRepository.findById(userId)
 				.orElseThrow(() -> new IllegalStateException("User not found"));
