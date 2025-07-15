@@ -175,13 +175,21 @@ struct ReviewsView: View {
 struct ReviewCard: View {
     let review: Review
     @State private var username: String = ""
+    @State private var isLoadingUsername = true
+    @State private var loadingError = false
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {  // Increased spacing
             HStack {
-                Text(username.isEmpty ? "Anonymous" : username)
-                    .font(.headline)
-                    .foregroundColor(.white)
+                if isLoadingUsername {
+                    Text("Loading...")
+                        .font(.headline)
+                        .foregroundColor(.gray)
+                } else {
+                    Text(username.isEmpty ? "Anonymous" : username)
+                        .font(.headline)
+                        .foregroundColor(.white)
+                }
                 
                 Spacer()
                 
@@ -215,10 +223,19 @@ struct ReviewCard: View {
     }
     
     private func loadUsername() {
-        NetworkManager().getUser(userId: review.userId) { user in
-            if let user = user {
-                DispatchQueue.main.async {
+        isLoadingUsername = true
+        loadingError = false
+        
+        NetworkManager().getUser(userId: review.userId) { result in
+            DispatchQueue.main.async {
+                isLoadingUsername = false
+                switch result {
+                case .success(let user):
                     self.username = user.userName
+                case .failure(let error):
+                    print("Error loading username: \(error)")
+                    loadingError = true
+                    self.username = "Anonymous"
                 }
             }
         }

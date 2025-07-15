@@ -9,6 +9,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 @Entity
 @Table(name ="users")
@@ -25,16 +26,25 @@ public class User {
         strategy = GenerationType.SEQUENCE,
         generator = "user_sequence"
     )
-
+    @JsonProperty("userId")
     private Long userId;
+    @JsonProperty("userName")
     private String userName;
+    @JsonProperty("userNickName")
     private String userNickName;
+    @JsonProperty("userEmail")
     private String userEmail;
+    @JsonProperty("userPassword")
     private String userPassword;
+    @JsonProperty("userPosition")
     private String userPosition;
+    @JsonProperty("userRegion")
     private String userRegion;
+    @JsonProperty("profilePictureUrl")
     private String profilePictureUrl;
+    @JsonProperty("userLongitude")
     private Double userLongitude;
+    @JsonProperty("userLatitude")
     private Double userLatitude;
 
 
@@ -94,7 +104,8 @@ public class User {
     }
 
 
-    public Long getuserId() {
+    @JsonProperty("userId")
+    public Long getUserId() {
         return userId;
     }
 
@@ -116,6 +127,7 @@ public class User {
 
 
 
+    @JsonProperty("userEmail")
     public String getEmail() {
         return userEmail;
     }

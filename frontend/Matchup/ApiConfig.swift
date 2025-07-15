@@ -1,8 +1,8 @@
 import Foundation
 
 struct APIConfig {
-     static let baseAPI = "https://matchup-api.xyz"
-//    static let baseAPI = "http://localhost:9095"
+    static let baseAPI = "https://matchup-api.xyz"
+    // static let baseAPI = "http://localhost:9095"
 
     // Determine if we're using local or remote environment
     private static var isLocal: Bool {
@@ -50,5 +50,9 @@ struct APIConfig {
     
     static func averageRatingEndpoint(locationId: Int) -> String {
         return "\(reviewsEndpoint)/average/\(locationId)"
+    }
+
+    static func userByIdEndpoint(userId: Int) -> String {
+        return "\(usersEndpoint)/id/\(userId)"
     }
 } 

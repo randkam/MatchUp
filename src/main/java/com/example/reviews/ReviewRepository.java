@@ -9,8 +9,8 @@ import java.util.List;
 
 @Repository
 public interface ReviewRepository extends JpaRepository<Review, Long> {
-    Page<Review> findByLocationId(Long locationId, Pageable pageable);
-    Page<Review> findByUserId(Long userId, Pageable pageable);
-    List<Review> findByLocationId(Long locationId);
-    boolean existsByLocationIdAndUserId(Long locationId, Long userId);
+    Page<Review> findByLocationId(int locationId, Pageable pageable);
+    Page<Review> findByUserId(int userId, Pageable pageable);
+    List<Review> findByLocationId(int locationId);
+    boolean existsByLocationIdAndUserId(int locationId, int userId);
 } 

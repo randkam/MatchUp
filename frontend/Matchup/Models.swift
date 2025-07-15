@@ -34,16 +34,16 @@ struct Location: Identifiable, Codable {
     }
     
     enum CodingKeys: String, CodingKey {
-        case locationId = "locationId"
-        case locationName = "locationName"
-        case locationAddress = "locationAddress"
-        case locationZipCode = "locationZipCode"
-        case locationActivePlayers = "locationActivePlayers"
-        case locationReviews = "locationReviews"
+        case locationId = "id"
+        case locationName = "name"
+        case locationAddress = "address"
+        case locationZipCode = "zip_code"
+        case locationActivePlayers = "active_players"
+        case locationReviews = "reviews"
         case isLitAtNight = "is_lit_at_night"
-        case locationType = "locationType"
-        case locationLatitude = "locationLatitude"
-        case locationLongitude = "locationLongitude"
+        case locationType = "type"
+        case locationLatitude = "latitude"
+        case locationLongitude = "longitude"
     }
     
     init(from decoder: Decoder) throws {

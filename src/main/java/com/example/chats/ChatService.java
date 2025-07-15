@@ -21,4 +21,11 @@ public class ChatService {
     public MessageEntity saveMessage(MessageEntity message) {
         return chatMessageRepository.save(message);
     }
+
+    @Transactional
+    public ChatMessage save(ChatMessage chatMessage) {
+        MessageEntity messageEntity = new MessageEntity(chatMessage);
+        MessageEntity savedEntity = chatMessageRepository.save(messageEntity);
+        return new ChatMessage(savedEntity);
+    }
 }

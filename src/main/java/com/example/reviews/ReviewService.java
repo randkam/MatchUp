@@ -1,5 +1,7 @@
 package com.example.reviews;
 
+import com.example.locations.Location;
+import com.example.locations.LocationRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -11,6 +13,9 @@ public class ReviewService {
 
     @Autowired
     private ReviewRepository reviewRepository;
+
+    @Autowired
+    private LocationRepository locationRepository;
 
     public Page<Review> getLocationReviews(int locationId, PageRequest pageRequest) {
         return reviewRepository.findByLocationId(locationId, pageRequest);
@@ -32,13 +37,28 @@ public class ReviewService {
             .orElse(0.0);
     }
 
+    private void updateLocationReviewCount(Long locationId) {
+        Location location = locationRepository.findById(locationId)
+            .orElseThrow(() -> new RuntimeException("Location not found with id: " + locationId));
+        
+        int reviewCount = reviewRepository.findByLocationId(locationId.intValue()).size();
+        location.setLocationReviews(String.valueOf(reviewCount));
+        locationRepository.save(location);
+    }
+
     @Transactional
     public Review addReview(Review review) {
-        return reviewRepository.save(review);
+        Review savedReview = reviewRepository.save(review);
+        updateLocationReviewCount(review.getLocationId());
+        return savedReview;
     }
 
     @Transactional
     public void deleteReview(int reviewId) {
+        Review review = reviewRepository.findById((long) reviewId)
+            .orElseThrow(() -> new RuntimeException("Review not found with id: " + reviewId));
+        Long locationId = review.getLocationId();
         reviewRepository.deleteById((long) reviewId);
+        updateLocationReviewCount(locationId);
     }
 } 

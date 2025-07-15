@@ -8,6 +8,7 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 import org.springframework.web.socket.CloseStatus;
+import org.springframework.lang.NonNull;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -32,9 +33,23 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     }
 
     @Override
-    public void afterConnectionEstablished(WebSocketSession session) throws Exception {
-        // Location ID will be passed as a URL parameter
-        String locationId = session.getUri().getQuery().split("=")[1];
+    public void afterConnectionEstablished(@NonNull WebSocketSession session) throws Exception {
+        var uri = session.getUri();
+        if (uri == null) {
+            throw new IllegalStateException("WebSocket URI cannot be null");
+        }
+        
+        var query = uri.getQuery();
+        if (query == null) {
+            throw new IllegalStateException("Location ID is required as a query parameter");
+        }
+        
+        String[] queryParams = query.split("=");
+        if (queryParams.length != 2 || !queryParams[0].equals("locationId")) {
+            throw new IllegalStateException("Invalid query parameter. Expected 'locationId=<value>'");
+        }
+        
+        String locationId = queryParams[1];
         session.getAttributes().put("locationId", Integer.parseInt(locationId));
         
         // Add session to location room
@@ -44,7 +59,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     }
 
     @Override
-    protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
+    protected void handleTextMessage(@NonNull WebSocketSession session, @NonNull TextMessage message) throws Exception {
         // Parse the incoming message
         ChatMessage chatMessage = objectMapper.readValue(message.getPayload(), ChatMessage.class);
         
@@ -74,14 +89,16 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     }
 
     @Override
-    public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
-        int locationId = (Integer) session.getAttributes().get("locationId");
-        Set<WebSocketSession> locationSessions = locationRooms.get(locationId);
-        if (locationSessions != null) {
-            locationSessions.remove(session);
-            // Clean up empty rooms
-            if (locationSessions.isEmpty()) {
-                locationRooms.remove(locationId);
+    public void afterConnectionClosed(@NonNull WebSocketSession session, @NonNull CloseStatus status) throws Exception {
+        Integer locationId = (Integer) session.getAttributes().get("locationId");
+        if (locationId != null) {
+            Set<WebSocketSession> locationSessions = locationRooms.get(locationId);
+            if (locationSessions != null) {
+                locationSessions.remove(session);
+                // Clean up empty rooms
+                if (locationSessions.isEmpty()) {
+                    locationRooms.remove(locationId);
+                }
             }
         }
     }
