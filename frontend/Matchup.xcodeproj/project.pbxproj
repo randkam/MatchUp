@@ -29,9 +29,22 @@
 		A48AB4452DECEBF200E05CD0 /* MatchupUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MatchupUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		A4A0005F2E221234007F8004 /* Exceptions for "Matchup" folder in "Matchup" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = A48AB42A2DECEBF100E05CD0 /* Matchup */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		A48AB42D2DECEBF100E05CD0 /* Matchup */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				A4A0005F2E221234007F8004 /* Exceptions for "Matchup" folder in "Matchup" target */,
+			);
 			path = Matchup;
 			sourceTree = "<group>";
 		};
@@ -399,6 +412,11 @@
 				DEVELOPMENT_TEAM = 55RMA559V3;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Matchup/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "We use your location in the background to keep court activity accurate, even when the app is not open.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "We use your location to show nearby courts and update how many users are at each location.";
+				INFOPLIST_KEY_NSNetworkVolumesUsageDescription = "We use your location to show nearby courts and update how many users are at each facility.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -428,6 +446,11 @@
 				DEVELOPMENT_TEAM = 55RMA559V3;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Matchup/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "We use your location in the background to keep court activity accurate, even when the app is not open.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "We use your location to show nearby courts and update how many users are at each location.";
+				INFOPLIST_KEY_NSNetworkVolumesUsageDescription = "We use your location to show nearby courts and update how many users are at each facility.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

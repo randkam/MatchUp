@@ -18,6 +18,12 @@ public class WebSocketConfig implements WebSocketConfigurer {
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(chatWebSocketHandler, "/ws/chat")
-               .setAllowedOrigins("https://matchup-api.xyz", "http://localhost:9095", "capacitor://localhost", "http://localhost");
+               .setAllowedOrigins("https://matchup-api.xyz", 
+                                "http://localhost:9095",
+                                "http://localhost:3000",
+                                "http://localhost:8080",
+                                "http://localhost",
+                                "capacitor://localhost",
+                                "*");
     }
 }
