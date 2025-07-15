@@ -9,11 +9,11 @@ class ReviewManager {
     func getLocationReviews(locationId: Int, completion: @escaping ([Review]?, Error?) -> Void) {
         let endpoint = APIConfig.locationReviewsEndpoint(locationId: locationId)
         print("Fetching reviews from endpoint: \(endpoint)")
-        networkManager.get(endpoint) { (result: Result<[Review], Error>) in
+        networkManager.get(endpoint) { (result: Result<PaginatedResponse<Review>, Error>) in
             switch result {
-            case .success(let reviews):
-                print("Received reviews: \(reviews)")
-                completion(reviews, nil)
+            case .success(let paginatedResponse):
+                print("Received reviews: \(paginatedResponse.content)")
+                completion(paginatedResponse.content, nil)
             case .failure(let error):
                 print("Failed to fetch reviews: \(error)")
                 completion(nil, error)

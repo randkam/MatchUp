@@ -5,7 +5,7 @@ struct User: Codable {
     let userId: Int
     let userName: String
     let userNickName: String
-    let email: String
+    let userEmail: String
     let userPassword: String
     let userPosition: String
     let userRegion: String
@@ -13,6 +13,20 @@ struct User: Codable {
     var token: String?
     var userLatitude: Double?
     var userLongitude: Double?
+    
+    enum CodingKeys: String, CodingKey {
+        case userId
+        case userName
+        case userNickName
+        case userEmail
+        case userPassword
+        case userPosition
+        case userRegion
+        case profilePictureUrl
+        case token
+        case userLatitude
+        case userLongitude
+    }
 }
 
 struct UserLocation: Codable {
@@ -146,39 +160,54 @@ class NetworkManager {
             }
             return
         }
-        guard let url = URL(string: "\(APIConfig.usersEndpoint)?identifier=\(identifier)") else {
-            completion(false, NSError(domain: "", code: -1, userInfo: nil)); return
+        
+        let loginEndpoint = "\(APIConfig.usersEndpoint)/login?identifier=\(identifier)&password=\(password)"
+        guard let url = URL(string: loginEndpoint) else {
+            completion(false, NSError(domain: "", code: -1, userInfo: nil))
+            return
         }
+        
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        URLSession.shared.dataTask(with: request) { data, _, error in
-            if let error = error { completion(false, error); return }
-            guard let data = data else {
-                completion(false, NSError(domain: "", code: -1, userInfo: nil)); return
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                print("Login error: \(error)")
+                completion(false, error)
+                return
             }
+            
+            guard let data = data else {
+                print("No data received from login")
+                completion(false, NSError(domain: "", code: -1, userInfo: nil))
+                return
+            }
+            
             do {
-                let users = try JSONDecoder().decode([User].self, from: data)
-                if var user = users.first(where: { ($0.email == identifier || $0.userName == identifier) && $0.userPassword == password }) {
-                    if let token = self.generateJWTToken(for: user.email, password: user.userPassword) {
-                        user.token = token
-                        UserDefaults.standard.set(token, forKey: "userToken")
-                        UserDefaults.standard.set(user.email, forKey: "loggedInUserEmail")
-                        UserDefaults.standard.set(user.userName, forKey: "loggedInUserName")
-                        UserDefaults.standard.set(user.userNickName, forKey: "loggedInUserNickName")
-                        UserDefaults.standard.set(user.userId, forKey: "loggedInUserId")
-                        UserDefaults.standard.set(user.userPosition, forKey: "loggedInUserPosition")
-                        UserDefaults.standard.set(user.userRegion, forKey: "loggedInUserRegion")
-                        if let profilePictureUrl = user.profilePictureUrl {
-                            UserDefaults.standard.set(profilePictureUrl, forKey: "loggedInUserProfilePicture")
-                        }
-                        completion(true, nil)
-                    } else { completion(false, NSError(domain: "", code: -1, userInfo: nil)) }
+                let user = try JSONDecoder().decode(User.self, from: data)
+                if let token = self.generateJWTToken(for: user.userEmail, password: user.userPassword) {
+                    // Store user data in UserDefaults
+                    UserDefaults.standard.set(token, forKey: "userToken")
+                    UserDefaults.standard.set(user.userEmail, forKey: "loggedInUserEmail")
+                    UserDefaults.standard.set(user.userName, forKey: "loggedInUserName")
+                    UserDefaults.standard.set(user.userNickName, forKey: "loggedInUserNickName")
+                    UserDefaults.standard.set(user.userId, forKey: "loggedInUserId")
+                    UserDefaults.standard.set(user.userPosition, forKey: "loggedInUserPosition")
+                    UserDefaults.standard.set(user.userRegion, forKey: "loggedInUserRegion")
+                    if let profilePictureUrl = user.profilePictureUrl {
+                        UserDefaults.standard.set(profilePictureUrl, forKey: "loggedInUserProfilePicture")
+                    }
+                    print("Login successful for user: \(user.userName)")
+                    completion(true, nil)
                 } else {
-                    completion(false, NSError(domain: "", code: 401, userInfo: nil))
+                    print("Failed to generate token")
+                    completion(false, NSError(domain: "", code: -1, userInfo: nil))
                 }
-            } catch { completion(false, error) }
+            } catch {
+                print("Login decode error: \(error)")
+                completion(false, error)
+            }
         }.resume()
     }
 
@@ -194,7 +223,7 @@ class NetworkManager {
             guard let data = data else { completion(false, nil); return }
             do {
                 let createdUser = try JSONDecoder().decode(User.self, from: data)
-                completion(createdUser.email == email, nil)
+                completion(createdUser.userEmail == email, nil)
             } catch { completion(false, error) }
         }.resume()
     }
@@ -225,9 +254,9 @@ class NetworkManager {
             }
             do {
                 let users = try JSONDecoder().decode([User].self, from: data)
-                if let user = users.first(where: { $0.email == email }) {
+                if let user = users.first(where: { $0.userEmail == email }) {
                     print("getUserProfile success - Profile picture URL: \(String(describing: user.profilePictureUrl))")
-                    completion(user.userName, user.userNickName, user.email, user.profilePictureUrl)
+                    completion(user.userName, user.userNickName, user.userEmail, user.profilePictureUrl)
                 } else {
                     print("getUserProfile: User not found in response")
                     completion(nil, nil, nil, nil)
@@ -504,34 +533,39 @@ class NetworkManager {
         }.resume()
     }
     
-    func getUser(userId: Int, completion: @escaping (User?) -> Void) {
-        guard let url = URL(string: "\(APIConfig.usersEndpoint)/\(userId)") else {
-            completion(nil)
-            return
-        }
+    func getUser(userId: Int, completion: @escaping (Result<User, Error>) -> Void) {
+        let endpoint = APIConfig.userByIdEndpoint(userId: userId)
+        print("Fetching user from endpoint: \(endpoint)")
         
-        var request = URLRequest(url: url)
+        var request = URLRequest(url: URL(string: endpoint)!)
         request.httpMethod = "GET"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         
-        URLSession.shared.dataTask(with: request) { data, _, error in
+        URLSession.shared.dataTask(with: request) { data, response, error in
             if let error = error {
                 print("Error fetching user: \(error)")
-                completion(nil)
+                completion(.failure(error))
                 return
             }
             
             guard let data = data else {
-                completion(nil)
+                completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "No data received"])))
                 return
             }
             
+            // Print raw response for debugging
+            if let responseString = String(data: data, encoding: .utf8) {
+                print("Raw user response: \(responseString)")
+            }
+            
             do {
-                let user = try JSONDecoder().decode(User.self, from: data)
-                completion(user)
+                let decoder = JSONDecoder()
+                decoder.keyDecodingStrategy = .useDefaultKeys
+                let user = try decoder.decode(User.self, from: data)
+                completion(.success(user))
             } catch {
                 print("Error decoding user: \(error)")
-                completion(nil)
+                completion(.failure(error))
             }
         }.resume()
     }
@@ -649,8 +683,15 @@ class NetworkManager {
 }
 
 extension NetworkManager {
-    func getPaginatedLocations(page: Int = 0, size: Int = 20, search: String? = nil, isIndoor: Bool? = nil, isLit: Bool? = nil, completion: @escaping (Result<PaginatedResponse<Location>, Error>) -> Void) {
-        var components = URLComponents(string: APIConfig.locationsEndpoint)
+    func getPaginatedLocations(
+        page: Int,
+        size: Int,
+        search: String? = nil,
+        isIndoor: Bool? = nil,
+        isLit: Bool? = nil,
+        completion: @escaping (Result<PaginatedResponse<Location>, Error>) -> Void
+    ) {
+        var urlComponents = URLComponents(string: APIConfig.locationsEndpoint)!
         var queryItems = [
             URLQueryItem(name: "page", value: String(page)),
             URLQueryItem(name: "size", value: String(size))
@@ -666,9 +707,9 @@ extension NetworkManager {
             queryItems.append(URLQueryItem(name: "isLit", value: String(isLit)))
         }
         
-        components?.queryItems = queryItems
+        urlComponents.queryItems = queryItems
         
-        guard let url = components?.url else {
+        guard let url = urlComponents.url else {
             completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])))
             return
         }
@@ -681,65 +722,22 @@ extension NetworkManager {
         
         URLSession.shared.dataTask(with: request) { data, response, error in
             if let error = error {
-                print("Error fetching locations: \(error)")
                 completion(.failure(error))
                 return
             }
             
             guard let data = data else {
-                print("No data received from locations endpoint")
                 completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "No data received"])))
                 return
             }
             
-            // Print raw response for debugging
-            if let responseString = String(data: data, encoding: .utf8) {
-                print("Raw locations response: \(responseString)")
-            }
+            print("Raw locations response: \(String(data: data, encoding: .utf8) ?? "Unable to decode response")")
             
             do {
-                let decoder = JSONDecoder()
-                decoder.keyDecodingStrategy = .useDefaultKeys
-                
-                // First try to decode as PaginatedResponse
-                if let paginatedResponse = try? decoder.decode(PaginatedResponse<Location>.self, from: data) {
-                    print("Successfully decoded paginated response with \(paginatedResponse.content.count) locations")
-                    completion(.success(paginatedResponse))
-                } else {
-                    // If that fails, try to decode as array of locations
-                    let locations = try decoder.decode([Location].self, from: data)
-                    print("Successfully decoded \(locations.count) locations")
-                    
-                    // Create a PaginatedResponse wrapper
-                    let paginatedResponse = PaginatedResponse(
-                        content: locations,
-                        totalPages: 1,
-                        totalElements: locations.count,
-                        last: true,
-                        size: locations.count,
-                        number: 0,
-                        first: true,
-                        numberOfElements: locations.count,
-                        empty: locations.isEmpty
-                    )
-                    completion(.success(paginatedResponse))
-                }
+                let response = try JSONDecoder().decode(PaginatedResponse<Location>.self, from: data)
+                completion(.success(response))
             } catch {
                 print("Error decoding locations: \(error)")
-                if let decodingError = error as? DecodingError {
-                    switch decodingError {
-                    case .keyNotFound(let key, let context):
-                        print("Key '\(key)' not found: \(context.debugDescription)")
-                    case .valueNotFound(let type, let context):
-                        print("Value of type '\(type)' not found: \(context.debugDescription)")
-                    case .typeMismatch(let type, let context):
-                        print("Type '\(type)' mismatch: \(context.debugDescription)")
-                    case .dataCorrupted(let context):
-                        print("Data corrupted: \(context.debugDescription)")
-                    @unknown default:
-                        print("Unknown decoding error: \(error)")
-                    }
-                }
                 completion(.failure(error))
             }
         }.resume()

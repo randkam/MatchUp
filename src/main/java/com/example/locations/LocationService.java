@@ -4,7 +4,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class LocationService {
@@ -41,7 +40,7 @@ public class LocationService {
         return locationRepository.findAll(pageRequest);
     }
 
-    public Location getLocationById(int id) {
+    public Location getLocationById(Long id) {
         return locationRepository.findById(id)
             .orElseThrow(() -> new RuntimeException("Location not found with id: " + id));
     }

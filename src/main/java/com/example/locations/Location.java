@@ -8,29 +8,44 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 public class Location {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long locationId;
+    @Column(name = "location_id")
+    private Long id;
+
+    @JsonProperty("name")
     private String locationName;
+
+    @JsonProperty("address")
     private String locationAddress;
+
+    @JsonProperty("zip_code")
     private String locationZipCode;
+
+    @JsonProperty("active_players")
     private int locationActivePlayers;
+
+    @JsonProperty("reviews")
     private String locationReviews;
     
     @JsonProperty("is_lit_at_night")
     private Boolean isLitAtNight;
     
     @Enumerated(EnumType.STRING)
+    @JsonProperty("type")
     private LocationType locationType;
     
+    @JsonProperty("latitude")
     private Double locationLatitude;
+
+    @JsonProperty("longitude")
     private Double locationLongitude;
 
     public Location() {
     }
 
-    public Location(Long locationId, String locationName, String locationAddress, String locationZipCode,
+    public Location(Long id, String locationName, String locationAddress, String locationZipCode,
                    int locationActivePlayers, String locationReviews, Boolean isLitAtNight,
                    LocationType locationType, Double locationLatitude, Double locationLongitude) {
-        this.locationId = locationId;
+        this.id = id;
         this.locationName = locationName;
         this.locationAddress = locationAddress;
         this.locationZipCode = locationZipCode;
@@ -43,14 +58,16 @@ public class Location {
     }
 
     // Getters and Setters
-    public Long getLocationId() {
-        return locationId;
+    @JsonProperty("id")
+    public Long getId() {
+        return id;
     }
 
-    public void setLocationId(Long locationId) {
-        this.locationId = locationId;
+    public void setId(Long id) {
+        this.id = id;
     }
 
+    @JsonProperty("name")
     public String getLocationName() {
         return locationName;
     }
@@ -59,6 +76,7 @@ public class Location {
         this.locationName = locationName;
     }
 
+    @JsonProperty("address")
     public String getLocationAddress() {
         return locationAddress;
     }
@@ -67,6 +85,7 @@ public class Location {
         this.locationAddress = locationAddress;
     }
 
+    @JsonProperty("zip_code")
     public String getLocationZipCode() {
         return locationZipCode;
     }
@@ -75,6 +94,7 @@ public class Location {
         this.locationZipCode = locationZipCode;
     }
 
+    @JsonProperty("active_players")
     public int getLocationActivePlayers() {
         return locationActivePlayers;
     }
@@ -83,6 +103,7 @@ public class Location {
         this.locationActivePlayers = locationActivePlayers;
     }
 
+    @JsonProperty("reviews")
     public String getLocationReviews() {
         return locationReviews;
     }
@@ -91,6 +112,7 @@ public class Location {
         this.locationReviews = locationReviews;
     }
 
+    @JsonProperty("is_lit_at_night")
     public Boolean isLitAtNight() {
         return isLitAtNight;
     }
@@ -99,6 +121,7 @@ public class Location {
         isLitAtNight = litAtNight;
     }
 
+    @JsonProperty("type")
     public LocationType getLocationType() {
         return locationType;
     }
@@ -107,6 +130,7 @@ public class Location {
         this.locationType = locationType;
     }
 
+    @JsonProperty("latitude")
     public Double getLocationLatitude() {
         return locationLatitude;
     }
@@ -115,6 +139,7 @@ public class Location {
         this.locationLatitude = locationLatitude;
     }
 
+    @JsonProperty("longitude")
     public Double getLocationLongitude() {
         return locationLongitude;
     }

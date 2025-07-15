@@ -16,19 +16,20 @@ public class LocationController {
     @GetMapping
     public ResponseEntity<Page<Location>> getAllLocations(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(required = false) Integer size,
+            @RequestParam(defaultValue = "20") Integer size,
             @RequestParam(required = false) String sortBy,
             @RequestParam(required = false) String direction,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) Boolean isIndoor,
             @RequestParam(required = false) Boolean isLit) {
-        return ResponseEntity.ok(locationService.getAllLocations(
+        Page<Location> locationsPage = locationService.getAllLocations(
             PaginationConfig.createPageRequest(page, size, sortBy, direction),
-            search, isIndoor, isLit));
+            search, isIndoor, isLit);
+        return ResponseEntity.ok(locationsPage);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Location> getLocationById(@PathVariable int id) {
+    public ResponseEntity<Location> getLocationById(@PathVariable Long id) {
         return ResponseEntity.ok(locationService.getLocationById(id));
     }
 } 

@@ -1,20 +1,27 @@
 package com.example.chats;
 
 import java.time.LocalDateTime;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class ChatMessage {
+    @JsonProperty("locationId")
     private int locationId;
+    @JsonProperty("senderId")
     private int senderId;
+    @JsonProperty("content")
     private String content;
+    @JsonProperty("senderUserName")
     private String senderUserName;
+    @JsonProperty("timestamp")
     private LocalDateTime timestamp;
+    @JsonProperty("id")
     private Integer id;
 
     public ChatMessage() {
     }
 
     public ChatMessage(MessageEntity entity) {
-        this.id = entity.getChatId();
+        this.id = entity.getId();
         this.locationId = entity.getLocationId();
         this.senderId = entity.getSenderId();
         this.content = entity.getContent();

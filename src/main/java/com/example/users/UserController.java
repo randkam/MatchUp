@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 
 @RestController
 @RequestMapping(path = "api/v1/users")
@@ -23,6 +24,15 @@ public class UserController {
         this.fileStorageService = fileStorageService;
     }
 
+    @GetMapping("/login")
+    public ResponseEntity<User> login(@RequestParam String identifier, @RequestParam String password) {
+        Optional<User> user = userService.findByEmailOrUsername(identifier);
+        if (user.isPresent() && user.get().getUserPassword().equals(password)) {
+            return ResponseEntity.ok(user.get());
+        }
+        return ResponseEntity.notFound().build();
+    }
+
     @GetMapping
 	public List<User> getUsers(){
        return userService.getUsers();
@@ -30,8 +40,23 @@ public class UserController {
 	}
 
     @GetMapping(path = "{email}")
-    public User getUser(@PathVariable("email") String userEmail) {
-    return userService.getUser(userEmail);
+    public ResponseEntity<User> getUser(@PathVariable("email") String userEmail) {
+        try {
+            User user = userService.getUser(userEmail);
+            return ResponseEntity.ok(user);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @GetMapping(path = "/id/{userId}")
+    public ResponseEntity<User> getUserById(@PathVariable("userId") Long userId) {
+        try {
+            User user = userService.getUserById(userId);
+            return ResponseEntity.ok(user);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     @PostMapping
