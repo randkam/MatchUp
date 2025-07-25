@@ -369,14 +369,17 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     private let networkManager = NetworkManager()
     private var updateTimer: Timer?
     private let updateInterval: TimeInterval = 300 // Update every 5 minutes
+    private var activeLocationId: Int? // Track which location we're currently at
+    private let proximityThreshold: Double = 50 // 50 meters threshold
     
     override init() {
         super.init()
         manager.delegate = self
-        manager.desiredAccuracy = kCLLocationAccuracyHundredMeters // Lower accuracy to save battery
+        manager.desiredAccuracy = kCLLocationAccuracyBest // Use best accuracy for court detection
         manager.allowsBackgroundLocationUpdates = true
         manager.pausesLocationUpdatesAutomatically = true
         manager.activityType = .fitness
+        manager.distanceFilter = 10 // Update location when user moves 10 meters
     }
     
     func requestLocation() {
@@ -399,6 +402,11 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         manager.stopUpdatingLocation()
         updateTimer?.invalidate()
         updateTimer = nil
+        
+        // If we were at a location, decrement the count
+        if let locationId = activeLocationId {
+            decrementActivePlayersCount(for: locationId)
+        }
     }
     
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
@@ -425,8 +433,88 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
                 print("LocationManager: Failed to update location on server - \(error.localizedDescription)")
             } else if success {
                 print("LocationManager: Successfully updated location on server")
-            } else {
-                print("LocationManager: Failed to update location on server")
+            }
+        }
+        
+        // Check nearby courts
+        checkNearbyCourts(userLocation: location)
+    }
+    
+    private func checkNearbyCourts(userLocation: CLLocation) {
+        let dataStore = SharedDataStore.shared
+        
+        // Find the closest court within threshold
+        var closestCourt: (location: Location, distance: CLLocationDistance)?
+        
+        for location in dataStore.locations {
+            guard let latitude = location.locationLatitude,
+                  let longitude = location.locationLongitude else {
+                continue
+            }
+            
+            let courtLocation = CLLocation(latitude: latitude, longitude: longitude)
+            let distance = userLocation.distance(from: courtLocation)
+            
+            if distance <= proximityThreshold {
+                if let current = closestCourt {
+                    if distance < current.distance {
+                        closestCourt = (location, distance)
+                    }
+                } else {
+                    closestCourt = (location, distance)
+                }
+            }
+        }
+        
+        // Handle court proximity
+        if let (closestLocation, _) = closestCourt {
+            if activeLocationId != closestLocation.locationId {
+                // If we were at a different location, decrement its count
+                if let oldLocationId = activeLocationId {
+                    decrementActivePlayersCount(for: oldLocationId)
+                }
+                
+                // Increment count for new location
+                incrementActivePlayersCount(for: closestLocation.locationId)
+                activeLocationId = closestLocation.locationId
+            }
+        } else if let oldLocationId = activeLocationId {
+            // If we're not near any court but were previously at one
+            decrementActivePlayersCount(for: oldLocationId)
+            activeLocationId = nil
+        }
+    }
+    
+    private func incrementActivePlayersCount(for locationId: Int) {
+        networkManager.incrementActivePlayers(locationId: locationId) { result in
+            switch result {
+            case .success(let location):
+                print("LocationManager: Successfully incremented active players for location \(locationId)")
+                // Update the location in SharedDataStore
+                DispatchQueue.main.async {
+                    if let index = SharedDataStore.shared.locations.firstIndex(where: { $0.locationId == locationId }) {
+                        SharedDataStore.shared.locations[index] = location
+                    }
+                }
+            case .failure(let error):
+                print("LocationManager: Failed to increment active players - \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    private func decrementActivePlayersCount(for locationId: Int) {
+        networkManager.decrementActivePlayers(locationId: locationId) { result in
+            switch result {
+            case .success(let location):
+                print("LocationManager: Successfully decremented active players for location \(locationId)")
+                // Update the location in SharedDataStore
+                DispatchQueue.main.async {
+                    if let index = SharedDataStore.shared.locations.firstIndex(where: { $0.locationId == locationId }) {
+                        SharedDataStore.shared.locations[index] = location
+                    }
+                }
+            case .failure(let error):
+                print("LocationManager: Failed to decrement active players - \(error.localizedDescription)")
             }
         }
     }

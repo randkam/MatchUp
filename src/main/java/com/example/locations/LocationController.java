@@ -32,4 +32,16 @@ public class LocationController {
     public ResponseEntity<Location> getLocationById(@PathVariable Long id) {
         return ResponseEntity.ok(locationService.getLocationById(id));
     }
+
+    @PostMapping("/{id}/increment-players")
+    public ResponseEntity<Location> incrementActivePlayers(@PathVariable Long id) {
+        Location location = locationService.incrementActivePlayers(id);
+        return ResponseEntity.ok(location);
+    }
+
+    @PostMapping("/{id}/decrement-players")
+    public ResponseEntity<Location> decrementActivePlayers(@PathVariable Long id) {
+        Location location = locationService.decrementActivePlayers(id);
+        return ResponseEntity.ok(location);
+    }
 } 
