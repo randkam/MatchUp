@@ -114,7 +114,7 @@ struct HomeView: View {
                     // Locations List
                     ScrollView {
                         LazyVStack(spacing: 16) {
-                            if filteredLocations.isEmpty {
+                            if !dataStore.isLoading && filteredLocations.isEmpty {
                                 EmptyStateView(filters: filters)
                             } else {
                                 ForEach(filteredLocations) { location in

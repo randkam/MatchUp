@@ -17,9 +17,13 @@ enum WebSocketError: Error {
 class WebSocketManager: NSObject, ObservableObject, URLSessionWebSocketDelegate {
     @Published var messages: [ChatMessage] = []
     private var webSocket: URLSessionWebSocketTask?
-    private var isConnected = false
+    @Published var isConnected = false
+    private var hasInitialLoad = false
 
     func connect(locationId: Int, completion: @escaping (Bool) -> Void) {
+        // Disconnect existing connection if any
+        disconnect()
+        
         let urlString = APIConfig.wsChatEndpoint(locationId: locationId)
         guard let url = URL(string: urlString) else {
             completion(false)
@@ -36,6 +40,8 @@ class WebSocketManager: NSObject, ObservableObject, URLSessionWebSocketDelegate 
 
     private func receiveMessage() {
         webSocket?.receive { [weak self] result in
+            guard let self = self else { return }
+            
             switch result {
             case .success(let message):
                 switch message {
@@ -44,14 +50,11 @@ class WebSocketManager: NSObject, ObservableObject, URLSessionWebSocketDelegate 
                         do {
                             let chatMessage = try JSONDecoder().decode(ChatMessage.self, from: data)
                             DispatchQueue.main.async {
-                                // Check if message already exists to avoid duplicates
-                                if let messages = self?.messages {
-                                    // Only add if the message doesn't exist and has a valid ID
-                                    if let messageId = chatMessage.id, !messages.contains(where: { $0.id == messageId }) {
-                                        self?.messages.append(chatMessage)
-                                        // Sort messages by timestamp
-                                        self?.messages.sort { $0.timestamp < $1.timestamp }
-                                    }
+                                // Only add if the message doesn't exist
+                                if !self.messages.contains(where: { $0.id == chatMessage.id }) {
+                                    self.messages.append(chatMessage)
+                                    // Sort messages by timestamp
+                                    self.messages.sort { $0.timestamp < $1.timestamp }
                                 }
                             }
                         } catch {
@@ -61,14 +64,19 @@ class WebSocketManager: NSObject, ObservableObject, URLSessionWebSocketDelegate 
                 default:
                     break
                 }
-                // Continue listening for new messages
-                self?.receiveMessage()
+                
+                // Only continue receiving if still connected
+                if self.isConnected {
+                    self.receiveMessage()
+                }
 
             case .failure(let error):
                 print("Error receiving message: \(error)")
-                // Try to reconnect or handle error
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                    self?.receiveMessage()
+                // Only try to reconnect if still connected
+                if self.isConnected {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                        self.receiveMessage()
+                    }
                 }
             }
         }
@@ -80,19 +88,11 @@ class WebSocketManager: NSObject, ObservableObject, URLSessionWebSocketDelegate 
             let jsonData = try encoder.encode(message)
             if let jsonString = String(data: jsonData, encoding: .utf8) {
                 let wsMessage = URLSessionWebSocketTask.Message.string(jsonString)
-                webSocket?.send(wsMessage) { [weak self] error in
+                webSocket?.send(wsMessage) { error in
                     if let error = error {
                         print("Error sending message: \(error)")
-                    } else {
-                        // Optimistically add message to the local array
-                        DispatchQueue.main.async {
-                            self?.messages.append(message)
-                            // Sort messages by timestamp
-                            if let messages = self?.messages {
-                                self?.messages = messages.sorted { $0.timestamp < $1.timestamp }
-                            }
-                        }
                     }
+                    // Don't add message locally - wait for server response
                 }
             }
         } catch {
@@ -101,8 +101,11 @@ class WebSocketManager: NSObject, ObservableObject, URLSessionWebSocketDelegate 
     }
 
     func disconnect() {
+        isConnected = false
         webSocket?.cancel(with: .normalClosure, reason: nil)
         webSocket = nil
+        // Clear messages when disconnecting
+        messages = []
     }
 
     func loadOldMessages(locationId: Int, completion: @escaping ([ChatMessage]) -> Void) {
@@ -164,31 +167,35 @@ struct ChatMessage: Identifiable, Codable, Equatable {
         content = try container.decode(String.self, forKey: .content)
         senderUserName = try container.decode(String.self, forKey: .senderUserName)
         
-        // Handle timestamp from server
-        let timestampString = try container.decode(String.self, forKey: .timestamp)
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSSSS"
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
-        
-        if let date = formatter.date(from: timestampString) {
-            timestamp = date
-        } else {
-            // Try other common formats as fallback
-            formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+        // Handle timestamp from server - can be either a string or an array of components
+        if let timestampArray = try? container.decode([Int].self, forKey: .timestamp) {
+            // Handle array format [year, month, day, hour, minute, second, nanosecond]
+            let components = DateComponents(
+                year: timestampArray[0],
+                month: timestampArray[1],
+                day: timestampArray[2],
+                hour: timestampArray[3],
+                minute: timestampArray[4],
+                second: timestampArray[5]
+            )
+            if let date = Calendar.current.date(from: components) {
+                timestamp = date
+            } else {
+                timestamp = Date() // Fallback to current date if conversion fails
+            }
+        } else if let timestampString = try? container.decode(String.self, forKey: .timestamp) {
+            // Try the original string format as fallback
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSSSS"
+            formatter.timeZone = TimeZone(secondsFromGMT: 0)
+            
             if let date = formatter.date(from: timestampString) {
                 timestamp = date
             } else {
-                let isoFormatter = ISO8601DateFormatter()
-                if let date = isoFormatter.date(from: timestampString) {
-                    timestamp = date
-                } else {
-                    throw DecodingError.dataCorruptedError(
-                        forKey: .timestamp,
-                        in: container,
-                        debugDescription: "Date string does not match expected format: \(timestampString)"
-                    )
-                }
+                timestamp = Date() // Fallback to current date if parsing fails
             }
+        } else {
+            timestamp = Date() // Fallback to current date if both methods fail
         }
     }
     

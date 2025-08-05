@@ -108,6 +108,13 @@ struct ChatDetailedView: View {
     @State private var hasMorePages = true
     @State private var isLoadingMore = false
     @State private var isRefreshing = false
+    @State private var shouldAutoScroll = true
+    @State private var lastContentOffset: CGFloat = 0
+    @State private var hasInitiallyScrolled = false
+    @State private var messageCount = 0
+    
+    // Timer for periodic scroll checks
+    @State private var scrollTimer: Timer?
     
     private var currentUserId: Int? {
         UserDefaults.standard.value(forKey: "loggedInUserId") as? Int
@@ -125,29 +132,13 @@ struct ChatDetailedView: View {
         _webSocketManager = StateObject(wrappedValue: WebSocketManager())
     }
     
-    private func endEditing() {
-        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-    }
-    
-    func sendMessage(content: String, senderId: Int, userName: String) {
-        guard !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-
-        let locationIdInt = chat.id
-        let message = ChatMessage(
-            id: nil,
-            locationId: locationIdInt,
-            senderId: senderId,
-            content: content,
-            senderUserName: userName,
-            timestamp: Date()
-        )
-
-        webSocketManager.sendMessage(message)
-        messageText = ""
+    private func forceScrollToBottom() {
+        guard let proxy = scrollViewProxy else { return }
         
-        // Scroll to bottom after sending
-        if let proxy = scrollViewProxy {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+        // Execute multiple scroll attempts with different delays
+        let delays = [0.1, 0.3, 0.5]
+        for delay in delays {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
                 withAnimation {
                     proxy.scrollTo("bottomAnchor", anchor: .bottom)
                 }
@@ -155,37 +146,14 @@ struct ChatDetailedView: View {
         }
     }
     
-    private func loadMessages(refresh: Bool = false) {
-        if refresh {
-            currentPage = 0
-            webSocketManager.messages = []
-            hasMorePages = true
-        }
+    private func setupScrollTimer() {
+        // Invalidate existing timer if any
+        scrollTimer?.invalidate()
         
-        guard hasMorePages && !isLoadingMore else { return }
-        isLoadingMore = true
-        
-        NetworkManager().getPaginatedMessages(
-            locationId: chat.id,
-            page: currentPage,
-            size: 20
-        ) { result in
-            DispatchQueue.main.async {
-                isLoadingMore = false
-                
-                switch result {
-                case .success(let response):
-                    if currentPage == 0 {
-                        webSocketManager.messages = response.content
-                    } else {
-                        webSocketManager.messages.insert(contentsOf: response.content, at: 0)
-                    }
-                    hasMorePages = !response.last
-                    currentPage += 1
-                    
-                case .failure(let error):
-                    print("Failed to load messages: \(error)")
-                }
+        // Create new timer that checks scroll position every 0.5 seconds
+        scrollTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
+            if shouldAutoScroll {
+                forceScrollToBottom()
             }
         }
     }
@@ -240,26 +208,26 @@ struct ChatDetailedView: View {
     }
     
     var body: some View {
-        VStack(spacing: 0) {
-            // Header
-            let headerView = Group {
-                if let location = location {
-                    Button(action: { showLocationDetails = true }) {
-                        LocationHeaderContent(location: location, chatName: chat.name)
+        ScrollViewReader { proxy in
+            VStack(spacing: 0) {
+                // Header
+                let headerView = Group {
+                    if let location = location {
+                        Button(action: { showLocationDetails = true }) {
+                            LocationHeaderContent(location: location, chatName: chat.name)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    } else if isLoading {
+                        LoadingHeaderView()
                     }
-                    .buttonStyle(PlainButtonStyle())
-                } else if isLoading {
-                    LoadingHeaderView()
                 }
-            }
-            
-            headerView
-                .background(ModernColorScheme.surface)
-                .navigationBarBackButtonHidden(false)
-            
-            // Chat Messages
-            ScrollView {
-                ScrollViewReader { proxy in
+                
+                headerView
+                    .background(ModernColorScheme.surface)
+                    .navigationBarBackButtonHidden(false)
+                
+                // Chat Messages
+                ScrollView {
                     LazyVStack(spacing: 0) {
                         if isLoadingMore && webSocketManager.messages.isEmpty {
                             ProgressView()
@@ -271,6 +239,7 @@ struct ChatDetailedView: View {
                                 group: group,
                                 currentUserId: currentUserId
                             )
+                            .id(group.id) // Ensure each group has unique ID
                             .onAppear {
                                 if let firstMessage = group.messages.first {
                                     loadMoreIfNeeded(currentItem: firstMessage)
@@ -281,51 +250,64 @@ struct ChatDetailedView: View {
                         .padding(.top)
                         .padding(.bottom, 16)
                         
-                        Color.clear.frame(height: 0).id("bottomAnchor")
-                    }
-                    .background(ModernColorScheme.background)
-                    .onTapGesture {
-                        self.endEditing()
-                    }
-                    .onAppear {
-                        scrollViewProxy = proxy
-                        DispatchQueue.main.async {
-                            withAnimation {
-                                proxy.scrollTo("bottomAnchor", anchor: .bottom)
-                            }
-                        }
-                    }
-                    .onChange(of: webSocketManager.messages) { messages in
-                        if !messages.isEmpty {
-                            DispatchQueue.main.async {
-                                withAnimation {
-                                    proxy.scrollTo("bottomAnchor", anchor: .bottom)
-                                }
-                            }
-                        }
-                    }
-                    .onChange(of: keyboardResponder.keyboardHeight) { newHeight in
-                        if newHeight > 0 {
-                            DispatchQueue.main.async {
-                                withAnimation(.spring(response: 0.5, dampingFraction: 0.8, blendDuration: 0)) {
-                                    proxy.scrollTo("bottomAnchor", anchor: .bottom)
-                                }
-                            }
-                        }
-                    }
-                    .refreshable {
-                        await refresh()
+                        Color.clear.frame(height: 1).id("bottomAnchor")
                     }
                 }
+                .background(ModernColorScheme.background)
+                .onTapGesture {
+                    self.endEditing()
+                }
+                .onAppear {
+                    scrollViewProxy = proxy
+                    setupScrollTimer()
+                    forceScrollToBottom()
+                }
+                .onChange(of: webSocketManager.messages.count) { newCount in
+                    if newCount > messageCount {
+                        // New messages have been added
+                        messageCount = newCount
+                        let lastMessage = webSocketManager.messages.last
+                        let isFromCurrentUser = lastMessage?.senderId == currentUserId
+                        
+                        if isFromCurrentUser || shouldAutoScroll {
+                            forceScrollToBottom()
+                        }
+                    }
+                }
+                .onChange(of: keyboardResponder.keyboardHeight) { newHeight in
+                    if newHeight > 0 {
+                        shouldAutoScroll = true
+                        forceScrollToBottom()
+                    }
+                }
+                .simultaneousGesture(
+                    DragGesture().onChanged { value in
+                        let scrollDelta = value.translation.height
+                        
+                        // If user scrolls up more than 50 points, disable auto-scroll
+                        if scrollDelta > 50 {
+                            shouldAutoScroll = false
+                        }
+                        
+                        // If user scrolls to bottom, enable auto-scroll
+                        if value.translation.height < 0 && 
+                           value.predictedEndTranslation.height < -50 {
+                            shouldAutoScroll = true
+                        }
+                    }
+                )
+                .refreshable {
+                    await refresh()
+                }
+                
+                // Message Input
+                MessageInputView(
+                    messageText: $messageText,
+                    currentUserId: currentUserId,
+                    currentUserName: currentUserName,
+                    onSend: sendMessage
+                )
             }
-            
-            // Message Input
-            MessageInputView(
-                messageText: $messageText,
-                currentUserId: currentUserId,
-                currentUserName: currentUserName,
-                onSend: sendMessage
-            )
         }
         .background(ModernColorScheme.background.edgesIgnoringSafeArea(.all))
         .sheet(isPresented: $showLocationDetails) {
@@ -334,21 +316,88 @@ struct ChatDetailedView: View {
             }
         }
         .onAppear {
-            let locationIdInt = chat.id
-            webSocketManager.connect(locationId: locationIdInt) { success in
+            // Connect WebSocket when view appears
+            webSocketManager.connect(locationId: chat.id) { success in
                 if success {
-                    print("Connected successfully to chat")
-                    loadMessages(refresh: true)
-                } else {
-                    print("Failed to connect to chat")
+                    loadMessages()
                 }
             }
             
             fetchLocationDetails()
+            
+            // Initialize message count
+            messageCount = webSocketManager.messages.count
         }
         .onDisappear {
+            // Clean up
+            scrollTimer?.invalidate()
+            scrollTimer = nil
             webSocketManager.disconnect()
         }
+    }
+    
+    private func loadMessages(refresh: Bool = false) {
+        if refresh {
+            currentPage = 0
+            webSocketManager.messages = []
+            hasMorePages = true
+        }
+        
+        guard hasMorePages && !isLoadingMore else { return }
+        isLoadingMore = true
+        
+        NetworkManager().getPaginatedMessages(
+            locationId: chat.id,
+            page: currentPage,
+            size: 20
+        ) { result in
+            DispatchQueue.main.async {
+                isLoadingMore = false
+                
+                switch result {
+                case .success(let response):
+                    if currentPage == 0 {
+                        webSocketManager.messages = response.content
+                        messageCount = response.content.count
+                        shouldAutoScroll = true
+                        forceScrollToBottom()
+                    } else {
+                        webSocketManager.messages.insert(contentsOf: response.content, at: 0)
+                        messageCount = webSocketManager.messages.count
+                    }
+                    hasMorePages = !response.last
+                    currentPage += 1
+                    
+                case .failure(let error):
+                    print("Failed to load messages: \(error)")
+                }
+            }
+        }
+    }
+    
+    func sendMessage(content: String, senderId: Int, userName: String) {
+        guard !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+
+        let locationIdInt = chat.id
+        let message = ChatMessage(
+            id: nil,
+            locationId: locationIdInt,
+            senderId: senderId,
+            content: content,
+            senderUserName: userName,
+            timestamp: Date()
+        )
+
+        webSocketManager.sendMessage(message)
+        messageText = ""
+        
+        // Enable auto-scroll and force scroll to bottom
+        shouldAutoScroll = true
+        forceScrollToBottom()
+    }
+    
+    private func endEditing() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 }
 

@@ -42,7 +42,7 @@ class SharedDataStore: ObservableObject {
     
     private init() {
         // Initialize with empty data
-        fetchLocations()
+        // Removed initial fetchLocations call to avoid double loading
     }
     
     // MARK: - Location Methods
