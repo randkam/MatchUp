@@ -6,6 +6,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.nio.file.Files;
 import java.util.List;
@@ -25,6 +26,16 @@ public class LocationImageController {
     @GetMapping("/{locationId}/images")
     public ResponseEntity<List<String>> listLocationImages(@PathVariable Long locationId) {
         List<String> urls = storageService.listImageUrls(locationId);
+        return ResponseEntity.ok(urls);
+    }
+
+    // Upload one or more images for a location
+    @PostMapping("/{locationId}/images")
+    public ResponseEntity<List<String>> uploadLocationImages(
+            @PathVariable Long locationId,
+            @RequestParam("files") MultipartFile[] files
+    ) {
+        List<String> urls = storageService.saveImages(locationId, files);
         return ResponseEntity.ok(urls);
     }
 

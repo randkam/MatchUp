@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -85,12 +86,71 @@ public class LocationImageStorageService {
     }
 
     private boolean isImageFile(Path path) {
+        String fileName = path.getFileName().toString().toLowerCase();
+        // Fast path: check by known extensions
+        if (fileName.endsWith(".jpg") || fileName.endsWith(".jpeg") || fileName.endsWith(".png")
+                || fileName.endsWith(".webp") || fileName.endsWith(".gif") || fileName.endsWith(".bmp")
+                || fileName.endsWith(".heic")) {
+            return true;
+        }
+        // Fallback: check content type when available
         try {
             String contentType = Files.probeContentType(path);
             return contentType != null && contentType.startsWith("image/");
         } catch (IOException e) {
             return false;
         }
+    }
+
+    public List<String> saveImages(Long locationId, MultipartFile[] files) {
+        if (files == null || files.length == 0) {
+            return new ArrayList<>();
+        }
+
+        Path locationDir = locationImagesRoot.resolve(String.valueOf(locationId));
+        try {
+            Files.createDirectories(locationDir);
+        } catch (IOException e) {
+            throw new RuntimeException("Could not create directory for location " + locationId, e);
+        }
+
+        List<String> savedUrls = new ArrayList<>();
+
+        for (MultipartFile file : files) {
+            if (file.isEmpty()) {
+                continue;
+            }
+            String original = file.getOriginalFilename();
+            String sanitized = sanitizeFileName(original);
+            if (sanitized == null) {
+                sanitized = "image_" + System.currentTimeMillis() + ".jpg";
+            }
+
+            Path target = locationDir.resolve(sanitized).normalize();
+            try {
+                Files.copy(file.getInputStream(), target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                if (isImageFile(target)) {
+                    savedUrls.add(baseUrl + "/api/v1/locations/images/" + locationId + "/" + target.getFileName());
+                } else {
+                    Files.deleteIfExists(target);
+                }
+            } catch (IOException e) {
+                // skip this file and continue
+            }
+        }
+
+        // Return current listing to reflect final order
+        return listImageUrls(locationId);
+    }
+
+    private String sanitizeFileName(String fileName) {
+        if (fileName == null) return null;
+        String lower = fileName.toLowerCase();
+        lower = lower.replaceAll("[^a-z0-9._-]", "-");
+        // Prevent hidden files
+        lower = lower.replaceAll("^\\.+", "");
+        if (lower.isBlank()) return null;
+        return lower;
     }
 }
 
