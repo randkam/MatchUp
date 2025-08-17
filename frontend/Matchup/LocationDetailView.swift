@@ -12,6 +12,7 @@ struct LocationDetailView: View {
     @State private var showingReviews = false
     @State private var showingReviewsSheet = false
     @State private var showingNavigationOptions = false
+    @State private var imageUrls: [String] = []
     
     // Create a computed property for the chat object
     private var locationChat: Chat {
@@ -56,12 +57,27 @@ struct LocationDetailView: View {
             VStack(alignment: .leading, spacing: 20) {
                 // Header Image
                 ZStack(alignment: .topTrailing) {
-                    Image("ballcourt")
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(height: 200)
-                        .clipped()
-                        .cornerRadius(20)
+                    Group {
+                        if let firstUrl = imageUrls.first, let url = URL(string: firstUrl) {
+                            AsyncImage(url: url) { image in
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                            } placeholder: {
+                                Image("ballcourt")
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                                    .redacted(reason: .placeholder)
+                            }
+                        } else {
+                            Image("ballcourt")
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                        }
+                    }
+                    .frame(height: 200)
+                    .clipped()
+                    .cornerRadius(20)
                 }
                 .padding(.horizontal)
                 
@@ -192,6 +208,7 @@ struct LocationDetailView: View {
         .onAppear {
             checkIfJoinedChat()
             loadReviewStats()
+            loadImages()
         }
     }
     
@@ -231,6 +248,14 @@ struct LocationDetailView: View {
                 hasJoinedChat = true
             } else {
                 print("Error joining location: \(error?.localizedDescription ?? "Unknown error")")
+            }
+        }
+    }
+
+    private func loadImages() {
+        NetworkManager().fetchLocationImages(locationId: location.locationId) { urls in
+            DispatchQueue.main.async {
+                self.imageUrls = urls
             }
         }
     }

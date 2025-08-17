@@ -400,6 +400,28 @@ class NetworkManager {
         }.resume()
     }
 
+    // MARK: - Location Images
+    func fetchLocationImages(locationId: Int, completion: @escaping ([String]) -> Void) {
+        let urlString = APIConfig.locationImagesEndpoint(locationId: locationId)
+        guard let url = URL(string: urlString) else {
+            completion([])
+            return
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.addValue("application/json", forHTTPHeaderField: "Accept")
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let _ = error { completion([]); return }
+            guard let data = data else { completion([]); return }
+            do {
+                let urls = try JSONDecoder().decode([String].self, from: data)
+                completion(urls)
+            } catch {
+                completion([])
+            }
+        }.resume()
+    }
+
     func get<T: Decodable>(_ endpoint: String, completion: @escaping (Result<T, Error>) -> Void) {
         guard let url = URL(string: endpoint) else {
             completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])))
