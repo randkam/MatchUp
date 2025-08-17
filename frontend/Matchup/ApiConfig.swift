@@ -55,4 +55,8 @@ struct APIConfig {
     static func userByIdEndpoint(userId: Int) -> String {
         return "\(usersEndpoint)/id/\(userId)"
     }
+
+    static func locationImagesEndpoint(locationId: Int) -> String {
+        return "\(locationsEndpoint)/\(locationId)/images"
+    }
 } 
