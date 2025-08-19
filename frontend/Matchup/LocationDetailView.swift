@@ -62,23 +62,30 @@ struct LocationDetailView: View {
                             AsyncImage(url: url) { image in
                                 image
                                     .resizable()
-                                    .aspectRatio(contentMode: .fill)
+                                    .aspectRatio(contentMode: .fit)
+                                    .cornerRadius(20)
                             } placeholder: {
                                 Image("ballcourt")
                                     .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                                    .redacted(reason: .placeholder)
+                                    .aspectRatio(contentMode: .fit)
+                                    .cornerRadius(20)
+                                    .redacted(reason: RedactionReasons.placeholder)
                             }
                         } else {
                             Image("ballcourt")
                                 .resizable()
-                                .aspectRatio(contentMode: .fill)
+                                .aspectRatio(contentMode: .fit)
+                                .cornerRadius(20)
                         }
                     }
-                    .frame(height: 200)
-                    .clipped()
-                    .cornerRadius(20)
                 }
+                .frame(height: 200)
+                .compositingGroup()
+                .mask(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .stroke(Color.black.opacity(0.08), lineWidth: 1)
+                )
                 .padding(.horizontal)
                 
                 // Location Name
