@@ -17,7 +17,6 @@ struct Location: Identifiable, Codable {
     let locationAddress: String
     let locationZipCode: String
     let locationActivePlayers: Int
-    let locationReviews: String
     let isLitAtNight: Bool?
     var locationType: LocationType?
     let locationLatitude: Double?
@@ -39,7 +38,6 @@ struct Location: Identifiable, Codable {
         case locationAddress = "address"
         case locationZipCode = "zip_code"
         case locationActivePlayers = "active_players"
-        case locationReviews = "reviews"
         case isLitAtNight = "is_lit_at_night"
         case locationType = "type"
         case locationLatitude = "latitude"
@@ -53,7 +51,6 @@ struct Location: Identifiable, Codable {
         locationAddress = try container.decode(String.self, forKey: .locationAddress)
         locationZipCode = try container.decode(String.self, forKey: .locationZipCode)
         locationActivePlayers = try container.decode(Int.self, forKey: .locationActivePlayers)
-        locationReviews = try container.decode(String.self, forKey: .locationReviews)
         isLitAtNight = try container.decodeIfPresent(Bool.self, forKey: .isLitAtNight)
         locationType = try container.decodeIfPresent(LocationType.self, forKey: .locationType)
         locationLatitude = try container.decodeIfPresent(Double.self, forKey: .locationLatitude)

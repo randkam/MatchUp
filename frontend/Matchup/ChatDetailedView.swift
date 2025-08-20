@@ -4,6 +4,9 @@ import Combine
 struct MessageBubble: View {
     let message: ChatMessage
     let isCurrentUser: Bool
+    let showAvatar: Bool
+    let showSenderName: Bool
+    let displayName: String
     
     private var timestampString: String {
         let formatter = DateFormatter()
@@ -12,32 +15,45 @@ struct MessageBubble: View {
     }
     
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(alignment: .bottom, spacing: 8) {
             if isCurrentUser {
                 Spacer(minLength: 0)
-            }
-            
-            VStack(alignment: isCurrentUser ? .trailing : .leading, spacing: 2) {
-                if !isCurrentUser {
-                    Text(message.senderUserName)
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(message.content)
+                        .padding(12)
+                        .background(ModernColorScheme.primary)
+                        .foregroundColor(.white)
+                        .cornerRadius(20)
+                    Text(timestampString)
                         .font(.system(size: 12))
                         .foregroundColor(ModernColorScheme.textSecondary)
-                        .padding(.leading, 4)
+                        .padding(.horizontal, 4)
                 }
-                
-                Text(message.content)
-                    .padding(12)
-                    .background(isCurrentUser ? ModernColorScheme.primary : ModernColorScheme.surface)
-                    .foregroundColor(isCurrentUser ? .white : ModernColorScheme.text)
-                    .cornerRadius(20)
-                
-                Text(timestampString)
-                    .font(.system(size: 12))
-                    .foregroundColor(ModernColorScheme.textSecondary)
-                    .padding(.horizontal, 4)
-            }
-            
-            if !isCurrentUser {
+            } else {
+                Group {
+                    if showAvatar {
+                        AvatarView(userId: message.senderId, userName: message.senderUserName, size: 28)
+                    } else {
+                        Color.clear.frame(width: 28, height: 28)
+                    }
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    if showSenderName {
+                        Text(displayName)
+                            .font(.system(size: 12))
+                            .foregroundColor(ModernColorScheme.textSecondary)
+                            .padding(.leading, 4)
+                    }
+                    Text(message.content)
+                        .padding(12)
+                        .background(ModernColorScheme.surface)
+                        .foregroundColor(ModernColorScheme.text)
+                        .cornerRadius(20)
+                    Text(timestampString)
+                        .font(.system(size: 12))
+                        .foregroundColor(ModernColorScheme.textSecondary)
+                        .padding(.horizontal, 4)
+                }
                 Spacer(minLength: 0)
             }
         }
@@ -59,16 +75,25 @@ struct DateHeader: View {
 struct MessageGroupView: View {
     let group: MessageGroup
     let currentUserId: Int?
+    let anchorForMessage: (ChatMessage) -> String
     
     var body: some View {
         VStack(spacing: 12) {
             DateHeader(text: group.dateHeader)
             
-            ForEach(group.messages, id: \.id) { message in
+            ForEach(group.messages.indices, id: \.self) { index in
+                let message = group.messages[index]
+                let isCurrent = message.senderId == currentUserId
+                let isLastOfSender = index == group.messages.count - 1 || group.messages[index + 1].senderId != message.senderId
+                let isFirstOfSender = index == 0 || group.messages[index - 1].senderId != message.senderId
                 MessageBubble(
                     message: message,
-                    isCurrentUser: message.senderId == currentUserId
+                    isCurrentUser: isCurrent,
+                    showAvatar: !isCurrent && isLastOfSender,
+                    showSenderName: !isCurrent && isFirstOfSender,
+                    displayName: message.senderUserName
                 )
+                .id(anchorForMessage(message))
             }
         }
     }
@@ -77,13 +102,15 @@ struct MessageGroupView: View {
 struct MessageListView: View {
     let messageGroups: [MessageGroup]
     let currentUserId: Int?
+    let anchorForMessage: (ChatMessage) -> String
     
     var body: some View {
         VStack(spacing: 12) {
             ForEach(messageGroups) { group in
                 MessageGroupView(
                     group: group,
-                    currentUserId: currentUserId
+                    currentUserId: currentUserId,
+                    anchorForMessage: anchorForMessage
                 )
             }
             Color.clear.frame(height: 0).id("bottomAnchor")
@@ -112,15 +139,13 @@ struct ChatDetailedView: View {
     @State private var lastContentOffset: CGFloat = 0
     @State private var hasInitiallyScrolled = false
     @State private var messageCount = 0
-    
-    // Timer for periodic scroll checks
-    @State private var scrollTimer: Timer?
+    @State private var isAtBottom = true
     
     private var currentUserId: Int? {
         UserDefaults.standard.value(forKey: "loggedInUserId") as? Int
     }
     private var currentUserName: String? {
-        UserDefaults.standard.value(forKey: "loggedInUserName") as? String
+        UserDefaults.standard.value(forKey: "loggedInUserNickName") as? String
     }
     
     private var messageGroups: [MessageGroup] {
@@ -132,39 +157,28 @@ struct ChatDetailedView: View {
         _webSocketManager = StateObject(wrappedValue: WebSocketManager())
     }
     
+    private func messageAnchor(_ message: ChatMessage) -> String {
+        if let id = message.id {
+            return "msg_\(id)"
+        }
+        let millis = Int(message.timestamp.timeIntervalSince1970 * 1000)
+        return "tmp_\(message.locationId)_\(message.senderId)_\(millis)_\(message.content.hashValue)"
+    }
+
     private func forceScrollToBottom() {
         guard let proxy = scrollViewProxy else { return }
         
-        // Execute multiple scroll attempts with different delays
-        let delays = [0.1, 0.3, 0.5]
-        for delay in delays {
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                withAnimation {
-                    proxy.scrollTo("bottomAnchor", anchor: .bottom)
-                }
+        DispatchQueue.main.async {
+            withAnimation {
+                proxy.scrollTo("bottomAnchor", anchor: .bottom)
             }
         }
     }
     
-    private func setupScrollTimer() {
-        // Invalidate existing timer if any
-        scrollTimer?.invalidate()
-        
-        // Create new timer that checks scroll position every 0.5 seconds
-        scrollTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
-            if shouldAutoScroll {
-                forceScrollToBottom()
-            }
-        }
-    }
-    
-    private func loadMoreIfNeeded(currentItem item: ChatMessage) {
-        guard !isLoadingMore else { return }
-        
-        let thresholdIndex = 5
-        if webSocketManager.messages.firstIndex(where: { $0.id == item.id }) == thresholdIndex {
-            loadMessages()
-        }
+    private func loadMorePreservingPosition() {
+        guard hasMorePages && !isLoadingMore else { return }
+        let preserveId = webSocketManager.messages.first.map { messageAnchor($0) }
+        loadMessages(preserveAnchorId: preserveId)
     }
     
     private func refresh() async {
@@ -229,6 +243,15 @@ struct ChatDetailedView: View {
                 // Chat Messages
                 ScrollView {
                     LazyVStack(spacing: 0) {
+                        Color.clear
+                            .frame(height: 1)
+                            .id("topAnchor")
+                            .onAppear {
+                                if currentPage > 0 || !webSocketManager.messages.isEmpty {
+                                    loadMorePreservingPosition()
+                                }
+                            }
+
                         if isLoadingMore && webSocketManager.messages.isEmpty {
                             ProgressView()
                                 .padding()
@@ -237,20 +260,26 @@ struct ChatDetailedView: View {
                         ForEach(messageGroups) { group in
                             MessageGroupView(
                                 group: group,
-                                currentUserId: currentUserId
+                                currentUserId: currentUserId,
+                                anchorForMessage: { message in messageAnchor(message) }
                             )
-                            .id(group.id) // Ensure each group has unique ID
-                            .onAppear {
-                                if let firstMessage = group.messages.first {
-                                    loadMoreIfNeeded(currentItem: firstMessage)
-                                }
-                            }
+                            .id(group.id)
                         }
                         .padding(.horizontal)
                         .padding(.top)
                         .padding(.bottom, 16)
                         
-                        Color.clear.frame(height: 1).id("bottomAnchor")
+                        Color.clear
+                            .frame(height: 1)
+                            .id("bottomAnchor")
+                            .onAppear {
+                                isAtBottom = true
+                                shouldAutoScroll = true
+                            }
+                            .onDisappear {
+                                isAtBottom = false
+                                shouldAutoScroll = false
+                            }
                     }
                 }
                 .background(ModernColorScheme.background)
@@ -259,8 +288,6 @@ struct ChatDetailedView: View {
                 }
                 .onAppear {
                     scrollViewProxy = proxy
-                    setupScrollTimer()
-                    forceScrollToBottom()
                 }
                 .onChange(of: webSocketManager.messages.count) { newCount in
                     if newCount > messageCount {
@@ -269,7 +296,7 @@ struct ChatDetailedView: View {
                         let lastMessage = webSocketManager.messages.last
                         let isFromCurrentUser = lastMessage?.senderId == currentUserId
                         
-                        if isFromCurrentUser || shouldAutoScroll {
+                        if isFromCurrentUser || shouldAutoScroll || isAtBottom {
                             forceScrollToBottom()
                         }
                     }
@@ -330,13 +357,11 @@ struct ChatDetailedView: View {
         }
         .onDisappear {
             // Clean up
-            scrollTimer?.invalidate()
-            scrollTimer = nil
             webSocketManager.disconnect()
         }
     }
     
-    private func loadMessages(refresh: Bool = false) {
+    private func loadMessages(refresh: Bool = false, preserveAnchorId: String? = nil) {
         if refresh {
             currentPage = 0
             webSocketManager.messages = []
@@ -364,6 +389,11 @@ struct ChatDetailedView: View {
                     } else {
                         webSocketManager.messages.insert(contentsOf: response.content, at: 0)
                         messageCount = webSocketManager.messages.count
+                        if let preserveAnchorId = preserveAnchorId, let proxy = scrollViewProxy {
+                            withAnimation(nil) {
+                                proxy.scrollTo(preserveAnchorId, anchor: .top)
+                            }
+                        }
                     }
                     hasMorePages = !response.last
                     currentPage += 1

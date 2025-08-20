@@ -22,9 +22,6 @@ public class Location {
 
     @JsonProperty("active_players")
     private int locationActivePlayers;
-
-    @JsonProperty("reviews")
-    private String locationReviews;
     
     @JsonProperty("is_lit_at_night")
     private Boolean isLitAtNight;
@@ -43,14 +40,13 @@ public class Location {
     }
 
     public Location(Long id, String locationName, String locationAddress, String locationZipCode,
-                   int locationActivePlayers, String locationReviews, Boolean isLitAtNight,
+                   int locationActivePlayers, Boolean isLitAtNight,
                    LocationType locationType, Double locationLatitude, Double locationLongitude) {
         this.id = id;
         this.locationName = locationName;
         this.locationAddress = locationAddress;
         this.locationZipCode = locationZipCode;
         this.locationActivePlayers = locationActivePlayers;
-        this.locationReviews = locationReviews;
         this.isLitAtNight = isLitAtNight;
         this.locationType = locationType;
         this.locationLatitude = locationLatitude;
@@ -103,14 +99,6 @@ public class Location {
         this.locationActivePlayers = locationActivePlayers;
     }
 
-    @JsonProperty("reviews")
-    public String getLocationReviews() {
-        return locationReviews;
-    }
-
-    public void setLocationReviews(String locationReviews) {
-        this.locationReviews = locationReviews;
-    }
 
     @JsonProperty("is_lit_at_night")
     public Boolean isLitAtNight() {

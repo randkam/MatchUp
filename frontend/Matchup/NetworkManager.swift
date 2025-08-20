@@ -753,6 +753,14 @@ extension NetworkManager {
                 return
             }
             
+            if let httpResponse = response as? HTTPURLResponse, !(200...299).contains(httpResponse.statusCode) {
+                let body = String(data: data, encoding: .utf8) ?? ""
+                print("Locations request failed with status: \(httpResponse.statusCode), body: \(body)")
+                let error = NSError(domain: "NetworkManager", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "Locations request failed (status \(httpResponse.statusCode))"])
+                completion(.failure(error))
+                return
+            }
+            
             print("Raw locations response: \(String(data: data, encoding: .utf8) ?? "Unable to decode response")")
             
             do {
