@@ -40,9 +40,7 @@ public class ReviewService {
     private void updateLocationReviewCount(Long locationId) {
         Location location = locationRepository.findById(locationId)
             .orElseThrow(() -> new RuntimeException("Location not found with id: " + locationId));
-        
-        int reviewCount = reviewRepository.findByLocationId(locationId.intValue()).size();
-        location.setLocationReviews(String.valueOf(reviewCount));
+        // locationReviews field removed; no longer updating a denormalized count on the Location entity
         locationRepository.save(location);
     }
 
