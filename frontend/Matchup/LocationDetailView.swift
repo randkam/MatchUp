@@ -59,27 +59,36 @@ struct LocationDetailView: View {
                 ZStack(alignment: .topTrailing) {
                     Group {
                         if let firstUrl = imageUrls.first, let url = URL(string: firstUrl) {
-                            AsyncImage(url: url) { image in
-                                image
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fit)
-                                    .cornerRadius(20)
-                            } placeholder: {
-                                Image("ballcourt")
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fit)
-                                    .cornerRadius(20)
-                                    .redacted(reason: RedactionReasons.placeholder)
+                            ZStack {
+                                // Stable placeholder layer (always present)
+                                Rectangle()
+                                    .fill(Color(UIColor.secondarySystemBackground))
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                // Loaded image fades in with no layout change
+                                AsyncImage(url: url, transaction: Transaction(animation: .none)) { phase in
+                                    if case .success(let image) = phase {
+                                        image
+                                            .resizable()
+                                            .scaledToFit()
+                                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                            .clipped()
+                                            .transition(.identity)
+                                    } else {
+                                        Color.clear
+                                    }
+                                }
+                                .allowsHitTesting(false)
                             }
                         } else {
-                            Image("ballcourt")
-                                .resizable()
-                                .aspectRatio(contentMode: .fit)
-                                .cornerRadius(20)
+                            Rectangle()
+                                .fill(Color(UIColor.secondarySystemBackground))
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
                         }
                     }
                 }
-                .frame(height: 200)
+                .frame(maxWidth: .infinity)
+                .frame(height: 180)
+                .animation(nil, value: imageUrls)
                 .compositingGroup()
                 .mask(RoundedRectangle(cornerRadius: 20, style: .continuous))
                 .overlay(
