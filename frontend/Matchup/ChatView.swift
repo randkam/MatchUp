@@ -148,7 +148,6 @@ struct ChatView: View {
                     var locationAddress: String
                     var locationZipCode: String
                     var locationActivePlayers: Int
-                    var locationReviews: String
                 }
 
                 let locations: [Location] = try JSONDecoder().decode([Location].self, from: data)
