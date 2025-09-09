@@ -222,7 +222,16 @@ struct LocationDetailView: View {
             )
         }
         .onAppear {
-            checkIfJoinedChat()
+            // Refresh joined locations from server to ensure accurate Join/View button state
+            if let userId = UserDefaults.standard.value(forKey: "loggedInUserId") as? Int {
+                NetworkManager().fetchUserLocations(userId: userId) { _, _ in
+                    DispatchQueue.main.async {
+                        checkIfJoinedChat()
+                    }
+                }
+            } else {
+                checkIfJoinedChat()
+            }
             loadReviewStats()
             loadImages()
         }

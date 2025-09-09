@@ -27,7 +27,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     }
 }
 
-// Define the SwiftUI App
+// Define the SwiftUI App   
 @main
 struct matchUp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate

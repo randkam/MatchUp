@@ -19,7 +19,7 @@ struct MapViewContent: View {
         if searchText.isEmpty {
             return []
         }
-        return dataStore.locations.filter { location in
+        return dataStore.mapLocations.filter { location in
             location.locationName.localizedCaseInsensitiveContains(searchText) ||
             location.locationAddress.localizedCaseInsensitiveContains(searchText)
         }
@@ -31,7 +31,7 @@ struct MapViewContent: View {
                 Map(coordinateRegion: $region,
                     showsUserLocation: true,
                     userTrackingMode: $userTrackingMode,
-                    annotationItems: dataStore.locations) { location in
+                    annotationItems: dataStore.mapLocations) { location in
                     MapAnnotation(coordinate: location.coordinate ?? CLLocationCoordinate2D(latitude: 43.6532, longitude: -79.3832)) {
                         NavigationLink(destination: LocationDetailView(location: location)) {
                             CourtAnnotationView(
@@ -170,6 +170,9 @@ struct MapViewContent: View {
         }
         .onAppear {
             locationManager.requestLocation()
+            if dataStore.mapLocations.isEmpty {
+                dataStore.fetchAllLocationsForMap(refresh: true)
+            }
         }
         .onChange(of: locationManager.location) { newLocation in
             if !hasSetInitialLocation, let userLocation = newLocation?.coordinate {
@@ -197,7 +200,7 @@ struct MapViewContent: View {
     private func getNearestLocation() -> Location? {
         guard let userLocation = locationManager.location else { return nil }
         
-        return dataStore.locations.min { location1, location2 in
+        return dataStore.mapLocations.min { location1, location2 in
             guard let coord1 = location1.coordinate,
                   let coord2 = location2.coordinate else { return false }
             

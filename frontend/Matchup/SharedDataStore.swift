@@ -30,9 +30,11 @@ class SharedDataStore: ObservableObject {
     static let shared = SharedDataStore() // Singleton instance
     
     @Published var locations: [Location] = []
+    @Published var mapLocations: [Location] = []
     @Published var activeGames: [Game] = []
     @Published var courtChatMessages: [CourtChatData] = []
     @Published var isLoading = false
+    @Published var isLoadingMapLocations = false
     @Published var error: Error?
     @Published var currentPage = 0
     @Published var hasMorePages = true
@@ -90,6 +92,46 @@ class SharedDataStore: ObservableObject {
                 }
             }
         }
+    }
+    
+    // Dedicated fetch for MapView to always load all locations independent of Home filters
+    func fetchAllLocationsForMap(refresh: Bool = false) {
+        if refresh {
+            mapLocations = []
+        }
+        guard !isLoadingMapLocations else { return }
+        isLoadingMapLocations = true
+        error = nil
+        
+        var accumulated: [Location] = []
+        let pageSizeForMap = 100
+        
+        func fetchPage(_ page: Int) {
+            networkManager.getPaginatedLocations(
+                page: page,
+                size: pageSizeForMap,
+                search: nil,
+                isIndoor: nil,
+                isLit: nil
+            ) { [weak self] result in
+                DispatchQueue.main.async {
+                    switch result {
+                    case .success(let response):
+                        accumulated.append(contentsOf: response.content)
+                        if response.last {
+                            self?.mapLocations = accumulated
+                            self?.isLoadingMapLocations = false
+                        } else {
+                            fetchPage(page + 1)
+                        }
+                    case .failure(let error):
+                        self?.error = error
+                        self?.isLoadingMapLocations = false
+                    }
+                }
+            }
+        }
+        fetchPage(0)
     }
     
     func loadMoreIfNeeded(currentItem item: Location) {
