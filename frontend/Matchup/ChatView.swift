@@ -80,24 +80,7 @@ struct ChatView: View {
                         print("Failed to load chats: \(error.localizedDescription)")
                     }
                 }
-
-                if chats.isEmpty {
-                    chats = getBasketballCourtChats()
-                }
             }
-        }
-    }
-
-    func getBasketballCourtChats() -> [Chat] {
-        let schools = SharedDataStore.shared.locations
-        return schools.map { school in
-            Chat(
-                id: school.id,
-                name: school.locationName
-//                lastMessage: "test",
-//                timestamp: Date(),
-//                isActive: school.locationActivePlayers > 0
-            )
         }
     }
 
@@ -110,65 +93,45 @@ struct ChatView: View {
         }
 
         networkManager.fetchUserLocations(userId: userId) { success, error in
-            DispatchQueue.main.async {
-                if success {
-                    self.joinedLocations = UserDefaults.standard.array(forKey: "joinedLocations") as? [Int] ?? []
-                } else {
-                    print("Error fetching joined locations: \(error?.localizedDescription ?? "Unknown error")")
-                }
-            }
-        }
-
-        guard let url = URL(string: APIConfig.locationsEndpoint) else {
-            completion(false, NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"]))
-            return
-        }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        URLSession.shared.dataTask(with: request) { data, _, error in
-            if let error = error {
-                print("Error: \(error.localizedDescription)")
-                completion(false, error)
-                return
-            }
-
-            guard let data = data else {
-                print("Error: No data received")
-                completion(false, NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "No data received from the server."]))
-                return
-            }
-
-            do {
-                struct Location: Codable {
-                    var locationId: Int
-                    var locationName: String
-                    var locationAddress: String
-                    var locationZipCode: String
-                    var locationActivePlayers: Int
-                }
-
-                let locations: [Location] = try JSONDecoder().decode([Location].self, from: data)
-
-                if let savedLocations = UserDefaults.standard.array(forKey: "joinedLocations") as? [Int] {
-                    joinedLocations = savedLocations
-                }
-
-                let joinedChats = locations.filter { joinedLocations.contains($0.locationId) }
-                chats = joinedChats.map { Chat(id: $0.locationId, name: $0.locationName) }
-
-                DispatchQueue.main.async {
-                    completion(true, nil)
-                }
-            } catch {
-                print("Error decoding chats: \(error.localizedDescription)")
+            if !success {
                 DispatchQueue.main.async {
                     completion(false, error)
                 }
+                return
             }
-        }.resume()
+            let ids = UserDefaults.standard.array(forKey: "joinedLocations") as? [Int] ?? []
+            self.joinedLocations = ids
+            
+            if ids.isEmpty {
+                DispatchQueue.main.async {
+                    self.chats = []
+                    completion(true, nil)
+                }
+                return
+            }
+            
+            let group = DispatchGroup()
+            var fetchedChats: [Chat] = []
+            
+            for locationId in ids {
+                group.enter()
+                networkManager.getLocationById(locationId: locationId) { result in
+                    switch result {
+                    case .success(let location):
+                        let chat = Chat(id: location.locationId, name: location.locationName)
+                        fetchedChats.append(chat)
+                    case .failure(let error):
+                        print("Failed to fetch location \(locationId): \(error)")
+                    }
+                    group.leave()
+                }
+            }
+            
+            group.notify(queue: .main) {
+                self.chats = fetchedChats.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+                completion(true, nil)
+            }
+        }
     }
 }
 

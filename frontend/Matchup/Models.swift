@@ -11,6 +11,47 @@ enum LocationType: String, Codable {
     case outdoor = "OUTDOOR"
 }
 
+// MARK: - Tournaments
+enum TournamentStatus: String, Codable {
+    case draft = "DRAFT"
+    case signupsOpen = "SIGNUPS_OPEN"
+    case locked = "LOCKED"
+    case live = "LIVE"
+    case complete = "COMPLETE"
+}
+
+struct Tournament: Identifiable, Codable {
+    let id: Int
+    let name: String
+    let formatSize: Int
+    let maxTeams: Int
+    let entryFeeCents: Int?
+    let depositHoldCents: Int?
+    let currency: String?
+    let prizeCents: Int?
+    let signupDeadline: Date
+    let startsAt: Date
+    let endsAt: Date?
+    let location: String?
+    let status: TournamentStatus
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case formatSize = "format_size"
+        case maxTeams = "max_teams"
+        case entryFeeCents = "entry_fee_cents"
+        case depositHoldCents = "deposit_hold_cents"
+        case currency
+        case prizeCents = "prize_cents"
+        case signupDeadline = "signup_deadline"
+        case startsAt = "starts_at"
+        case endsAt = "ends_at"
+        case location
+        case status
+    }
+}
+
 struct Location: Identifiable, Codable {
     let locationId: Int
     let locationName: String

@@ -1,10 +1,10 @@
 import Foundation
 
 struct APIConfig {
-    static let baseAPI = "https://matchup-api.xyz"
-//     static let baseAPI = "http://localhost:9095"
+//    static let baseAPI = "https://matchup-api.xyz"
+     static let baseAPI = "http://localhost:9095"
 
-    // Determine if we're using local or remote environment
+    // Determine if we're using local or remot  e environment
     private static var isLocal: Bool {
         return baseAPI.contains("localhost")
     }
@@ -15,6 +15,8 @@ struct APIConfig {
     static let messagesEndpoint = "\(baseAPI)/api/messages"
     static let userLocationsEndpoint = "\(baseAPI)/api/user-locations"
     static let reviewsEndpoint = "\(baseAPI)/api/reviews"
+    static let tournamentsEndpoint = "\(baseAPI)/api/v1/tournaments"
+    static let upcomingTournamentsEndpoint = "\(tournamentsEndpoint)/upcoming"
     
     // WebSocket configuration
     private static let wsHost = isLocal ? "localhost" : "matchup-api.xyz"
