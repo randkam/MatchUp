@@ -51,7 +51,7 @@ struct DropInView: View {
                     HStack {
                         Image(systemName: "envelope.fill")
                             .foregroundColor(ModernColorScheme.text)
-                        Text("Sign in via Email")
+                        Text("Sign in")
                             .font(ModernFontScheme.body)
                             .foregroundColor(ModernColorScheme.text)
                     }
