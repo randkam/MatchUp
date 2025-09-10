@@ -9,29 +9,29 @@ struct CustomTabView: View {
     var body: some View {
         NavigationView {
             TabView(selection: $selectedTab) {
-                NavigationStack {
-                    HomeView(selectedCoordinate: $selectedCoordinate)
-                }
-                .tabItem {
-                    Label("Home", systemImage: "house.fill")
-                }
-                .tag(0)
-                
-                NavigationStack {
-                    MapViewContent()
-                }
-                .tabItem {
-                    Label("Map", systemImage: "map.fill")
-                }
-                .tag(1)
-                
-                NavigationStack {
-                    ChatView()
-                }
-                .tabItem {
-                    Label("Chat", systemImage: "message.fill")
-                }
-                .tag(2)
+                // NavigationStack {
+                //     HomeView(selectedCoordinate: $selectedCoordinate)
+                // }
+                // .tabItem {
+                //     Label("Home", systemImage: "house.fill")
+                // }
+                // .tag(0)
+                // 
+                // NavigationStack {
+                //     MapViewContent()
+                // }
+                // .tabItem {
+                //     Label("Map", systemImage: "map.fill")
+                // }
+                // .tag(1)
+                // 
+                // NavigationStack {
+                //     ChatView()
+                // }
+                // .tabItem {
+                //     Label("Chat", systemImage: "message.fill")
+                // }
+                // .tag(2)
 
                 NavigationStack {
                     TournamentsView()
@@ -39,7 +39,7 @@ struct CustomTabView: View {
                 .tabItem {
                     Label("Tournaments", systemImage: "trophy.fill")
                 }
-                .tag(3)
+                .tag(0)
                 
                 NavigationStack {
                     ProfileView()
@@ -47,7 +47,7 @@ struct CustomTabView: View {
                 .tabItem {
                     Label("Profile", systemImage: "person.fill")
                 }
-                .tag(4)
+                .tag(1)
             }
         }
         .accentColor(ModernColorScheme.primary)

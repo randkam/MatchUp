@@ -29,24 +29,16 @@ struct LoginView: View {
                 .animation(.easeOut(duration: 0.8), value: isAnimating)
 
                 // Title
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        Image(systemName: "basketball.fill")
-                            .font(.system(size: 40))
-                            .foregroundColor(ModernColorScheme.primary)
+                // VStack(alignment: .leading, spacing: 12) {
+                //     HStack {
 
-                        Text("Welcome Back")
-                            .font(ModernFontScheme.title)
-                            .foregroundColor(ModernColorScheme.text)
-                    }
-
-                    Text("Sign in to continue")
-                        .font(ModernFontScheme.body)
-                        .foregroundColor(ModernColorScheme.textSecondary)
-                }
-                .opacity(isAnimating ? 1 : 0)
-                .offset(x: isAnimating ? 0 : -50)
-                .animation(.easeOut(duration: 0.8).delay(0.2), value: isAnimating)
+                //     Text("Sign in to continue")
+                //         .font(ModernFontScheme.body)
+                //         .foregroundColor(ModernColorScheme.textSecondary)
+                // }
+                // .opacity(isAnimating ? 1 : 0)
+                // .offset(x: isAnimating ? 0 : -50)
+                // .animation(.easeOut(duration: 0.8).delay(0.2), value: isAnimating)
 
                 // Input fields
                 VStack(spacing: 20) {
