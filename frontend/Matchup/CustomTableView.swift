@@ -42,12 +42,28 @@ struct CustomTabView: View {
                 .tag(0)
                 
                 NavigationStack {
+                    TeamsView()
+                }
+                .tabItem {
+                    Label("Teams", systemImage: "person.3.fill")
+                }
+                .tag(1)
+                
+                NavigationStack {
+                    ActivityView()
+                }
+                .tabItem {
+                    Label("Activity", systemImage: "bell.fill")
+                }
+                .tag(2)
+                
+                NavigationStack {
                     ProfileView()
                 }
                 .tabItem {
                     Label("Profile", systemImage: "person.fill")
                 }
-                .tag(1)
+                .tag(3)
             }
         }
         .accentColor(ModernColorScheme.primary)

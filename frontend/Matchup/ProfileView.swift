@@ -19,7 +19,11 @@ struct ProfileView: View {
     @State private var userName: String = ""
     @State private var userRegion: String = ""
     @State private var userPosition: String = ""
+    @State private var matchWins: Int = 0
+    @State private var matchLosses: Int = 0
+    @State private var titles: Int = 0
     let networkManager = NetworkManager()
+    private let cardHeight: CGFloat = 80
 
     var body: some View {
         NavigationView {
@@ -71,49 +75,48 @@ struct ProfileView: View {
                         .offset(x: 40, y: 40)
                     }
                     .opacity(isAnimating ? 1 : 0)
-                    .offset(y: isAnimating ? 0 : -50)
+                    .offset(y: isAnimating ? -24 : -70)
                     .animation(.easeOut(duration: 0.8), value: isAnimating)
 
-                    VStack(spacing: 8) {
+                    VStack(spacing: 6) {
                         Text(userNickName)
                             .font(ModernFontScheme.title)
                             .foregroundColor(ModernColorScheme.text)
 
-                        HStack(spacing: 20) {
-                            VStack(spacing: 6) {
-                                Image(systemName: "location.fill")
-                                    .foregroundColor(ModernColorScheme.primary)
-                                Text("Region")
-                                    .font(ModernFontScheme.caption)
-                                    .foregroundColor(ModernColorScheme.textSecondary)
+                        // Region & Position (side by side, no boxes)
+                        HStack(spacing: 1) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "location.fill").foregroundColor(ModernColorScheme.primary)
                                 Text(userRegion)
                                     .font(ModernFontScheme.body)
                                     .foregroundColor(ModernColorScheme.text)
+                                    .lineLimit(1)
                             }
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(ModernColorScheme.surface)
-                            .cornerRadius(15)
+                            .frame(maxWidth: .infinity, alignment: .center)
 
-                            VStack(spacing: 6) {
-                                Image(systemName: "figure.run")
-                                    .foregroundColor(ModernColorScheme.primary)
-                                Text("Position")
-                                    .font(ModernFontScheme.caption)
-                                    .foregroundColor(ModernColorScheme.textSecondary)
+                            HStack(spacing: 8) {
+                                Image(systemName: "figure.run").foregroundColor(ModernColorScheme.primary)
                                 Text(userPosition)
                                     .font(ModernFontScheme.body)
                                     .foregroundColor(ModernColorScheme.text)
+                                    .lineLimit(1)
                             }
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(ModernColorScheme.surface)
-                            .cornerRadius(15)
+                            .frame(maxWidth: .infinity, alignment: .center)
                         }
-                        .padding(.top, 8)
+                        .padding(.top, 0)
+                        .padding(.horizontal, 16)
+
+                        // Stats in one row
+                        HStack(spacing: 10) {
+                            StatCard(title: "Wins", value: String(matchWins), icon: "checkmark.seal", height: cardHeight)
+                            StatCard(title: "Losses", value: String(matchLosses), icon: "xmark.seal", height: cardHeight)
+                            StatCard(title: "Titles", value: String(titles), icon: "trophy.fill", height: cardHeight)
+                        }
+                        .padding(.top, 24)
+                        .padding(.horizontal, 16)
                     }
                     .opacity(isAnimating ? 1 : 0)
-                    .offset(y: isAnimating ? 0 : -50)
+                    .offset(y: isAnimating ? -10 : -60)
                     .animation(.easeOut(duration: 0.8).delay(0.2), value: isAnimating)
 
                     // Settings Section
@@ -162,6 +165,7 @@ struct ProfileView: View {
             .onAppear {
                 isAnimating = true
                 loadUserProfile()
+                loadUserStats()
             }
         }
     }
@@ -192,6 +196,19 @@ struct ProfileView: View {
                     UserDefaults.standard.set(pictureUrl, forKey: "loggedInUserProfilePicture")
                 } else {
                     print("No profile picture URL received")
+                }
+            }
+        }
+    }
+
+    private func loadUserStats() {
+        guard let userId = UserDefaults.standard.value(forKey: "loggedInUserId") as? Int else { return }
+        networkManager.getUserStats(userId: userId) { result in
+            DispatchQueue.main.async {
+                if case .success(let stats) = result {
+                    self.matchWins = stats.matchWins
+                    self.matchLosses = stats.matchLosses
+                    self.titles = stats.titles
                 }
             }
         }
@@ -237,6 +254,7 @@ struct StatCard: View {
     let title: String
     let value: String
     let icon: String
+    var height: CGFloat = 120
 
     var body: some View {
         VStack(spacing: 8) {
@@ -253,6 +271,34 @@ struct StatCard: View {
                 .foregroundColor(ModernColorScheme.textSecondary)
         }
         .frame(maxWidth: .infinity)
+        .frame(height: height)
+        .padding()
+        .background(ModernColorScheme.surface)
+        .cornerRadius(15)
+    }
+}
+
+struct InfoCard: View {
+    let title: String
+    let value: String
+    let icon: String
+    var height: CGFloat = 120
+
+    var body: some View {
+        VStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.title2)
+                .foregroundColor(ModernColorScheme.primary)
+            Text(value)
+                .font(ModernFontScheme.body)
+                .foregroundColor(ModernColorScheme.text)
+                .lineLimit(1)
+            Text(title)
+                .font(ModernFontScheme.caption)
+                .foregroundColor(ModernColorScheme.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: height)
         .padding()
         .background(ModernColorScheme.surface)
         .cornerRadius(15)

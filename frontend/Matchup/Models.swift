@@ -52,6 +52,83 @@ struct Tournament: Identifiable, Codable {
     }
 }
 
+// MARK: - Teams
+struct TeamModel: Identifiable, Codable {
+    let id: Int
+    let name: String
+    let sport: String
+    let ownerUserId: Int
+    let logoUrl: String?
+    let createdAt: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case sport
+        case ownerUserId = "owner_user_id"
+        case logoUrl = "logo_url"
+        case createdAt = "created_at"
+    }
+}
+
+struct TeamMemberModel: Identifiable, Codable {
+    let id: Int
+    let teamId: Int
+    let userId: Int
+    let role: String
+    let joinedAt: String?
+    let username: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case teamId = "team_id"
+        case userId = "user_id"
+        case role
+        case joinedAt = "joined_at"
+        case username
+    }
+}
+
+struct TeamInviteModel: Identifiable, Codable {
+    let id: Int
+    let teamId: Int
+    let inviteeUserId: Int
+    let status: String
+    let token: String?
+    let expiresAt: String?
+    let createdAt: String?
+    let teamName: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case teamId = "team_id"
+        case inviteeUserId = "invitee_user_id"
+        case status
+        case token
+        case expiresAt = "expires_at"
+        case createdAt = "created_at"
+        case teamName = "team_name"
+    }
+}
+
+struct UserStatsModel: Codable {
+    let userId: Int
+    let sport: String
+    let matchWins: Int
+    let matchLosses: Int
+    let titles: Int
+    let lastUpdated: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case userId = "user_id"
+        case sport
+        case matchWins = "match_wins"
+        case matchLosses = "match_losses"
+        case titles
+        case lastUpdated = "last_updated"
+    }
+}
+
 struct Location: Identifiable, Codable {
     let locationId: Int
     let locationName: String
