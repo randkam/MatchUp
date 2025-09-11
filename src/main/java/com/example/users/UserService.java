@@ -12,6 +12,8 @@ import jakarta.transaction.Transactional;
 public class UserService {
     private final UserRepository userRepository;
 	@Autowired
+	private UserStatsRepository userStatsRepository;
+	@Autowired
 	public UserService(UserRepository userRepository) {
 		this.userRepository = userRepository;
 	}
@@ -19,6 +21,10 @@ public class UserService {
 	public List<User> getUsers(){
         return userRepository.findAll();
 
+	}
+
+	public List<User> searchUsers(String q) {
+		return userRepository.searchUsers(q);
 	}
 
 	public Optional<User> findByEmailOrUsername(String identifier) {
@@ -111,5 +117,9 @@ public class UserService {
 	public User getUserById(Long userId) {
 		return userRepository.findById(userId)
 				.orElseThrow(() -> new IllegalStateException("User not found"));
+	}
+
+	public UserStats getUserStats(Long userId, String sport) {
+		return userStatsRepository.findFirstByUserIdAndSport(userId, sport).orElse(null);
 	}
 }

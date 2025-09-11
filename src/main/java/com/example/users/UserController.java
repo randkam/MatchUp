@@ -39,6 +39,11 @@ public class UserController {
 
 	}
 
+    @GetMapping("/search")
+    public List<User> searchUsers(@RequestParam("q") String query) {
+        return userService.searchUsers(query);
+    }
+
     @GetMapping(path = "{email}")
     public ResponseEntity<User> getUser(@PathVariable("email") String userEmail) {
         try {
@@ -57,6 +62,13 @@ public class UserController {
         } catch (IllegalStateException e) {
             return ResponseEntity.notFound().build();
         }
+    }
+
+    @GetMapping(path = "/id/{userId}/stats")
+    public ResponseEntity<UserStats> getUserStats(@PathVariable("userId") Long userId, @RequestParam(defaultValue = "basketball") String sport) {
+        UserStats stats = userService.getUserStats(userId, sport);
+        if (stats == null) return ResponseEntity.notFound().build();
+        return ResponseEntity.ok(stats);
     }
 
     @PostMapping

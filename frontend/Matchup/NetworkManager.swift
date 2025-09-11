@@ -999,3 +999,58 @@ extension NetworkManager {
         }.resume()
     }
 }
+
+extension NetworkManager {
+    // MARK: - Teams
+    func getTeamsForUser(userId: Int, completion: @escaping (Result<[TeamModel], Error>) -> Void) {
+        let endpoint = "\(APIConfig.teamsEndpoint)/user/\(userId)"
+        get(endpoint, completion: completion)
+    }
+    
+    func createTeam(name: String, ownerUserId: Int, logoUrl: String? = nil, completion: @escaping (Result<TeamModel, Error>) -> Void) {
+        let endpoint = APIConfig.teamsEndpoint
+        var params: [String: Any] = [
+            "name": name,
+            "owner_user_id": ownerUserId
+        ]
+        if let logoUrl = logoUrl { params["logo_url"] = logoUrl }
+        post(endpoint, parameters: params, completion: completion)
+    }
+
+    func getTeamMembers(teamId: Int, completion: @escaping (Result<[TeamMemberModel], Error>) -> Void) {
+        let endpoint = "\(APIConfig.teamsEndpoint)/\(teamId)/members/expanded"
+        get(endpoint, completion: completion)
+    }
+
+    // Invites
+    func searchUsers(query: String, completion: @escaping (Result<[User], Error>) -> Void) {
+        var components = URLComponents(string: APIConfig.userSearchEndpoint)!
+        components.queryItems = [URLQueryItem(name: "q", value: query)]
+        guard let url = components.url else {
+            completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])))
+            return
+        }
+        get(url.absoluteString, completion: completion)
+    }
+
+    func sendTeamInvite(teamId: Int, inviteeUserId: Int, completion: @escaping (Result<TeamInviteModel, Error>) -> Void) {
+        let endpoint = "\(APIConfig.teamsEndpoint)/\(teamId)/invites"
+        let params: [String: Any] = ["invitee_user_id": inviteeUserId]
+        post(endpoint, parameters: params, completion: completion)
+    }
+
+    func getPendingTeamInvites(userId: Int, completion: @escaping (Result<[TeamInviteModel], Error>) -> Void) {
+        let endpoint = "\(APIConfig.teamsEndpoint)/invites/user/\(userId)"
+        get(endpoint, completion: completion)
+    }
+
+    func respondToInvite(inviteId: Int, accept: Bool, completion: @escaping (Result<TeamInviteModel, Error>) -> Void) {
+        let endpoint = "\(APIConfig.teamsEndpoint)/invites/\(inviteId)/respond?accept=\(accept)"
+        post(endpoint, parameters: [:], completion: completion)
+    }
+
+    func getUserStats(userId: Int, sport: String = "basketball", completion: @escaping (Result<UserStatsModel, Error>) -> Void) {
+        let endpoint = "\(APIConfig.usersEndpoint)/id/\(userId)/stats?sport=\(sport)"
+        get(endpoint, completion: completion)
+    }
+}
