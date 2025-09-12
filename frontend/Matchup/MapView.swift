@@ -63,11 +63,11 @@ struct MapViewContent: View {
                                 }
                             }) {
                                 Image(systemName: "location.fill")
-                                    .foregroundColor(ModernColorScheme.primary)
+                                    .foregroundColor(ModernColorScheme.accentMinimal)
                                     .frame(width: 40, height: 40)
-                                    .background(Color.white)
+                                    .background(ModernColorScheme.surface)
                                     .clipShape(Circle())
-                                    .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
+                                    .shadow(color: Color.black.opacity(0.4), radius: 6, x: 0, y: 2)
                             }
                         }
                         .padding(.horizontal)
@@ -89,17 +89,17 @@ struct MapViewContent: View {
                                             // Location details
                                             VStack(alignment: .leading, spacing: 4) {
                                                 Text(location.locationName)
-                                                    .foregroundColor(.black)
+                                                    .foregroundColor(ModernColorScheme.text)
                                                     .font(.system(size: 16, weight: .medium))
                                                 Text(location.locationAddress)
-                                                    .foregroundColor(.gray)
+                                                    .foregroundColor(ModernColorScheme.textSecondary)
                                                     .font(.system(size: 14))
                                             }
                                             Spacer()
                                             
                                             // Navigate arrow
                                             Image(systemName: "chevron.right")
-                                                .foregroundColor(.gray)
+                                                .foregroundColor(ModernColorScheme.textSecondary)
                                                 .font(.system(size: 14, weight: .semibold))
                                         }
                                         .padding(.vertical, 12)
@@ -112,9 +112,9 @@ struct MapViewContent: View {
                                     }
                                 }
                             }
-                            .background(Color.white)
+                            .background(ModernColorScheme.surface)
                             .cornerRadius(12)
-                            .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+                            .shadow(color: Color.black.opacity(0.4), radius: 8, x: 0, y: 4)
                             .padding(.horizontal)
                         }
                     }
@@ -129,16 +129,16 @@ struct MapViewContent: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Nearest Court")
                                     .font(.system(size: 14, weight: .medium))
-                                    .foregroundColor(.gray)
+                                    .foregroundColor(ModernColorScheme.textSecondary)
                                 
                                 HStack {
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text(nearestLocation.locationName)
                                             .font(.system(size: 18, weight: .semibold))
-                                            .foregroundColor(.black)
+                                            .foregroundColor(ModernColorScheme.text)
                                         Text(nearestLocation.locationAddress)
                                             .font(.system(size: 14))
-                                            .foregroundColor(.gray)
+                                            .foregroundColor(ModernColorScheme.textSecondary)
                                     }
                                     
                                     Spacer()
@@ -153,14 +153,14 @@ struct MapViewContent: View {
                                     }
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 6)
-                                    .background(ModernColorScheme.primary.opacity(0.1))
+                                    .background(ModernColorScheme.primary.opacity(0.15))
                                     .cornerRadius(16)
                                 }
                             }
                             .padding(16)
-                            .background(Color.white)
+                            .background(ModernColorScheme.surface)
                             .cornerRadius(16)
-                            .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+                            .shadow(color: Color.black.opacity(0.4), radius: 8, x: 0, y: 4)
                         }
                         .padding(.horizontal)
                         .padding(.bottom, 8)
@@ -220,12 +220,12 @@ struct MapSearchBar: View {
     var body: some View {
         HStack {
             Image(systemName: "magnifyingglass")
-                .foregroundColor(.gray)
+                .foregroundColor(ModernColorScheme.textSecondary)
                 .font(.system(size: 16))
             
             TextField("Search courts...", text: $text)
                 .textFieldStyle(PlainTextFieldStyle())
-                .foregroundColor(.black)
+                .foregroundColor(ModernColorScheme.text)
                 .font(.system(size: 16))
             
             if !text.isEmpty {
@@ -233,16 +233,16 @@ struct MapSearchBar: View {
                     text = ""
                 }) {
                     Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.gray)
+                        .foregroundColor(ModernColorScheme.textSecondary)
                         .font(.system(size: 16))
                 }
             }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(Color.white)
+        .background(ModernColorScheme.surface)
         .cornerRadius(20)
-        .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
+        .shadow(color: Color.black.opacity(0.4), radius: 4, x: 0, y: 2)
     }
 }
 

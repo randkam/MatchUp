@@ -17,7 +17,7 @@ struct TournamentsView: View {
                 Group {
                     if isLoading && tournaments.isEmpty {
                         ProgressView()
-                            .tint(ModernColorScheme.primary)
+                            .tint(ModernColorScheme.brandBlue)
                     } else if let errorMessage = errorMessage {
                         VStack(spacing: 12) {
                             Text("Failed to load tournaments")
@@ -45,7 +45,7 @@ struct TournamentsView: View {
                                     }
                                 }
                                 if isLoading && hasMorePages {
-                                    ProgressView().tint(ModernColorScheme.primary)
+                                    ProgressView().tint(ModernColorScheme.brandBlue)
                                 }
                             }
                             .padding(.vertical)
@@ -128,12 +128,12 @@ private struct TournamentCard: View {
         .padding()
         .background(ModernColorScheme.surface)
         .cornerRadius(16)
-        .shadow(color: ModernColorScheme.primary.opacity(0.1), radius: 5, x: 0, y: 2)
+        .shadow(color: ModernColorScheme.accentMinimal.opacity(0.1), radius: 5, x: 0, y: 2)
     }
     
     private func label(icon: String, text: String) -> some View {
         HStack(spacing: 6) {
-            Image(systemName: icon).foregroundColor(ModernColorScheme.primary)
+            Image(systemName: icon).foregroundColor(ModernColorScheme.accentMinimal)
             Text(text)
                 .font(ModernFontScheme.caption)
                 .foregroundColor(ModernColorScheme.textSecondary)

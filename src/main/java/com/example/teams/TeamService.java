@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
+import com.example.activities.ActivityService;
 
 @Service
 public class TeamService {
@@ -15,6 +16,8 @@ public class TeamService {
     private TeamMemberRepository teamMemberRepository;
     @Autowired
     private TeamInviteRepository teamInviteRepository;
+    @Autowired
+    private ActivityService activityService;
 
     public List<Team> getTeamsForUser(Long userId) {
         return teamRepository.findAllForUser(userId);
@@ -96,8 +99,38 @@ public class TeamService {
             member.setUserId(invite.getInviteeUserId());
             member.setRole("PLAYER");
             teamMemberRepository.save(member);
+
+            // Activity for all team members about new member
+            List<Long> userIds = teamMemberRepository.findUserIdsByTeamId(invite.getTeamId());
+            activityService.createActivityForUsers(userIds, "MEMBER_JOINED", "A new member joined your team");
         }
         return invite;
+    }
+
+    public void leaveTeam(Long teamId, Long userId) {
+        List<TeamMember> members = teamMemberRepository.findByTeamId(teamId);
+        TeamMember target = null;
+        for (TeamMember m : members) {
+            if (m.getUserId().equals(userId)) { target = m; break; }
+        }
+        if (target == null) throw new IllegalStateException("Not a team member");
+        if ("CAPTAIN".equals(target.getRole())) {
+            throw new IllegalStateException("Captain cannot leave; delete team instead");
+        }
+        teamMemberRepository.delete(target);
+        List<Long> userIds = teamMemberRepository.findUserIdsByTeamId(teamId);
+        activityService.createActivityForUsers(userIds, "MEMBER_LEFT", "A member left your team");
+    }
+
+    public void deleteTeam(Long teamId, Long requestingUserId) {
+        Team team = teamRepository.findById(teamId).orElseThrow(() -> new IllegalStateException("Team not found"));
+        if (!team.getOwnerUserId().equals(requestingUserId)) {
+            throw new IllegalStateException("Only captain can delete team");
+        }
+        List<Long> userIds = teamMemberRepository.findUserIdsByTeamId(teamId);
+        teamMemberRepository.deleteAll(teamMemberRepository.findByTeamId(teamId));
+        teamRepository.delete(team);
+        activityService.createActivityForUsers(userIds, "TEAM_DELETED", "Your team was deleted by the captain");
     }
 }
 

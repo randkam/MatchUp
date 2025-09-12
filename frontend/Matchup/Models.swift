@@ -52,6 +52,44 @@ struct Tournament: Identifiable, Codable {
     }
 }
 
+struct TournamentRegistrationModel: Identifiable, Codable {
+    let id: Int
+    let tournamentId: Int
+    let teamId: Int
+    let status: String
+    let seed: Int?
+    let checkedIn: Bool
+    let createdAt: String?
+    let updatedAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case tournamentId = "tournament_id"
+        case teamId = "team_id"
+        case status
+        case seed
+        case checkedIn = "checked_in"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+}
+
+struct TournamentRegistrationExpandedModel: Identifiable, Codable {
+    let id: Int
+    let teamId: Int
+    let teamName: String
+    let seed: Int
+    let createdAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case teamId = "team_id"
+        case teamName = "team_name"
+        case seed
+        case createdAt = "created_at"
+    }
+}
+
 // MARK: - Teams
 struct TeamModel: Identifiable, Codable {
     let id: Int

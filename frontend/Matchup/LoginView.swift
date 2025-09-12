@@ -55,7 +55,7 @@ struct LoginView: View {
                             .cornerRadius(12)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .stroke(ModernColorScheme.primary.opacity(0.3), lineWidth: 1)
+                                    .stroke(ModernColorScheme.brandBlue.opacity(0.3), lineWidth: 1)
                             )
                     }
 
@@ -69,7 +69,7 @@ struct LoginView: View {
                                 // Implement forgot password
                             }
                             .font(ModernFontScheme.caption)
-                            .foregroundColor(ModernColorScheme.primary)
+                            .foregroundColor(ModernColorScheme.accentMinimal)
                         }
 
                         HStack {
@@ -93,7 +93,7 @@ struct LoginView: View {
                         .cornerRadius(12)
                         .overlay(
                             RoundedRectangle(cornerRadius: 12)
-                                .stroke(ModernColorScheme.primary.opacity(0.3), lineWidth: 1)
+                                .stroke(ModernColorScheme.brandBlue.opacity(0.3), lineWidth: 1)
                         )
                     }
                 }
@@ -104,7 +104,7 @@ struct LoginView: View {
                 // Login button
                 if isLoading {
                     ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: ModernColorScheme.primary))
+                        .progressViewStyle(CircularProgressViewStyle(tint: ModernColorScheme.brandBlue))
                         .scaleEffect(1.5)
                         .frame(maxWidth: .infinity)
                         .padding(.top, 20)
@@ -135,7 +135,7 @@ struct LoginView: View {
                             .foregroundColor(ModernColorScheme.textSecondary)
                         Text("Sign Up")
                             .font(ModernFontScheme.body)
-                            .foregroundColor(ModernColorScheme.primary)
+                            .foregroundColor(ModernColorScheme.accentMinimal)
                             .bold()
                     }
                     .frame(maxWidth: .infinity)
@@ -211,7 +211,7 @@ struct LoginView: View {
                 dismissButton: .default(Text("OK"))
             )
         }
-        .tint(ModernColorScheme.primary)
+        .tint(ModernColorScheme.brandBlue)
         .onAppear {
             isAnimating = true
         }

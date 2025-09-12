@@ -104,7 +104,7 @@ private struct TeamCard: View {
         HStack(spacing: 12) {
             ZStack {
                 Circle().fill(ModernColorScheme.primary.opacity(0.15)).frame(width: 46, height: 46)
-                Image(systemName: "person.3.fill").foregroundColor(ModernColorScheme.primary)
+                Image(systemName: "person.3.fill").foregroundColor(ModernColorScheme.accentMinimal)
             }
             VStack(alignment: .leading, spacing: 4) {
                 Text(team.name)

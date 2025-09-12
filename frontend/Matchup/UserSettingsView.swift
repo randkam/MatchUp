@@ -26,7 +26,7 @@ struct UserSettingsView: View {
                     }) {
                         HStack {
                             Image(systemName: "person.fill")
-                                .foregroundColor(ModernColorScheme.primary)
+                                .foregroundColor(ModernColorScheme.accentMinimal)
                             Text("Edit Credentials")
                                 .foregroundColor(ModernColorScheme.text)
                         }
@@ -37,7 +37,7 @@ struct UserSettingsView: View {
                     }) {
                         HStack {
                             Image(systemName: "arrow.backward.square.fill")
-                                .foregroundColor(ModernColorScheme.primary)
+                                .foregroundColor(ModernColorScheme.accentMinimal)
                             Text("Logout")
                                 .foregroundColor(.red)
                         }

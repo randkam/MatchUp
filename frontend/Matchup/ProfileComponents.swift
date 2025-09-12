@@ -17,7 +17,7 @@ struct FavoriteCourtRow: View {
     var body: some View {
         HStack {
             Image(systemName: "basketball.fill")
-                .foregroundColor(ModernColorScheme.primary)
+                .foregroundColor(ModernColorScheme.accentMinimal)
                 .font(.system(size: 20))
                 .frame(width: 40, height: 40)
                 .background(ModernColorScheme.surface)
@@ -45,14 +45,14 @@ struct FavoriteCourtRow: View {
                     .foregroundColor(.white)
                     .padding(.vertical, 5)
                     .padding(.horizontal, 12)
-                    .background(ModernColorScheme.primary)
+                    .background(ModernColorScheme.accentMinimal)
                     .cornerRadius(8)
             }
         }
         .padding()
         .background(ModernColorScheme.surface)
         .cornerRadius(12)
-        .shadow(color: ModernColorScheme.primary.opacity(0.1), radius: 5, x: 0, y: 2)
+        .shadow(color: ModernColorScheme.accentMinimal.opacity(0.1), radius: 5, x: 0, y: 2)
     }
 }
 
@@ -63,7 +63,7 @@ struct RecentActivityRow: View {
     var body: some View {
         HStack {
             Image(systemName: activity.type == "Played Game" ? "basketball.fill" : "message.fill")
-                .foregroundColor(ModernColorScheme.primary)
+                .foregroundColor(ModernColorScheme.accentMinimal)
                 .font(.system(size: 20))
                 .frame(width: 40, height: 40)
                 .background(ModernColorScheme.surface)
@@ -100,7 +100,7 @@ struct RecentActivityRow: View {
         .padding()
         .background(ModernColorScheme.surface)
         .cornerRadius(12)
-        .shadow(color: ModernColorScheme.primary.opacity(0.1), radius: 5, x: 0, y: 2)
+        .shadow(color: ModernColorScheme.accentMinimal.opacity(0.1), radius: 5, x: 0, y: 2)
     }
 }
 
@@ -124,7 +124,7 @@ struct AvailabilitySelectionView: View {
                     Spacer()
                     if selectedTimes.contains(time) {
                         Image(systemName: "checkmark")
-                            .foregroundColor(ModernColorScheme.primary)
+                            .foregroundColor(ModernColorScheme.accentMinimal)
                     }
                 }
             }
@@ -192,7 +192,7 @@ struct ProfileSettingsRow: View {
     var body: some View {
         HStack {
             Image(systemName: icon)
-                .foregroundColor(ModernColorScheme.primary)
+                .foregroundColor(ModernColorScheme.accentMinimal)
             Text(title)
                 .font(ModernFontScheme.body)
                 .foregroundColor(ModernColorScheme.text)

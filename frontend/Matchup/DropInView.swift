@@ -82,9 +82,9 @@ struct DropInView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(ModernColorScheme.secondary)
+                    .background(ModernColorScheme.accentMinimal)
                     .cornerRadius(15)
-                    .shadow(color: ModernColorScheme.secondary.opacity(0.3), radius: 10, x: 0, y: 5)
+                    .shadow(color: ModernColorScheme.accentMinimal.opacity(0.3), radius: 10, x: 0, y: 5)
                 }
             }
             .padding(.horizontal)

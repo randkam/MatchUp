@@ -63,6 +63,32 @@ public class TeamController {
     public ResponseEntity<TeamInvite> respond(@PathVariable Long inviteId, @RequestParam("accept") boolean accept) {
         return ResponseEntity.ok(teamService.respondToInvite(inviteId, accept));
     }
+
+    @PostMapping("/{teamId}/leave")
+    public ResponseEntity<Map<String, String>> leave(@PathVariable Long teamId, @RequestParam("user_id") Long userId) {
+        Map<String, String> body = new HashMap<>();
+        try {
+            teamService.leaveTeam(teamId, userId);
+            body.put("message", "Left team");
+            return ResponseEntity.ok(body);
+        } catch (IllegalStateException e) {
+            body.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(body);
+        }
+    }
+
+    @DeleteMapping("/{teamId}")
+    public ResponseEntity<Map<String, String>> delete(@PathVariable Long teamId, @RequestParam("requesting_user_id") Long requestingUserId) {
+        Map<String, String> body = new HashMap<>();
+        try {
+            teamService.deleteTeam(teamId, requestingUserId);
+            body.put("message", "Team deleted");
+            return ResponseEntity.ok(body);
+        } catch (IllegalStateException e) {
+            body.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(body);
+        }
+    }
 }
 
 
