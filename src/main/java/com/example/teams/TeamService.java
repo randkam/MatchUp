@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Map;
 import com.example.activities.ActivityService;
+import com.example.users.UserService;
 
 @Service
 public class TeamService {
@@ -18,6 +19,8 @@ public class TeamService {
     private TeamInviteRepository teamInviteRepository;
     @Autowired
     private ActivityService activityService;
+    @Autowired
+    private UserService userService;
 
     public List<Team> getTeamsForUser(Long userId) {
         return teamRepository.findAllForUser(userId);
@@ -101,8 +104,16 @@ public class TeamService {
             teamMemberRepository.save(member);
 
             // Activity for all team members about new member
-            List<Long> userIds = teamMemberRepository.findUserIdsByTeamId(invite.getTeamId());
-            activityService.createActivityForUsers(userIds, "MEMBER_JOINED", "A new member joined your team");
+            Team team = teamRepository.findById(invite.getTeamId()).orElse(null);
+            String teamName = team != null ? team.getName() : ("Team #" + invite.getTeamId());
+            String username = userService.getUsernameById(invite.getInviteeUserId());
+            String message = "team: " + teamName + "\n(" + username + ") has joined the squad!";
+
+            List<Long> allUserIds = teamMemberRepository.findUserIdsByTeamId(invite.getTeamId());
+            List<Long> recipients = new java.util.ArrayList<>(allUserIds);
+            // Do not notify the user who just joined
+            recipients.remove(invite.getInviteeUserId());
+            activityService.createActivityForUsers(recipients, "MEMBER_JOINED", message);
         }
         return invite;
     }
@@ -131,6 +142,27 @@ public class TeamService {
         teamMemberRepository.deleteAll(teamMemberRepository.findByTeamId(teamId));
         teamRepository.delete(team);
         activityService.createActivityForUsers(userIds, "TEAM_DELETED", "Your team was deleted by the captain");
+    }
+
+    public void removeMember(Long teamId, Long targetUserId, Long requestingUserId) {
+        boolean isCaptain = teamMemberRepository.isCaptain(teamId, requestingUserId);
+        if (!isCaptain) {
+            throw new IllegalStateException("Only captain can remove members");
+        }
+        // Do not allow removing captain
+        boolean isTargetCaptain = teamMemberRepository.isCaptain(teamId, targetUserId);
+        if (isTargetCaptain) {
+            throw new IllegalStateException("Cannot remove team captain");
+        }
+        List<TeamMember> members = teamMemberRepository.findByTeamId(teamId);
+        TeamMember target = null;
+        for (TeamMember m : members) {
+            if (m.getUserId().equals(targetUserId)) { target = m; break; }
+        }
+        if (target == null) {
+            throw new IllegalStateException("User is not a member of this team");
+        }
+        teamMemberRepository.delete(target);
     }
 }
 

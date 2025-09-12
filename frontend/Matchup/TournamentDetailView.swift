@@ -11,7 +11,8 @@ struct TournamentDetailView: View {
     private let network = NetworkManager()
     
     var body: some View {
-        ScrollView {
+        ZStack(alignment: .bottom) {
+            ScrollView {
             VStack(spacing: 12) {
                 titleHeader
                     .padding(.horizontal)
@@ -39,9 +40,13 @@ struct TournamentDetailView: View {
                     }
                 }
                 .padding(.horizontal)
-                .padding(.bottom)
+                .padding(.bottom, 100)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            stickyRegisterButton
+                .padding(.horizontal)
+                .padding(.bottom, 12)
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -56,12 +61,13 @@ struct TournamentDetailView: View {
     }
     
     private var titleHeader: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             Text(tournament.name)
-                .font(.title)
+                .font(.largeTitle)
                 .fontWeight(.bold)
                 .foregroundColor(ModernColorScheme.text)
-            Spacer()
+                .lineLimit(2)
+            // Removed badges per request
         }
     }
 
@@ -103,21 +109,6 @@ struct TournamentDetailView: View {
             .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.black.opacity(0.08), lineWidth: 1))
             .shadow(color: ModernColorScheme.primary.opacity(0.06), radius: 5, x: 0, y: 2)
 
-            // Register button
-            NavigationLink(destination: RegisterTournamentView(tournament: tournament)) {
-                HStack {
-                    Image(systemName: "square.and.pencil")
-                    Text("Register for Tournament")
-                        .font(ModernFontScheme.body)
-                        .fontWeight(.semibold)
-                }
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(ModernColorScheme.primary)
-                .foregroundColor(.white)
-                .cornerRadius(15)
-            }
-
             // Notes card
             VStack(alignment: .leading, spacing: 8) {
                 Text("What to expect")
@@ -133,6 +124,24 @@ struct TournamentDetailView: View {
             .cornerRadius(16)
             .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.black.opacity(0.08), lineWidth: 1))
             .shadow(color: ModernColorScheme.primary.opacity(0.06), radius: 5, x: 0, y: 2)
+        }
+    }
+
+    private var stickyRegisterButton: some View {
+        NavigationLink(destination: RegisterTournamentView(tournament: tournament)) {
+            HStack {
+                Image(systemName: "square.and.pencil")
+                Text("Register for Tournament")
+                    .font(ModernFontScheme.body)
+                    .fontWeight(.semibold)
+            }
+            .frame(maxWidth: .infinity)
+            .padding()
+            .background(ModernColorScheme.accentMinimal)
+            .overlay(RoundedRectangle(cornerRadius: 15).stroke(Color.black.opacity(0.08), lineWidth: 1))
+            .foregroundColor(.white)
+            .cornerRadius(15)
+            .shadow(color: ModernColorScheme.primary.opacity(0.06), radius: 6, x: 0, y: 3)
         }
     }
     
@@ -282,28 +291,34 @@ private struct RegisteredTeamsView: View {
 
     private var registeredCount: Int { min(teams.count, totalSlots) }
     private var display: [DisplayItem] {
-        let filled = teams.prefix(totalSlots).enumerated().map { (idx, reg) in
-            DisplayItem(index: idx + 1, teamId: reg.teamId, name: reg.teamName, isEmpty: false)
+        let filled = teams.prefix(totalSlots).map { reg in
+            DisplayItem(teamId: reg.teamId, name: reg.teamName, isEmpty: false)
         }
         let placeholdersCount = max(0, totalSlots - filled.count)
-        let empties: [DisplayItem] = (0..<placeholdersCount).map { i in
-            DisplayItem(index: filled.count + i + 1, teamId: -1, name: "Empty Spot", isEmpty: true)
+        let empties: [DisplayItem] = (0..<placeholdersCount).map { _ in
+            DisplayItem(teamId: -1, name: "Empty Spot", isEmpty: true)
         }
         return filled + empties
     }
 
-    private struct DisplayItem: Identifiable { let id = UUID(); let index: Int; let teamId: Int; let name: String; let isEmpty: Bool }
-    private let columns = [GridItem(.flexible(minimum: 120)), GridItem(.flexible(minimum: 120))]
+    private struct DisplayItem: Identifiable { let id = UUID(); let teamId: Int; let name: String; let isEmpty: Bool }
+    private let columns = [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Registered \(registeredCount) / \(totalSlots)")
-                .font(.subheadline)
-                .foregroundColor(.gray)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Registered")
+                    .font(ModernFontScheme.caption)
+                    .foregroundColor(ModernColorScheme.textSecondary)
+                Spacer()
+                Text("\(registeredCount) / \(totalSlots)")
+                    .font(ModernFontScheme.caption)
+                    .foregroundColor(.gray)
+            }
 
             LazyVGrid(columns: columns, spacing: 12) {
                 ForEach(display) { item in
-                    TeamSlotCard(index: item.index, name: item.name, isEmpty: item.isEmpty, isUserTeam: userTeamIds.contains(item.teamId))
+                    TeamSlotCard(name: item.name, isEmpty: item.isEmpty, isUserTeam: userTeamIds.contains(item.teamId))
                 }
             }
         }
@@ -311,30 +326,38 @@ private struct RegisteredTeamsView: View {
 }
 
 private struct TeamSlotCard: View {
-    let index: Int
     let name: String
     let isEmpty: Bool
     let isUserTeam: Bool
     
     var body: some View {
         HStack(spacing: 10) {
-            Text("#\(index)")
-                .font(.caption)
-                .foregroundColor(.gray)
-                .frame(width: 28)
-            Text(name)
-                .font(.subheadline)
-                .foregroundColor(isEmpty ? .gray : .primary)
-                .lineLimit(1)
+            ZStack {
+                Circle().fill((isEmpty ? Color.gray : ModernColorScheme.accentMinimal).opacity(0.15)).frame(width: 28, height: 28)
+                Image(systemName: isEmpty ? "plus" : "person.3.fill").foregroundColor(isEmpty ? .gray : ModernColorScheme.accentMinimal)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(name)
+                    .font(.subheadline)
+                    .foregroundColor(isEmpty ? .gray : ModernColorScheme.text)
+                    .lineLimit(1)
+                if isUserTeam && !isEmpty {
+                    Text("Your team")
+                        .font(.caption2)
+                        .foregroundColor(.red)
+                }
+            }
             Spacer()
         }
+        .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
         .padding(12)
         .background(ModernColorScheme.surface)
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 10)
-                .stroke(isUserTeam && !isEmpty ? Color.red : Color.white.opacity(0.06), lineWidth: isUserTeam && !isEmpty ? 2 : 1)
+                .stroke(isUserTeam && !isEmpty ? Color.red : Color.black.opacity(0.06), lineWidth: 1)
         )
+        .shadow(color: ModernColorScheme.primary.opacity(0.04), radius: 3, x: 0, y: 1)
     }
 }
 
@@ -346,14 +369,24 @@ private struct BracketLockedView: View {
             ZStack {
                 RoundedRectangle(cornerRadius: 16)
                     .fill(ModernColorScheme.surface)
-                    .frame(height: 220)
+                    .frame(height: 240)
                     .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.black.opacity(0.08), lineWidth: 1))
                     .shadow(color: ModernColorScheme.primary.opacity(0.06), radius: 5, x: 0, y: 2)
-                    .blur(radius: 2)
+                    .overlay(
+                        // Faux bracket graphic behind blur
+                        bracketPlaceholder()
+                            .padding(16)
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                    )
+                    .overlay(
+                        // Blur-like frosted overlay
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(.ultraThinMaterial)
+                    )
                 VStack(spacing: 8) {
                     Image(systemName: "lock.fill")
                         .foregroundColor(ModernColorScheme.textSecondary)
-                    Text("Bracket will be available 24 hours before start")
+                    Text("Bracket will be available 24 hours before start time")
                         .font(ModernFontScheme.body)
                         .foregroundColor(ModernColorScheme.textSecondary)
                     Text(availabilityText)
@@ -370,6 +403,75 @@ private struct BracketLockedView: View {
         df.dateStyle = .medium
         df.timeStyle = .short
         return "Available after \(df.string(from: date))"
+    }
+}
+
+@ViewBuilder
+private func bracketPlaceholder() -> some View {
+    GeometryReader { geo in
+        let w = geo.size.width
+        let h = geo.size.height
+        let lineColor = Color.white.opacity(0.2)
+
+        ZStack {
+            // Left rounds
+            Path { p in
+                let y1 = h * 0.25
+                let y2 = h * 0.75
+                let midY = h * 0.5
+                p.move(to: CGPoint(x: 16, y: y1 - 20))
+                p.addLine(to: CGPoint(x: w * 0.25, y: y1 - 20))
+                p.move(to: CGPoint(x: 16, y: y1 + 20))
+                p.addLine(to: CGPoint(x: w * 0.25, y: y1 + 20))
+                p.move(to: CGPoint(x: 16, y: y2 - 20))
+                p.addLine(to: CGPoint(x: w * 0.25, y: y2 - 20))
+                p.move(to: CGPoint(x: 16, y: y2 + 20))
+                p.addLine(to: CGPoint(x: w * 0.25, y: y2 + 20))
+                // Connectors to semi-final
+                p.move(to: CGPoint(x: w * 0.25, y: y1))
+                p.addLine(to: CGPoint(x: w * 0.45, y: y1))
+                p.move(to: CGPoint(x: w * 0.25, y: y2))
+                p.addLine(to: CGPoint(x: w * 0.45, y: y2))
+                // Semi-final to final
+                p.move(to: CGPoint(x: w * 0.45, y: y1))
+                p.addLine(to: CGPoint(x: w * 0.6, y: midY))
+                p.move(to: CGPoint(x: w * 0.45, y: y2))
+                p.addLine(to: CGPoint(x: w * 0.6, y: midY))
+            }
+            .stroke(lineColor, lineWidth: 2)
+
+            // Right rounds (mirrored)
+            Path { p in
+                let y1 = h * 0.25
+                let y2 = h * 0.75
+                let midY = h * 0.5
+                p.move(to: CGPoint(x: w - 16, y: y1 - 20))
+                p.addLine(to: CGPoint(x: w * 0.75, y: y1 - 20))
+                p.move(to: CGPoint(x: w - 16, y: y1 + 20))
+                p.addLine(to: CGPoint(x: w * 0.75, y: y1 + 20))
+                p.move(to: CGPoint(x: w - 16, y: y2 - 20))
+                p.addLine(to: CGPoint(x: w * 0.75, y: y2 - 20))
+                p.move(to: CGPoint(x: w - 16, y: y2 + 20))
+                p.addLine(to: CGPoint(x: w * 0.75, y: y2 + 20))
+                // Connectors to semi-final
+                p.move(to: CGPoint(x: w * 0.75, y: y1))
+                p.addLine(to: CGPoint(x: w * 0.55, y: y1))
+                p.move(to: CGPoint(x: w * 0.75, y: y2))
+                p.addLine(to: CGPoint(x: w * 0.55, y: y2))
+                // Semi-final to final
+                p.move(to: CGPoint(x: w * 0.55, y: y1))
+                p.addLine(to: CGPoint(x: w * 0.4, y: midY))
+                p.move(to: CGPoint(x: w * 0.55, y: y2))
+                p.addLine(to: CGPoint(x: w * 0.4, y: midY))
+            }
+            .stroke(lineColor, lineWidth: 2)
+
+            // Center trophy placeholder
+            Image(systemName: "trophy.fill")
+                .foregroundColor(Color.yellow.opacity(0.6))
+                .font(.system(size: 28))
+                .position(x: w * 0.5, y: h * 0.5)
+        }
     }
 }
 

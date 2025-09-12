@@ -5,8 +5,8 @@ struct ActivityView: View {
     @State private var activities: [NetworkManager.ActivityItem] = []
     @State private var isLoading = false
     @State private var errorMessage: String? = nil
+    @State private var filter: ActivityFilter = .all
     @State private var respondingIds: Set<Int> = []
-    @State private var refreshTimer: Timer? = nil
     private let network = NetworkManager()
     
     var body: some View {
@@ -20,69 +20,77 @@ struct ActivityView: View {
                         Text(errorMessage)
                             .foregroundColor(ModernColorScheme.textSecondary)
                     } else if invites.isEmpty && activities.isEmpty {
-                        Text("No activity right now")
-                            .foregroundColor(ModernColorScheme.textSecondary)
+                        VStack(spacing: 10) {
+                            Image(systemName: "bell")
+                                .font(.system(size: 36))
+                                .foregroundColor(ModernColorScheme.accentMinimal)
+                            Text("No activity right now")
+                                .foregroundColor(ModernColorScheme.textSecondary)
+                            Text("Pull to refresh")
+                                .font(.caption)
+                                .foregroundColor(ModernColorScheme.textSecondary)
+                        }
                     } else {
                         List {
+                            Section {
+                                Picker("Filter", selection: $filter) {
+                                    Text("All").tag(ActivityFilter.all)
+                                    Text("Teams").tag(ActivityFilter.teams)
+                                    Text("Invites").tag(ActivityFilter.invites)
+                                }
+                                .pickerStyle(.segmented)
+                            }
+                            .listRowBackground(ModernColorScheme.background)
+                            .listRowSeparator(.hidden)
                             if !activities.isEmpty {
-                                Section(header: Text("Updates")) {
-                                    ForEach(activities) { item in
-                                        HStack(alignment: .top, spacing: 10) {
-                                            Image(systemName: iconName(for: item.type)).foregroundColor(ModernColorScheme.accentMinimal)
-                                            VStack(alignment: .leading, spacing: 4) {
-                                                Text(item.message).foregroundColor(ModernColorScheme.text)
-                                                Text(item.createdAt ?? "").font(.caption).foregroundColor(.gray)
-                                            }
-                                            Spacer()
+                                ForEach(groupedSections()) { section in
+                                    Section(header: sectionHeader(section.title)) {
+                                        ForEach(section.items.filter { shouldShow($0) }) { item in
+                                            ActivityRow(message: item.message, type: item.type, createdAt: item.createdAt)
                                         }
                                     }
                                 }
                             }
-                            if !invites.isEmpty {
+                            if !invites.isEmpty && (filter == .all || filter == .invites) {
                                 Section(header: Text("Invites")) {
                                     ForEach(invites) { invite in
-                                        HStack {
-                                            Image(systemName: "envelope.fill").foregroundColor(ModernColorScheme.accentMinimal)
-                                            VStack(alignment: .leading) {
-                                                HStack(spacing: 8) {
-                                                    teamPill(invite.teamName ?? "Team #\(invite.teamId)")
-                                                    Text("invited you")
-                                                }
-                                                Text(invite.status)
-                                                    .font(.caption)
-                                                    .foregroundColor(.gray)
-                                            }
-                                            Spacer()
-                                            HStack(spacing: 8) {
-                                                Button("Decline") { respond(invite: invite, accept: false) }
-                                                    .buttonStyle(.bordered)
-                                                    .disabled(respondingIds.contains(invite.id))
-                                                Button("Accept") { respond(invite: invite, accept: true) }
-                                                    .buttonStyle(.borderedProminent)
-                                                    .disabled(respondingIds.contains(invite.id))
-                                            }
-                                        }
+                                        InviteRow(invite: invite,
+                                                  isResponding: respondingIds.contains(invite.id),
+                                                  acceptAction: { respond(invite: invite, accept: true) },
+                                                  declineAction: { respond(invite: invite, accept: false) })
                                     }
                                 }
                             }
                         }
-                        .listStyle(.insetGrouped)
+                        .listStyle(.plain)
+                        .scrollContentBackground(.hidden)
+                        .listRowBackground(ModernColorScheme.surface)
+                        .tint(ModernColorScheme.accentMinimal)
+                        .listRowSeparator(.hidden)
                     }
                 }
             }
             .navigationTitle("Activity")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(action: {
+                        loadInvites()
+                        loadActivities()
+                    }) {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    .accessibilityLabel("Refresh")
+                }
+            }
         }
         .onAppear {
             loadInvites()
             loadActivities()
-            refreshTimer?.invalidate()
-            refreshTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { _ in
-                loadInvites()
-                loadActivities()
-            }
         }
-        .onDisappear { refreshTimer?.invalidate(); refreshTimer = nil }
-        .refreshable { loadInvites() }
+        .refreshable {
+            loadInvites()
+            loadActivities()
+        }
     }
     
     private func loadInvites() {
@@ -123,6 +131,130 @@ struct ActivityView: View {
         }
     }
 
+    private func groupedActivities() -> [(String, [NetworkManager.ActivityItem])] {
+        // Group by day label: Today, Yesterday, or date
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSXXXXX"
+        let out = DateFormatter()
+        out.dateStyle = .medium
+        out.timeStyle = .none
+
+        let calendar = Calendar.current
+        var groups: [String: [NetworkManager.ActivityItem]] = [:]
+        for item in activities {
+            let label: String
+            if let ts = item.createdAt, let date = ISO8601DateFormatter().date(from: ts) ?? df.date(from: ts) {
+                if calendar.isDateInToday(date) {
+                    label = "Today"
+                } else if calendar.isDateInYesterday(date) {
+                    label = "Yesterday"
+                } else {
+                    label = out.string(from: date)
+                }
+            } else {
+                label = "Earlier"
+            }
+            groups[label, default: []].append(item)
+        }
+        // Sort by date recency for sections
+        let ordered = groups.keys.sorted { lhs, rhs in
+            func keyDate(_ s: String) -> Date {
+                if s == "Today" { return Date() }
+                if s == "Yesterday" { return Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date() }
+                return out.date(from: s) ?? Date.distantPast
+            }
+            return keyDate(lhs) > keyDate(rhs)
+        }
+        return ordered.map { ($0, groups[$0] ?? []) }
+    }
+
+    private struct ActivitySection: Identifiable {
+        let id = UUID()
+        let title: String
+        let items: [NetworkManager.ActivityItem]
+    }
+
+    private func groupedSections() -> [ActivitySection] {
+        let tuples = groupedActivities()
+        return tuples.map { ActivitySection(title: $0.0, items: $0.1) }
+    }
+
+    private func sectionHeader(_ text: String) -> some View {
+        Text(text.uppercased())
+            .font(.caption)
+            .foregroundColor(.gray)
+            .padding(.leading, -8)
+    }
+    private func shouldShow(_ item: NetworkManager.ActivityItem) -> Bool {
+        switch filter {
+        case .all:
+            return true
+        case .teams:
+            return isTeamEvent(item.type)
+        case .invites:
+            return false
+        }
+    }
+}
+
+private enum ActivityFilter { case all, teams, invites }
+
+private func isTeamEvent(_ type: String) -> Bool {
+    switch type {
+    case "TEAM_REGISTERED", "MEMBER_JOINED", "MEMBER_LEFT", "TEAM_DELETED":
+        return true
+    default:
+        return false
+    }
+}
+
+private struct ActivityRow: View {
+    let message: String
+    let type: String
+    let createdAt: String?
+    
+    // Expect message lines with first line like "team: <name>" and the second line content
+    private var lines: [Substring] { message.split(separator: "\n", omittingEmptySubsequences: false) }
+    private var teamLine: String { lines.first.map(String.init) ?? "" }
+    private var bodyLine: String { lines.dropFirst().joined(separator: "\n") }
+    
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8).fill(ModernColorScheme.accentMinimal.opacity(0.15)).frame(width: 36, height: 36)
+                Image(systemName: iconName(for: type)).foregroundColor(ModernColorScheme.accentMinimal)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                if !teamLine.isEmpty {
+                    teamPill(displayTeam(teamLine))
+                }
+                if !bodyLine.isEmpty {
+                    Text(formattedBody(bodyLine))
+                        .foregroundColor(ModernColorScheme.text)
+                }
+                if let createdAt = createdAt {
+                    Text(relativeTime(createdAt))
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+            }
+            Spacer()
+        }
+        .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
+        .listRowBackground(ModernColorScheme.surface)
+    }
+
+    private func relativeTime(_ iso: String) -> String {
+        let iso1 = ISO8601DateFormatter()
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSXXXXX"
+        let date = iso1.date(from: iso) ?? df.date(from: iso)
+        guard let d = date else { return iso }
+        let rel = RelativeDateTimeFormatter()
+        rel.unitsStyle = .short
+        return rel.localizedString(for: d, relativeTo: Date())
+    }
+    
     private func iconName(for type: String) -> String {
         switch type {
         case "TEAM_REGISTERED": return "trophy"
@@ -131,6 +263,59 @@ struct ActivityView: View {
         case "TEAM_DELETED": return "trash"
         default: return "bell"
         }
+    }
+    
+    private func displayTeam(_ line: String) -> String {
+        // Input like: "team: Team Name"
+        if let range = line.range(of: "team:") {
+            let name = line[range.upperBound...].trimmingCharacters(in: .whitespaces)
+            return name
+        }
+        return line
+    }
+    
+    private func formattedBody(_ body: String) -> String {
+        body
+    }
+    
+    private func isTeamEvent(_ type: String) -> Bool {
+        switch type {
+        case "TEAM_REGISTERED", "MEMBER_JOINED", "MEMBER_LEFT", "TEAM_DELETED":
+            return true
+        default:
+            return false
+        }
+    }
+}
+
+private struct InviteRow: View {
+    let invite: TeamInviteModel
+    let isResponding: Bool
+    let acceptAction: () -> Void
+    let declineAction: () -> Void
+    
+    var body: some View {
+        HStack(alignment: .center, spacing: 10) {
+            Image(systemName: "envelope.fill").foregroundColor(ModernColorScheme.accentMinimal)
+            VStack(alignment: .leading, spacing: 6) {
+                teamPill(invite.teamName ?? "Team #\(invite.teamId)")
+                Text("invited you")
+                    .foregroundColor(ModernColorScheme.text)
+                Text(invite.status)
+                    .font(.caption)
+                    .foregroundColor(.gray)
+            }
+            Spacer()
+            HStack(spacing: 8) {
+                Button("Decline") { declineAction() }
+                    .buttonStyle(.bordered)
+                    .disabled(isResponding)
+                Button("Accept") { acceptAction() }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(isResponding)
+            }
+        }
+        .listRowBackground(ModernColorScheme.surface)
     }
 }
 

@@ -11,62 +11,89 @@ struct RegisterTournamentView: View {
     private let network = NetworkManager()
     
     var body: some View {
-        VStack(spacing: 16) {
-            Text("Register for \(tournament.name)")
-                .font(ModernFontScheme.heading)
-                .foregroundColor(ModernColorScheme.text)
-            if let success = successMessage {
-                Text(success).foregroundColor(.green)
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Register for")
+                    .font(ModernFontScheme.caption)
+                    .foregroundColor(ModernColorScheme.textSecondary)
+                Text(tournament.name)
+                    .font(ModernFontScheme.heading)
+                    .foregroundColor(ModernColorScheme.text)
+                if let success = successMessage {
+                    Text(success).foregroundColor(.green)
+                }
+                if let err = errorMessage {
+                    Text(err).foregroundColor(.red)
+                }
             }
-            if let err = errorMessage {
-                Text(err).foregroundColor(.red)
-            }
+            .padding()
 
             List {
-                ForEach(teams) { team in
-                    let isCaptain = team.ownerUserId == (UserDefaults.standard.integer(forKey: "loggedInUserId"))
-                    let isIneligible = !isCaptain
-                    let isAlreadyRegistered = registeredTeamIds.contains(team.id)
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(team.name)
-                                .font(ModernFontScheme.body)
-                                .foregroundColor(ModernColorScheme.text)
-                            if isIneligible {
-                                Text("You are not the captain of this team")
-                                    .font(.caption)
-                                    .foregroundColor(.orange)
+                Section(header: Text("Your Teams")) {
+                    ForEach(teams) { team in
+                        let isCaptain = team.ownerUserId == (UserDefaults.standard.integer(forKey: "loggedInUserId"))
+                        let isIneligible = !isCaptain
+                        let isAlreadyRegistered = registeredTeamIds.contains(team.id)
+                        HStack(spacing: 12) {
+                            ZStack {
+                                Circle().fill(ModernColorScheme.primary.opacity(0.15)).frame(width: 36, height: 36)
+                                Image(systemName: "person.3.fill").foregroundColor(ModernColorScheme.accentMinimal)
                             }
-                            if isAlreadyRegistered {
-                                Text("Team already registered for this tournament")
-                                    .font(.caption)
-                                    .foregroundColor(.blue)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(team.name)
+                                    .font(ModernFontScheme.body)
+                                    .foregroundColor(ModernColorScheme.text)
+                                if isIneligible {
+                                    Text("You are not the captain of this team")
+                                        .font(.caption)
+                                        .foregroundColor(.orange)
+                                }
+                                if isAlreadyRegistered {
+                                    Text("Team already registered for this tournament")
+                                        .font(.caption)
+                                        .foregroundColor(.blue)
+                                }
+                            }
+                            Spacer()
+                            if selectedTeamId == team.id {
+                                Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
                             }
                         }
-                        Spacer()
-                        if selectedTeamId == team.id {
-                            Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            if !isIneligible && !isAlreadyRegistered {
+                                selectedTeamId = team.id
+                            }
                         }
-                    }
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        if !isIneligible && !isAlreadyRegistered {
-                            selectedTeamId = team.id
-                        }
+                        .padding(6)
+                        .listRowBackground(ModernColorScheme.surface)
                     }
                 }
             }
+            .listStyle(.insetGrouped)
+            .scrollContentBackground(.hidden)
 
-            Button(action: register) {
-                Text("Register Selected Team")
+            VStack(spacing: 10) {
+                Button(action: register) {
+                    HStack {
+                        Image(systemName: "square.and.pencil")
+                        Text("Register Selected Team")
+                            .font(ModernFontScheme.body)
+                            .fontWeight(.semibold)
+                    }
                     .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(selectedTeamId == nil ? ModernColorScheme.accentMinimal.opacity(0.4) : ModernColorScheme.accentMinimal)
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.red, lineWidth: 2))
+                    .foregroundColor(.white)
+                    .cornerRadius(14)
+                }
+                .disabled(selectedTeamId == nil)
             }
-            .buttonStyle(.borderedProminent)
-            .disabled(selectedTeamId == nil)
-            Spacer()
+            .padding()
+            .background(ModernColorScheme.background.opacity(0.95))
         }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(ModernColorScheme.background.edgesIgnoringSafeArea(.all))
         .navigationTitle("Register")
         .navigationBarTitleDisplayMode(.inline)

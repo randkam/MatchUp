@@ -50,6 +50,12 @@ public class TournamentRegistrationController {
     public ResponseEntity<Map<String, Object>> eligibility(@PathVariable Long tournamentId, @RequestParam("user_id") Long userId) {
         return ResponseEntity.ok(registrationService.getEligibility(tournamentId, userId));
     }
+
+    // Upcoming tournaments a specific team is registered for
+    @GetMapping("/teams/{teamId}/upcoming")
+    public ResponseEntity<List<Tournament>> teamUpcoming(@PathVariable Long teamId) {
+        return ResponseEntity.ok(registrationService.getUpcomingForTeam(teamId));
+    }
 }
 
 

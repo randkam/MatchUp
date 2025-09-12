@@ -28,6 +28,10 @@ public interface TournamentRegistrationRepository extends JpaRepository<Tourname
 
     @Query("SELECT tr.id as id, tr.teamId as teamId, t.name as teamName, CAST(tr.createdAt as string) as createdAt FROM TournamentRegistration tr JOIN com.example.teams.Team t ON t.id = tr.teamId WHERE tr.tournamentId = :tournamentId ORDER BY tr.createdAt ASC")
     List<TournamentRegistrationProjection> findExpandedByTournamentId(Long tournamentId);
+
+    // Upcoming tournaments for a team
+    @Query("SELECT t FROM TournamentRegistration tr JOIN Tournament t ON t.id = tr.tournamentId WHERE tr.teamId = :teamId AND t.startsAt >= CURRENT_TIMESTAMP ORDER BY t.startsAt ASC")
+    List<Tournament> findUpcomingTournamentsForTeam(Long teamId);
 }
 
 

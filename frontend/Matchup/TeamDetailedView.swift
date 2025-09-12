@@ -7,6 +7,7 @@ struct TeamDetailedView: View {
     @State private var errorMessage: String? = nil
     @State private var userNames: [Int: String] = [:]
     @State private var actionError: String? = nil
+    @State private var upcomingTournaments: [Tournament] = []
     private let network = NetworkManager()
     
     var body: some View {
@@ -42,14 +43,52 @@ struct TeamDetailedView: View {
                 List {
                     Section(header: Text("Roster")) {
                         ForEach(members) { member in
-                            HStack {
-                                Image(systemName: member.role == "CAPTAIN" ? "crown.fill" : "person.fill")
-                                    .foregroundColor(member.role == "CAPTAIN" ? .yellow : ModernColorScheme.accentMinimal)
-                                Text(member.username ?? userNames[member.userId] ?? "User #\(member.userId)")
+                            HStack(spacing: 12) {
+                                ZStack {
+                                    Circle().fill(ModernColorScheme.primary.opacity(0.15)).frame(width: 32, height: 32)
+                                    Image(systemName: member.role == "CAPTAIN" ? "crown.fill" : "person.fill")
+                                        .foregroundColor(member.role == "CAPTAIN" ? .yellow : ModernColorScheme.accentMinimal)
+                                }
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(member.username ?? userNames[member.userId] ?? "User #\(member.userId)")
+                                        .foregroundColor(ModernColorScheme.text)
+                                    Text(member.role.capitalized)
+                                        .font(.caption)
+                                        .foregroundColor(.gray)
+                                }
                                 Spacer()
-                                Text(member.role.capitalized)
-                                    .font(.caption)
-                                    .foregroundColor(.gray)
+                                if canRemove(member: member) {
+                                    Button(role: .destructive) { remove(member: member) } label: {
+                                        Image(systemName: "xmark.circle.fill").foregroundColor(.red)
+                                    }
+                                }
+                            }
+                            .padding(10)
+                            .background(ModernColorScheme.surface)
+                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            .listRowInsets(EdgeInsets())
+                            .listRowBackground(Color.clear)
+                        }
+                    }
+                    if !upcomingTournaments.isEmpty {
+                        Section(header: Text("Upcoming Tournaments")) {
+                            ForEach(upcomingTournaments) { t in
+                                HStack(spacing: 12) {
+                                    ZStack {
+                                        RoundedRectangle(cornerRadius: 8).fill(ModernColorScheme.accentMinimal.opacity(0.15)).frame(width: 40, height: 40)
+                                        Image(systemName: "calendar").foregroundColor(ModernColorScheme.accentMinimal)
+                                    }
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(t.name).foregroundColor(ModernColorScheme.text)
+                                        Text(dateRange(t)).font(.caption).foregroundColor(.gray)
+                                    }
+                                    Spacer()
+                                }
+                                .padding(10)
+                                .background(ModernColorScheme.surface)
+                                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                .listRowInsets(EdgeInsets())
+                                .listRowBackground(Color.clear)
                             }
                         }
                     }
@@ -61,13 +100,14 @@ struct TeamDetailedView: View {
                     }
                 }
                 .listStyle(.insetGrouped)
+                .scrollContentBackground(.hidden)
             }
             Spacer(minLength: 0)
         }
         .background(ModernColorScheme.background.ignoresSafeArea())
         .navigationTitle("Team")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { loadMembers() }
+        .onAppear { loadMembers(); loadUpcoming() }
     }
     
     private var header: some View {
@@ -95,6 +135,38 @@ struct TeamDetailedView: View {
                 }
             }
         }
+    }
+
+    private func loadUpcoming() {
+        guard let url = URL(string: APIConfig.teamUpcomingTournamentsEndpoint(teamId: team.id)) else { return }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                guard let data = data else { return }
+                let decoder = JSONDecoder()
+                // Match tournament date decoding used elsewhere
+                decoder.dateDecodingStrategy = .custom { decoder in
+                    let container = try decoder.singleValueContainer()
+                    let dateString = try container.decode(String.self)
+                    let isoWithFraction = ISO8601DateFormatter()
+                    isoWithFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                    if let d = isoWithFraction.date(from: dateString) { return d }
+                    let iso = ISO8601DateFormatter()
+                    iso.formatOptions = [.withInternetDateTime]
+                    if let d = iso.date(from: dateString) { return d }
+                    let df = DateFormatter()
+                    df.locale = Locale(identifier: "en_US_POSIX")
+                    df.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+                    if let d = df.date(from: dateString) { return d }
+                    throw DecodingError.dataCorrupted(DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid date: \(dateString)"))
+                }
+                if let list = try? decoder.decode([Tournament].self, from: data) {
+                    self.upcomingTournaments = list
+                }
+            }
+        }.resume()
     }
 
     private var actionButtons: some View {
@@ -133,6 +205,46 @@ struct TeamDetailedView: View {
                 }
             }
         }
+    }
+
+    private func canRemove(member: TeamMemberModel) -> Bool {
+        let loggedInUserId = UserDefaults.standard.integer(forKey: "loggedInUserId")
+        let isCaptain = team.ownerUserId == loggedInUserId
+        return isCaptain && member.role != "CAPTAIN"
+    }
+
+    private func remove(member: TeamMemberModel) {
+        let loggedInUserId = UserDefaults.standard.integer(forKey: "loggedInUserId")
+        network.removeTeamMember(teamId: team.id, targetUserId: member.userId, requestingUserId: loggedInUserId) { err in
+            DispatchQueue.main.async {
+                if let err = err { actionError = err.localizedDescription } else {
+                    members.removeAll { $0.id == member.id }
+                }
+            }
+        }
+    }
+
+    private func dateRange(_ t: Tournament) -> String {
+        let calendar = Calendar.current
+        let dateFmt = DateFormatter()
+        dateFmt.dateStyle = .medium
+        dateFmt.timeStyle = .none
+        let timeFmt = DateFormatter()
+        timeFmt.dateStyle = .none
+        timeFmt.timeStyle = .short
+        let startDate = dateFmt.string(from: t.startsAt)
+        let startTime = timeFmt.string(from: t.startsAt)
+        if let end = t.endsAt {
+            if calendar.isDate(t.startsAt, inSameDayAs: end) {
+                let endTime = timeFmt.string(from: end)
+                return "\(startDate), \(startTime) – \(endTime)"
+            } else {
+                let endDate = dateFmt.string(from: end)
+                let endTime = timeFmt.string(from: end)
+                return "\(startDate), \(startTime) – \(endDate), \(endTime)"
+            }
+        }
+        return "\(startDate), \(startTime)"
     }
 }
 
