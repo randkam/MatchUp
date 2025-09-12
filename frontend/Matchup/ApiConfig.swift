@@ -23,6 +23,7 @@ struct APIConfig {
     static func tournamentRegistrationsExpandedEndpoint(tournamentId: Int) -> String { "\(tournamentsEndpoint)/\(tournamentId)/registrations/expanded" }
     static func tournamentEligibilityEndpoint(tournamentId: Int, userId: Int) -> String { "\(tournamentsEndpoint)/\(tournamentId)/eligibility?user_id=\(userId)" }
     static func activitiesEndpoint(userId: Int) -> String { "\(baseAPI)/api/v1/activities/user/\(userId)" }
+    static func teamUpcomingTournamentsEndpoint(teamId: Int) -> String { "\(tournamentsEndpoint)/teams/\(teamId)/upcoming" }
     
     
     // WebSocket configuration

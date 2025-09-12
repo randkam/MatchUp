@@ -89,6 +89,21 @@ public class TeamController {
             return ResponseEntity.badRequest().body(body);
         }
     }
+
+    @PostMapping("/{teamId}/remove")
+    public ResponseEntity<Map<String, String>> removeMember(@PathVariable Long teamId,
+                                                            @RequestParam("target_user_id") Long targetUserId,
+                                                            @RequestParam("requesting_user_id") Long requestingUserId) {
+        Map<String, String> body = new HashMap<>();
+        try {
+            teamService.removeMember(teamId, targetUserId, requestingUserId);
+            body.put("message", "Member removed");
+            return ResponseEntity.ok(body);
+        } catch (IllegalStateException e) {
+            body.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(body);
+        }
+    }
 }
 
 

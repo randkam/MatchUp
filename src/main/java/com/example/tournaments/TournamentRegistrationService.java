@@ -70,9 +70,11 @@ public class TournamentRegistrationService {
         reg.setCheckedIn(false);
         TournamentRegistration saved = registrationRepository.save(reg);
 
-        // Create activity for all team members
+        // Create activity for all team members with formatted message
         List<Long> memberUserIds = teamMemberRepository.findUserIdsByTeamId(teamId);
-        String message = "Your team registered for tournament #" + tournamentId;
+        String teamName = teamRepository.findById(teamId).map(com.example.teams.Team::getName).orElse("Team #" + teamId);
+        String tournamentName = tournament.getName();
+        String message = "team: " + teamName + "\nregistered for " + tournamentName;
         activityService.createActivityForUsers(memberUserIds, "TEAM_REGISTERED", message);
         return saved;
     }
@@ -104,6 +106,10 @@ public class TournamentRegistrationService {
         result.put("registered_team_ids", registeredTeamIds);
         result.put("conflicted_user_ids", conflictedUserIds);
         return result;
+    }
+
+    public List<Tournament> getUpcomingForTeam(Long teamId) {
+        return registrationRepository.findUpcomingTournamentsForTeam(teamId);
     }
 }
 

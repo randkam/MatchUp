@@ -1022,6 +1022,22 @@ extension NetworkManager {
         get(endpoint, completion: completion)
     }
 
+    func removeTeamMember(teamId: Int, targetUserId: Int, requestingUserId: Int, completion: @escaping (Error?) -> Void) {
+        let endpoint = "\(APIConfig.teamsEndpoint)/\(teamId)/remove?target_user_id=\(targetUserId)&requesting_user_id=\(requestingUserId)"
+        var request = URLRequest(url: URL(string: endpoint)!)
+        request.httpMethod = "POST"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error { completion(error); return }
+            guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+                let msg = data.flatMap { String(data: $0, encoding: .utf8) } ?? "Server error"
+                completion(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: msg]))
+                return
+            }
+            completion(nil)
+        }.resume()
+    }
+
     // Invites
     func searchUsers(query: String, completion: @escaping (Result<[User], Error>) -> Void) {
         var components = URLComponents(string: APIConfig.userSearchEndpoint)!
