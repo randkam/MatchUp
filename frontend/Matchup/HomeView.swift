@@ -87,7 +87,7 @@ struct HomeView: View {
                         }
                     } label: {
                         Image(systemName: "arrow.up.arrow.down")
-                            .foregroundColor(ModernColorScheme.primary)
+                            .foregroundColor(ModernColorScheme.accentMinimal)
                             .padding(8)
                             .background(ModernColorScheme.surface)
                             .cornerRadius(8)
@@ -108,7 +108,7 @@ struct HomeView: View {
                     Spacer()
                     ProgressView()
                         .scaleEffect(1.5)
-                        .progressViewStyle(CircularProgressViewStyle(tint: ModernColorScheme.primary))
+                        .progressViewStyle(CircularProgressViewStyle(tint: ModernColorScheme.brandBlue))
                     Spacer()
                 } else {
                     // Locations List
@@ -249,7 +249,7 @@ struct FilterToggle: View {
                 .foregroundColor(isSelected ? .white : ModernColorScheme.text)
                 .padding(.horizontal, 20)
                 .padding(.vertical, 8)
-                .background(isSelected ? ModernColorScheme.primary : ModernColorScheme.surface)
+                .background(isSelected ? ModernColorScheme.brandBlue : ModernColorScheme.surface)
                 .cornerRadius(20)
         }
     }
@@ -273,7 +273,7 @@ struct LocationCard: View {
                     // Court Type Badge
                     HStack(spacing: 4) {
                         Image(systemName: location.locationType == .indoor ? "building.2.fill" : "sun.max.fill")
-                            .foregroundColor(ModernColorScheme.primary)
+                            .foregroundColor(ModernColorScheme.accentMinimal)
                         Text(location.locationType == .indoor ? "Indoor" : "Outdoor")
                             .font(ModernFontScheme.caption)
                             .foregroundColor(ModernColorScheme.textSecondary)
@@ -303,7 +303,7 @@ struct LocationCard: View {
             // Active Players
             HStack {
                 Image(systemName: "person.3.fill")
-                    .foregroundColor(ModernColorScheme.primary)
+                    .foregroundColor(ModernColorScheme.accentMinimal)
                 Text("\(location.locationActivePlayers) active players")
                     .font(ModernFontScheme.body)
                     .foregroundColor(ModernColorScheme.textSecondary)
@@ -312,7 +312,7 @@ struct LocationCard: View {
             // Address
             HStack {
                 Image(systemName: "mappin.circle.fill")
-                    .foregroundColor(ModernColorScheme.primary)
+                    .foregroundColor(ModernColorScheme.accentMinimal)
                 Text(location.locationAddress)
                     .font(ModernFontScheme.body)
                     .foregroundColor(ModernColorScheme.textSecondary)
@@ -322,7 +322,7 @@ struct LocationCard: View {
         .padding()
         .background(ModernColorScheme.surface)
         .cornerRadius(16)
-        .shadow(color: ModernColorScheme.primary.opacity(0.1), radius: 5, x: 0, y: 2)
+        .shadow(color: ModernColorScheme.brandBlue.opacity(0.1), radius: 5, x: 0, y: 2)
     }
 }
 

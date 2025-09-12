@@ -5,7 +5,10 @@ struct TournamentDetailView: View {
     let tournament: Tournament
     
     @State private var selectedTab: DetailTab = .overview
-    @State private var registeredTeams: [String] = [] // Placeholder until API is wired
+    @State private var registeredTeams: [TournamentRegistrationExpandedModel] = []
+    @State private var userTeamIds: Set<Int> = []
+    @State private var errorMessage: String?
+    private let network = NetworkManager()
     
     var body: some View {
         ScrollView {
@@ -30,7 +33,7 @@ struct TournamentDetailView: View {
                     case .overview:
                         overviewDetails
                     case .registered:
-                        RegisteredTeamsView(totalSlots: tournament.maxTeams, teams: registeredTeams)
+                        RegisteredTeamsView(totalSlots: tournament.maxTeams, teams: registeredTeams, userTeamIds: userTeamIds)
                     case .bracket:
                         BracketLockedView(startsAt: tournament.startsAt)
                     }
@@ -48,8 +51,7 @@ struct TournamentDetailView: View {
         }
         .background(ModernColorScheme.background.edgesIgnoringSafeArea(.all))
         .onAppear {
-            // Placeholder: when API available, load registered team names here
-            // registeredTeams = fetchedTeamNames
+            loadRegisteredTeams()
         }
     }
     
@@ -83,7 +85,7 @@ struct TournamentDetailView: View {
                 if let venue = tournament.location, !venue.isEmpty {
                     Button(action: { openInAppleMaps(address: venue) }) {
                         HStack(spacing: 10) {
-                            Image(systemName: "mappin.and.ellipse").foregroundColor(ModernColorScheme.primary)
+                            Image(systemName: "mappin.and.ellipse").foregroundColor(ModernColorScheme.accentMinimal)
                             Text(venue)
                                 .font(ModernFontScheme.body)
                                 .foregroundColor(ModernColorScheme.text)
@@ -178,6 +180,29 @@ struct TournamentDetailView: View {
             UIApplication.shared.open(url)
         }
     }
+
+    private func loadRegisteredTeams() {
+        // Load registrations
+        network.getTournamentRegistrationsExpanded(tournamentId: tournament.id) { result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let regs):
+                    self.registeredTeams = regs
+                case .failure(let err):
+                    self.errorMessage = err.localizedDescription
+                }
+            }
+        }
+        // Load user's teams to highlight
+        let userId = UserDefaults.standard.integer(forKey: "loggedInUserId")
+        network.getTeamsForUser(userId: userId) { result in
+            DispatchQueue.main.async {
+                if case .success(let teams) = result {
+                    self.userTeamIds = Set(teams.map { $0.id })
+                }
+            }
+        }
+    }
 }
 
 private func heroPill(text: String) -> some View {
@@ -185,7 +210,7 @@ private func heroPill(text: String) -> some View {
         .font(ModernFontScheme.caption)
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        .background(Color.white.opacity(0.2))
+        .background(Color.white.opacity(0.12))
         .foregroundColor(.white)
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
 }
@@ -212,7 +237,7 @@ private struct Badge: View {
 private func infoRow(icon: String, text: String) -> some View {
     HStack(spacing: 10) {
         Image(systemName: icon)
-            .foregroundColor(ModernColorScheme.primary)
+            .foregroundColor(ModernColorScheme.accentMinimal)
         Text(text)
             .font(ModernFontScheme.body)
             .foregroundColor(ModernColorScheme.text)
@@ -224,7 +249,7 @@ private func summaryTile(icon: String, title: String, value: String) -> some Vie
     VStack(alignment: .leading, spacing: 6) {
         HStack(spacing: 6) {
             Image(systemName: icon)
-                .foregroundColor(ModernColorScheme.primary)
+                .foregroundColor(ModernColorScheme.accentMinimal)
             Text(title)
                 .font(ModernFontScheme.caption)
                 .foregroundColor(ModernColorScheme.textSecondary)
@@ -252,26 +277,33 @@ private struct OverviewPlaceholder: View {
 
 private struct RegisteredTeamsView: View {
     let totalSlots: Int
-    let teams: [String]
-    
+    let teams: [TournamentRegistrationExpandedModel]
+    let userTeamIds: Set<Int>
+
     private var registeredCount: Int { min(teams.count, totalSlots) }
-    private var displayNames: [String] {
-        let filled = teams.prefix(totalSlots)
+    private var display: [DisplayItem] {
+        let filled = teams.prefix(totalSlots).enumerated().map { (idx, reg) in
+            DisplayItem(index: idx + 1, teamId: reg.teamId, name: reg.teamName, isEmpty: false)
+        }
         let placeholdersCount = max(0, totalSlots - filled.count)
-        return Array(filled) + Array(repeating: "Empty Spot", count: placeholdersCount)
+        let empties: [DisplayItem] = (0..<placeholdersCount).map { i in
+            DisplayItem(index: filled.count + i + 1, teamId: -1, name: "Empty Spot", isEmpty: true)
+        }
+        return filled + empties
     }
-    
+
+    private struct DisplayItem: Identifiable { let id = UUID(); let index: Int; let teamId: Int; let name: String; let isEmpty: Bool }
     private let columns = [GridItem(.flexible(minimum: 120)), GridItem(.flexible(minimum: 120))]
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Registered \(registeredCount) / \(totalSlots)")
                 .font(.subheadline)
                 .foregroundColor(.gray)
-            
+
             LazyVGrid(columns: columns, spacing: 12) {
-                ForEach(displayNames.indices, id: \.self) { idx in
-                    TeamSlotCard(index: idx + 1, name: displayNames[idx], isEmpty: displayNames[idx] == "Empty Spot")
+                ForEach(display) { item in
+                    TeamSlotCard(index: item.index, name: item.name, isEmpty: item.isEmpty, isUserTeam: userTeamIds.contains(item.teamId))
                 }
             }
         }
@@ -282,6 +314,7 @@ private struct TeamSlotCard: View {
     let index: Int
     let name: String
     let isEmpty: Bool
+    let isUserTeam: Bool
     
     var body: some View {
         HStack(spacing: 10) {
@@ -296,11 +329,11 @@ private struct TeamSlotCard: View {
             Spacer()
         }
         .padding(12)
-        .background(Color(.secondarySystemBackground))
+        .background(ModernColorScheme.surface)
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 10)
-                .stroke(Color.black.opacity(0.06), lineWidth: 1)
+                .stroke(isUserTeam && !isEmpty ? Color.red : Color.white.opacity(0.06), lineWidth: isUserTeam && !isEmpty ? 2 : 1)
         )
     }
 }

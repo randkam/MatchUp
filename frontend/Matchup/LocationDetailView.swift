@@ -62,7 +62,7 @@ struct LocationDetailView: View {
                             ZStack {
                                 // Stable placeholder layer (always present)
                                 Rectangle()
-                                    .fill(Color(UIColor.secondarySystemBackground))
+                                    .fill(ModernColorScheme.surface)
                                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                                 // Loaded image fades in with no layout change
                                 AsyncImage(url: url, transaction: Transaction(animation: .none)) { phase in
@@ -81,7 +81,7 @@ struct LocationDetailView: View {
                             }
                         } else {
                             Rectangle()
-                                .fill(Color(UIColor.secondarySystemBackground))
+                                .fill(ModernColorScheme.surface)
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                         }
                     }
@@ -140,7 +140,7 @@ struct LocationDetailView: View {
                             .foregroundColor(ModernColorScheme.secondary)
                     }
                     .padding()
-                    .background(Color(UIColor.secondarySystemBackground))
+                    .background(ModernColorScheme.surface)
                     .cornerRadius(12)
                 }
                 .padding(.horizontal)
@@ -160,7 +160,7 @@ struct LocationDetailView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color.green)
+                        .background(ModernColorScheme.primary)
                         .foregroundColor(.white)
                         .cornerRadius(15)
                     }
@@ -175,7 +175,7 @@ struct LocationDetailView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(ModernColorScheme.secondary)
+                        .background(ModernColorScheme.accentMinimal)
                         .foregroundColor(.white)
                         .cornerRadius(15)
                     }

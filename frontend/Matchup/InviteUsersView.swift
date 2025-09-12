@@ -12,7 +12,7 @@ struct InviteUsersView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Image(systemName: "magnifyingglass")
-                    .foregroundColor(.gray)
+                    .foregroundColor(ModernColorScheme.accentMinimal)
                 TextField("Search users by name or email", text: $query)
                     .onChange(of: query) { _ in debouncedSearch() }
             }
@@ -22,7 +22,7 @@ struct InviteUsersView: View {
             .padding(.horizontal)
             
             if isSearching && results.isEmpty {
-                ProgressView().tint(ModernColorScheme.primary)
+                ProgressView().tint(ModernColorScheme.brandBlue)
             }
             
             List(results, id: \.userId) { u in

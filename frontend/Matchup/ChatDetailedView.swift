@@ -21,7 +21,7 @@ struct MessageBubble: View {
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(message.content)
                         .padding(12)
-                        .background(ModernColorScheme.primary)
+                        .background(ModernColorScheme.brandBlue)
                         .foregroundColor(.white)
                         .cornerRadius(20)
                     Text(timestampString)
@@ -441,7 +441,7 @@ struct LocationHeaderContent: View {
             HStack(spacing: 12) {
                 Image(systemName: "mappin.circle.fill")
                     .font(.system(size: 22))
-                    .foregroundColor(ModernColorScheme.primary)
+                    .foregroundColor(ModernColorScheme.accentMinimal)
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(chatName)
@@ -487,7 +487,7 @@ struct LoadingHeaderView: View {
     var body: some View {
         HStack {
             ProgressView()
-                .progressViewStyle(CircularProgressViewStyle(tint: ModernColorScheme.primary))
+                .progressViewStyle(CircularProgressViewStyle(tint: ModernColorScheme.brandBlue))
             Text("Loading location details...")
                 .font(.system(size: 15))
                 .foregroundColor(ModernColorScheme.textSecondary)
@@ -526,7 +526,7 @@ struct MessageInputView: View {
                         .font(.system(size: 20))
                         .foregroundColor(.white)
                         .padding(12)
-                        .background(ModernColorScheme.primary)
+                        .background(ModernColorScheme.brandBlue)
                         .clipShape(Circle())
                 }
                 .disabled(messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)

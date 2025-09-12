@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ActivityView: View {
     @State private var invites: [TeamInviteModel] = []
+    @State private var activities: [NetworkManager.ActivityItem] = []
     @State private var isLoading = false
     @State private var errorMessage: String? = nil
     @State private var respondingIds: Set<Int> = []
@@ -18,30 +19,50 @@ struct ActivityView: View {
                     } else if let errorMessage = errorMessage {
                         Text(errorMessage)
                             .foregroundColor(ModernColorScheme.textSecondary)
-                    } else if invites.isEmpty {
+                    } else if invites.isEmpty && activities.isEmpty {
                         Text("No activity right now")
                             .foregroundColor(ModernColorScheme.textSecondary)
                     } else {
-                        List(invites) { invite in
-                            HStack {
-                                Image(systemName: "envelope.fill").foregroundColor(ModernColorScheme.primary)
-                                VStack(alignment: .leading) {
-                                    HStack(spacing: 8) {
-                                        teamPill(invite.teamName ?? "Team #\(invite.teamId)")
-                                        Text("invited you")
+                        List {
+                            if !activities.isEmpty {
+                                Section(header: Text("Updates")) {
+                                    ForEach(activities) { item in
+                                        HStack(alignment: .top, spacing: 10) {
+                                            Image(systemName: iconName(for: item.type)).foregroundColor(ModernColorScheme.accentMinimal)
+                                            VStack(alignment: .leading, spacing: 4) {
+                                                Text(item.message).foregroundColor(ModernColorScheme.text)
+                                                Text(item.createdAt ?? "").font(.caption).foregroundColor(.gray)
+                                            }
+                                            Spacer()
+                                        }
                                     }
-                                    Text(invite.status)
-                                        .font(.caption)
-                                        .foregroundColor(.gray)
                                 }
-                                Spacer()
-                                HStack(spacing: 8) {
-                                    Button("Decline") { respond(invite: invite, accept: false) }
-                                        .buttonStyle(.bordered)
-                                        .disabled(respondingIds.contains(invite.id))
-                                    Button("Accept") { respond(invite: invite, accept: true) }
-                                        .buttonStyle(.borderedProminent)
-                                        .disabled(respondingIds.contains(invite.id))
+                            }
+                            if !invites.isEmpty {
+                                Section(header: Text("Invites")) {
+                                    ForEach(invites) { invite in
+                                        HStack {
+                                            Image(systemName: "envelope.fill").foregroundColor(ModernColorScheme.accentMinimal)
+                                            VStack(alignment: .leading) {
+                                                HStack(spacing: 8) {
+                                                    teamPill(invite.teamName ?? "Team #\(invite.teamId)")
+                                                    Text("invited you")
+                                                }
+                                                Text(invite.status)
+                                                    .font(.caption)
+                                                    .foregroundColor(.gray)
+                                            }
+                                            Spacer()
+                                            HStack(spacing: 8) {
+                                                Button("Decline") { respond(invite: invite, accept: false) }
+                                                    .buttonStyle(.bordered)
+                                                    .disabled(respondingIds.contains(invite.id))
+                                                Button("Accept") { respond(invite: invite, accept: true) }
+                                                    .buttonStyle(.borderedProminent)
+                                                    .disabled(respondingIds.contains(invite.id))
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -53,9 +74,11 @@ struct ActivityView: View {
         }
         .onAppear {
             loadInvites()
+            loadActivities()
             refreshTimer?.invalidate()
             refreshTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { _ in
                 loadInvites()
+                loadActivities()
             }
         }
         .onDisappear { refreshTimer?.invalidate(); refreshTimer = nil }
@@ -87,6 +110,28 @@ struct ActivityView: View {
             }
         }
     }
+
+    private func loadActivities() {
+        guard let userId = UserDefaults.standard.value(forKey: "loggedInUserId") as? Int else { return }
+        network.getActivities(userId: userId) { res in
+            DispatchQueue.main.async {
+                switch res {
+                case .success(let data): activities = data
+                case .failure: break
+                }
+            }
+        }
+    }
+
+    private func iconName(for type: String) -> String {
+        switch type {
+        case "TEAM_REGISTERED": return "trophy"
+        case "MEMBER_JOINED": return "person.badge.plus"
+        case "MEMBER_LEFT": return "person.fill.xmark"
+        case "TEAM_DELETED": return "trash"
+        default: return "bell"
+        }
+    }
 }
 
 // MARK: - UI helpers
@@ -98,8 +143,8 @@ private func teamPill(_ text: String) -> some View {
     .font(ModernFontScheme.caption)
     .padding(.horizontal, 10)
     .padding(.vertical, 4)
-    .background(ModernColorScheme.primary.opacity(0.12))
-    .foregroundColor(ModernColorScheme.primary)
+    .background(ModernColorScheme.accentMinimal.opacity(0.15))
+    .foregroundColor(ModernColorScheme.accentMinimal)
     .cornerRadius(10)
 }
 

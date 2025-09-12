@@ -1054,3 +1054,59 @@ extension NetworkManager {
         get(endpoint, completion: completion)
     }
 }
+
+extension NetworkManager {
+    // MARK: - Tournament Registrations
+    func registerTeamForTournament(tournamentId: Int, teamId: Int, requestingUserId: Int, completion: @escaping (Result<TournamentRegistrationModel, Error>) -> Void) {
+        let endpoint = APIConfig.tournamentRegistrationsEndpoint(tournamentId: tournamentId)
+        let params: [String: Any] = [
+            "team_id": teamId,
+            "requesting_user_id": requestingUserId
+        ]
+        post(endpoint, parameters: params, completion: completion)
+    }
+
+    struct TournamentEligibilityResponse: Codable {
+        let registeredTeamIds: [Int]
+        let conflictedUserIds: [Int]
+
+        enum CodingKeys: String, CodingKey {
+            case registeredTeamIds = "registered_team_ids"
+            case conflictedUserIds = "conflicted_user_ids"
+        }
+    }
+
+    func getTournamentEligibility(tournamentId: Int, userId: Int, completion: @escaping (Result<TournamentEligibilityResponse, Error>) -> Void) {
+        let endpoint = APIConfig.tournamentEligibilityEndpoint(tournamentId: tournamentId, userId: userId)
+        get(endpoint, completion: completion)
+    }
+
+    func getTournamentRegistrationsExpanded(tournamentId: Int, completion: @escaping (Result<[TournamentRegistrationExpandedModel], Error>) -> Void) {
+        let endpoint = APIConfig.tournamentRegistrationsExpandedEndpoint(tournamentId: tournamentId)
+        get(endpoint, completion: completion)
+    }
+}
+
+extension NetworkManager {
+    // MARK: - Activities
+    struct ActivityItem: Codable, Identifiable {
+        let id: Int
+        let userId: Int
+        let type: String
+        let message: String
+        let createdAt: String?
+
+        enum CodingKeys: String, CodingKey {
+            case id
+            case userId = "user_id"
+            case type
+            case message
+            case createdAt = "created_at"
+        }
+    }
+
+    func getActivities(userId: Int, completion: @escaping (Result<[ActivityItem], Error>) -> Void) {
+        let endpoint = APIConfig.activitiesEndpoint(userId: userId)
+        get(endpoint, completion: completion)
+    }
+}

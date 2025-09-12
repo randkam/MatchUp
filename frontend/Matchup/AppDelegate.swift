@@ -3,12 +3,17 @@ import UIKit
 
 // Define a modern color scheme
 struct ModernColorScheme {
-    static let primary = Color(red: 0.2, green: 0.6, blue: 0.9)
-    static let secondary = Color(red: 0.3, green: 0.8, blue: 0.6)
-    static let background = Color(red: 0.1, green: 0.1, blue: 0.15)
-    static let surface = Color(red: 0.15, green: 0.15, blue: 0.2)
+    // Brand colors
+    static let primary = Color(red: 0xED/255.0, green: 0x00/255.0, blue: 0x2D/255.0) // #ed002d
+    static let background = Color(red: 0x19/255.0, green: 0x19/255.0, blue: 0x26/255.0) // #191926
+    static let secondary = Color.white // Secondary is white
+    static let accentMinimal = Color(red: 0x00/255.0, green: 0x97/255.0, blue: 0xB2/255.0) // #0097b2 (use sparingly)
+    static let brandBlue = Color(red: 0x00/255.0, green: 0x2E/255.0, blue: 0x6D/255.0) // PSG deep blue #002E6D
+
+    // Surfaces and text
+    static let surface = Color(red: 0x22/255.0, green: 0x22/255.0, blue: 0x32/255.0) // slightly lighter than bg
     static let text = Color.white
-    static let textSecondary = Color.gray
+    static let textSecondary = Color.white.opacity(0.7)
 }
 
 // Define a modern font scheme
@@ -51,7 +56,7 @@ struct matchUp: App {
                 }
             }
             .preferredColorScheme(.dark)
-            .accentColor(ModernColorScheme.primary)
+            .accentColor(ModernColorScheme.brandBlue)
             .edgesIgnoringSafeArea(.all)
         }
     }

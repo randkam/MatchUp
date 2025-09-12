@@ -6,6 +6,7 @@ struct TeamDetailedView: View {
     @State private var isLoading = false
     @State private var errorMessage: String? = nil
     @State private var userNames: [Int: String] = [:]
+    @State private var actionError: String? = nil
     private let network = NetworkManager()
     
     var body: some View {
@@ -22,8 +23,8 @@ struct TeamDetailedView: View {
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
-                    .background(ModernColorScheme.primary.opacity(0.15))
-                    .foregroundColor(ModernColorScheme.primary)
+                    .background(ModernColorScheme.accentMinimal.opacity(0.15))
+                    .foregroundColor(ModernColorScheme.accentMinimal)
                     .cornerRadius(10)
                 }
                 Spacer()
@@ -31,7 +32,7 @@ struct TeamDetailedView: View {
             .padding(.horizontal)
             
             if isLoading && members.isEmpty {
-                ProgressView().tint(ModernColorScheme.primary)
+                ProgressView().tint(ModernColorScheme.brandBlue)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let errorMessage = errorMessage {
                 Text(errorMessage)
@@ -43,7 +44,7 @@ struct TeamDetailedView: View {
                         ForEach(members) { member in
                             HStack {
                                 Image(systemName: member.role == "CAPTAIN" ? "crown.fill" : "person.fill")
-                                    .foregroundColor(member.role == "CAPTAIN" ? .yellow : ModernColorScheme.primary)
+                                    .foregroundColor(member.role == "CAPTAIN" ? .yellow : ModernColorScheme.accentMinimal)
                                 Text(member.username ?? userNames[member.userId] ?? "User #\(member.userId)")
                                 Spacer()
                                 Text(member.role.capitalized)
@@ -51,6 +52,12 @@ struct TeamDetailedView: View {
                                     .foregroundColor(.gray)
                             }
                         }
+                    }
+                    Section {
+                        if let actionError = actionError {
+                            Text(actionError).foregroundColor(.red)
+                        }
+                        actionButtons
                     }
                 }
                 .listStyle(.insetGrouped)
@@ -85,6 +92,44 @@ struct TeamDetailedView: View {
                     members = response
                 case .failure(let err):
                     errorMessage = err.localizedDescription
+                }
+            }
+        }
+    }
+
+    private var actionButtons: some View {
+        let loggedInUserId = UserDefaults.standard.integer(forKey: "loggedInUserId")
+        let isCaptain = team.ownerUserId == loggedInUserId
+        return HStack {
+            if isCaptain {
+                Button(role: .destructive) {
+                    network.delete("\(APIConfig.teamsEndpoint)/\(team.id)?requesting_user_id=\(loggedInUserId)") { err in
+                        DispatchQueue.main.async {
+                            if let err = err { actionError = err.localizedDescription } else { actionError = "Team deleted" }
+                        }
+                    }
+                } label: {
+                    Label("Delete Team", systemImage: "trash")
+                }
+            } else {
+                Button(role: .destructive) {
+                    // POST /teams/{teamId}/leave?user_id=
+                    guard let url = URL(string: "\(APIConfig.teamsEndpoint)/\(team.id)/leave?user_id=\(loggedInUserId)") else { return }
+                    var request = URLRequest(url: url)
+                    request.httpMethod = "POST"
+                    request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+                    URLSession.shared.dataTask(with: request) { data, response, error in
+                        DispatchQueue.main.async {
+                            if let error = error { actionError = error.localizedDescription; return }
+                            guard let http = response as? HTTPURLResponse else { actionError = "Server error"; return }
+                            if (200...299).contains(http.statusCode) { actionError = "Left team" } else {
+                                let msg = data.flatMap { String(data: $0, encoding: .utf8) } ?? "Server error"
+                                actionError = msg
+                            }
+                        }
+                    }.resume()
+                } label: {
+                    Label("Leave Team", systemImage: "rectangle.portrait.and.arrow.right")
                 }
             }
         }

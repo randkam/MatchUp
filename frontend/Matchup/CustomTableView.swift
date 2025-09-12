@@ -66,7 +66,7 @@ struct CustomTabView: View {
                 .tag(3)
             }
         }
-        .accentColor(ModernColorScheme.primary)
+        .accentColor(ModernColorScheme.accentMinimal)
     }
 }
 
@@ -81,12 +81,12 @@ struct TabBarButton: View {
             VStack(spacing: 4) {
                 Image(systemName: icon)
                     .font(.system(size: 24))
-                    .foregroundColor(isSelected ? ModernColorScheme.primary : ModernColorScheme.textSecondary)
+                    .foregroundColor(isSelected ? ModernColorScheme.accentMinimal : ModernColorScheme.textSecondary)
                     .scaleEffect(isSelected ? 1.1 : 1.0)
                 
                 Text(label)
                     .font(ModernFontScheme.caption)
-                    .foregroundColor(isSelected ? ModernColorScheme.primary : ModernColorScheme.textSecondary)
+                    .foregroundColor(isSelected ? ModernColorScheme.accentMinimal : ModernColorScheme.textSecondary)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)

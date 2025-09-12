@@ -38,7 +38,7 @@ struct ProfileView: View {
                                 .clipShape(Circle())
                                 .overlay(
                                     Circle()
-                                        .stroke(ModernColorScheme.primary, lineWidth: 3)
+                                        .stroke(ModernColorScheme.accentMinimal, lineWidth: 3)
                                 )
                         } else if let imageUrl = profileImageUrl, let url = URL(string: imageUrl) {
                             AsyncImage(url: url) { phase in
@@ -51,7 +51,7 @@ struct ProfileView: View {
                                         .clipShape(Circle())
                                         .overlay(
                                             Circle()
-                                                .stroke(ModernColorScheme.primary, lineWidth: 3)
+                                                .stroke(ModernColorScheme.accentMinimal, lineWidth: 3)
                                         )
                                 case .failure(_):
                                     defaultProfileImage
@@ -68,7 +68,7 @@ struct ProfileView: View {
                         Button(action: { showImagePicker = true }) {
                             Image(systemName: "pencil.circle.fill")
                                 .font(.system(size: 30))
-                                .foregroundColor(ModernColorScheme.primary)
+                                .foregroundColor(ModernColorScheme.accentMinimal)
                                 .background(ModernColorScheme.background)
                                 .clipShape(Circle())
                         }
@@ -86,7 +86,7 @@ struct ProfileView: View {
                         // Region & Position (side by side, no boxes)
                         HStack(spacing: 1) {
                             HStack(spacing: 8) {
-                                Image(systemName: "location.fill").foregroundColor(ModernColorScheme.primary)
+                                Image(systemName: "location.fill").foregroundColor(ModernColorScheme.accentMinimal)
                                 Text(userRegion)
                                     .font(ModernFontScheme.body)
                                     .foregroundColor(ModernColorScheme.text)
@@ -95,7 +95,7 @@ struct ProfileView: View {
                             .frame(maxWidth: .infinity, alignment: .center)
 
                             HStack(spacing: 8) {
-                                Image(systemName: "figure.run").foregroundColor(ModernColorScheme.primary)
+                                Image(systemName: "figure.run").foregroundColor(ModernColorScheme.accentMinimal)
                                 Text(userPosition)
                                     .font(ModernFontScheme.body)
                                     .foregroundColor(ModernColorScheme.text)
@@ -175,10 +175,10 @@ struct ProfileView: View {
             .resizable()
             .aspectRatio(contentMode: .fill)
             .frame(width: 120, height: 120)
-            .foregroundColor(ModernColorScheme.primary)
+            .foregroundColor(.white)
             .overlay(
                 Circle()
-                    .stroke(ModernColorScheme.primary, lineWidth: 3)
+                    .stroke(ModernColorScheme.accentMinimal, lineWidth: 3)
             )
     }
     
@@ -260,7 +260,7 @@ struct StatCard: View {
         VStack(spacing: 8) {
             Image(systemName: icon)
                 .font(.title2)
-                .foregroundColor(ModernColorScheme.primary)
+                .foregroundColor(ModernColorScheme.accentMinimal)
 
             Text(value)
                 .font(ModernFontScheme.heading)

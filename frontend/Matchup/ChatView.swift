@@ -24,7 +24,7 @@ struct ChatView: View {
                             Spacer()
                             Image(systemName: "square.and.pencil")
                                 .font(.system(size: 20))
-                                .foregroundColor(Color(red: 0.0, green: 0.55, blue: 0.95))
+                                .foregroundColor(ModernColorScheme.primary)
                         }
                         .padding(.horizontal)
                         .padding(.top, 8)
@@ -41,7 +41,7 @@ struct ChatView: View {
                         VStack(spacing: 20) {
                             Image(systemName: "bubble.left.and.bubble.right")
                                 .font(.system(size: 60))
-                                .foregroundColor(Color(red: 0.0, green: 0.55, blue: 0.95).opacity(0.5))
+                                .foregroundColor(ModernColorScheme.primary.opacity(0.5))
                                 .padding(.top, 60)
                             
                             Text("No chats joined yet!")
@@ -50,7 +50,7 @@ struct ChatView: View {
                             
                             Text("Join a court or create a new chat to get started")
                                 .font(.system(size: 16))
-                                .foregroundColor(.gray)
+                                .foregroundColor(ModernColorScheme.textSecondary)
                                 .multilineTextAlignment(.center)
                                 .padding(.horizontal)
                         }
@@ -163,7 +163,7 @@ struct SearchBar: View {
     var body: some View {
         HStack {
             Image(systemName: "magnifyingglass")
-                .foregroundColor(Color.gray)
+                .foregroundColor(ModernColorScheme.textSecondary)
             
             TextField("Search chats", text: $text)
                 .font(.system(size: 17))
@@ -174,13 +174,13 @@ struct SearchBar: View {
                     self.text = ""
                 }) {
                     Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.gray)
+                        .foregroundColor(ModernColorScheme.textSecondary)
                 }
             }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .background(Color.white.opacity(0.15))
+        .background(Color.white.opacity(0.08))
         .cornerRadius(10)
     }
 }
@@ -192,7 +192,7 @@ struct ChatRow: View {
         HStack(spacing: 15) {
             // Court Icon
             Circle()
-                .fill(Color(red: 0.0, green: 0.55, blue: 0.95))
+                .fill(ModernColorScheme.primary)
                 .frame(width: 46, height: 46)
                 .overlay(
                     Image(systemName: "basketball.fill")
@@ -209,7 +209,7 @@ struct ChatRow: View {
 
             Image(systemName: "chevron.right")
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(Color.gray.opacity(0.8))
+                .foregroundColor(ModernColorScheme.textSecondary)
         }
         .padding(.vertical, 8)
         .padding(.horizontal)
