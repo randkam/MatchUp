@@ -94,17 +94,18 @@ struct DropInView: View {
             .animation(.easeOut(duration: 0.8).delay(0.6), value: isAnimating)
 
             // Footer with modern styling
-            Text("By continuing, you agree to the Terms and Conditions")
-                .font(ModernFontScheme.caption)
-                .foregroundColor(ModernColorScheme.textSecondary)
-                .padding(.bottom, 20)
-                .frame(maxWidth: .infinity, alignment: .center)
-                .opacity(isAnimating ? 1 : 0)
-                .offset(y: isAnimating ? 0 : 20)
-                .animation(.easeOut(duration: 0.8).delay(0.8), value: isAnimating)
+//            Text("By continuing, you agree to the Terms and Conditions")
+//                .font(ModernFontScheme.caption)
+//                .foregroundColor(ModernColorScheme.textSecondary)
+//                .padding(.bottom, 20)
+//                .frame(maxWidth: .infinity, alignment: .center)
+//                .opacity(isAnimating ? 1 : 0)
+//                .offset(y: isAnimating ? 0 : 20)
+//                .animation(.easeOut(duration: 0.8).delay(0.8), value: isAnimating)
         }
         .padding()
-        .background(ModernColorScheme.background.edgesIgnoringSafeArea(.all))
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(ModernColorScheme.background.ignoresSafeArea())
         .onAppear {
             isAnimating = true
         }

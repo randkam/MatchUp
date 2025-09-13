@@ -72,10 +72,8 @@ public class TournamentRegistrationService {
 
         // Create activity for all team members with formatted message
         List<Long> memberUserIds = teamMemberRepository.findUserIdsByTeamId(teamId);
-        String teamName = teamRepository.findById(teamId).map(com.example.teams.Team::getName).orElse("Team #" + teamId);
-        String tournamentName = tournament.getName();
-        String message = "team: " + teamName + "\nregistered for " + tournamentName;
-        activityService.createActivityForUsers(memberUserIds, "TEAM_REGISTERED", message);
+        String message = "registered for " + tournament.getName();
+        activityService.createActivityForUsersWithTeam(memberUserIds, "TEAM_REGISTERED", teamId, message);
         return saved;
     }
 

@@ -1007,6 +1007,11 @@ extension NetworkManager {
         get(endpoint, completion: completion)
     }
     
+    func getTeamById(teamId: Int, completion: @escaping (Result<TeamModel, Error>) -> Void) {
+        let endpoint = "\(APIConfig.teamsEndpoint)/\(teamId)"
+        get(endpoint, completion: completion)
+    }
+
     func createTeam(name: String, ownerUserId: Int, logoUrl: String? = nil, completion: @escaping (Result<TeamModel, Error>) -> Void) {
         let endpoint = APIConfig.teamsEndpoint
         var params: [String: Any] = [
@@ -1108,6 +1113,7 @@ extension NetworkManager {
     struct ActivityItem: Codable, Identifiable {
         let id: Int
         let userId: Int
+        let teamId: Int?
         let type: String
         let message: String
         let createdAt: String?
@@ -1115,6 +1121,7 @@ extension NetworkManager {
         enum CodingKeys: String, CodingKey {
             case id
             case userId = "user_id"
+            case teamId = "team_id"
             case type
             case message
             case createdAt = "created_at"

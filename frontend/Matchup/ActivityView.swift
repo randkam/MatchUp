@@ -46,7 +46,7 @@ struct ActivityView: View {
                                 ForEach(groupedSections()) { section in
                                     Section(header: sectionHeader(section.title)) {
                                         ForEach(section.items.filter { shouldShow($0) }) { item in
-                                            ActivityRow(message: item.message, type: item.type, createdAt: item.createdAt)
+                                            ActivityRow(message: item.message, type: item.type, createdAt: item.createdAt, teamId: item.teamId)
                                         }
                                     }
                                 }
@@ -212,11 +212,10 @@ private struct ActivityRow: View {
     let message: String
     let type: String
     let createdAt: String?
+    let teamId: Int?
     
-    // Expect message lines with first line like "team: <name>" and the second line content
-    private var lines: [Substring] { message.split(separator: "\n", omittingEmptySubsequences: false) }
-    private var teamLine: String { lines.first.map(String.init) ?? "" }
-    private var bodyLine: String { lines.dropFirst().joined(separator: "\n") }
+    @State private var teamName: String? = nil
+    private static var teamNameCache: [Int: String] = [:]
     
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -224,12 +223,19 @@ private struct ActivityRow: View {
                 RoundedRectangle(cornerRadius: 8).fill(ModernColorScheme.accentMinimal.opacity(0.15)).frame(width: 36, height: 36)
                 Image(systemName: iconName(for: type)).foregroundColor(ModernColorScheme.accentMinimal)
             }
-            VStack(alignment: .leading, spacing: 4) {
-                if !teamLine.isEmpty {
-                    teamPill(displayTeam(teamLine))
-                }
-                if !bodyLine.isEmpty {
-                    Text(formattedBody(bodyLine))
+            VStack(alignment: .leading, spacing: 8) {
+                if let teamId = teamId {
+                    VStack(alignment: .leading, spacing: 8) {
+                        teamPill(teamName ?? "Team #\(teamId)")
+                        Divider()
+                        Text(message)
+                            .foregroundColor(ModernColorScheme.text)
+                    }
+                    .onAppear {
+                        loadTeamNameIfNeeded(teamId: teamId)
+                    }
+                } else {
+                    Text(message)
                         .foregroundColor(ModernColorScheme.text)
                 }
                 if let createdAt = createdAt {
@@ -243,7 +249,25 @@ private struct ActivityRow: View {
         .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
         .listRowBackground(ModernColorScheme.surface)
     }
-
+    
+    private func loadTeamNameIfNeeded(teamId: Int) {
+        if let cached = Self.teamNameCache[teamId] {
+            teamName = cached
+            return
+        }
+        NetworkManager().getTeamById(teamId: teamId) { result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let team):
+                    Self.teamNameCache[teamId] = team.name
+                    teamName = team.name
+                case .failure:
+                    break
+                }
+            }
+        }
+    }
+    
     private func relativeTime(_ iso: String) -> String {
         let iso1 = ISO8601DateFormatter()
         let df = DateFormatter()
@@ -263,19 +287,6 @@ private struct ActivityRow: View {
         case "TEAM_DELETED": return "trash"
         default: return "bell"
         }
-    }
-    
-    private func displayTeam(_ line: String) -> String {
-        // Input like: "team: Team Name"
-        if let range = line.range(of: "team:") {
-            let name = line[range.upperBound...].trimmingCharacters(in: .whitespaces)
-            return name
-        }
-        return line
-    }
-    
-    private func formattedBody(_ body: String) -> String {
-        body
     }
     
     private func isTeamEvent(_ type: String) -> Bool {

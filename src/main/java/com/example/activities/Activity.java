@@ -15,6 +15,9 @@ public class Activity {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
+    @Column(name = "team_id")
+    private Long teamId; // nullable; present if related to a team
+
     @Column(name = "type", nullable = false, length = 40)
     private String type; // TEAM_REGISTERED, MEMBER_JOINED
 
@@ -31,6 +34,8 @@ public class Activity {
     public Long getId() { return id; }
     @JsonProperty("user_id")
     public Long getUserId() { return userId; }
+    @JsonProperty("team_id")
+    public Long getTeamId() { return teamId; }
     @JsonProperty("type")
     public String getType() { return type; }
     @JsonProperty("message")
@@ -39,6 +44,7 @@ public class Activity {
     public LocalDateTime getCreatedAt() { return createdAt; }
 
     public void setUserId(Long userId) { this.userId = userId; }
+    public void setTeamId(Long teamId) { this.teamId = teamId; }
     public void setType(String type) { this.type = type; }
     public void setMessage(String message) { this.message = message; }
 }

@@ -63,11 +63,33 @@ public class TeamService {
     }
 
     public TeamInvite inviteUserToTeam(Long teamId, Long inviteeUserId) {
+        // If user is already a member, block inviting
+        if (teamMemberRepository.existsByTeamIdAndUserId(teamId, inviteeUserId)) {
+            throw new IllegalStateException("User is already a team member");
+        }
+        // If an invite already exists for this team/user, reuse or reset it instead of violating unique constraints
+        java.util.Optional<TeamInvite> existingOpt = teamInviteRepository.findByTeamIdAndInviteeUserId(teamId, inviteeUserId);
+        if (existingOpt.isPresent()) {
+            TeamInvite existing = existingOpt.get();
+            // Regardless of prior status (ACCEPTED/DECLINED/PENDING/EXPIRED), reset to PENDING and extend expiry.
+            existing.setStatus("PENDING");
+            existing.setExpiresAt(java.time.LocalDateTime.now().plusDays(7));
+            return teamInviteRepository.save(existing);
+        }
         TeamInvite invite = new TeamInvite();
         invite.setTeamId(teamId);
         invite.setInviteeUserId(inviteeUserId);
         invite.setStatus("PENDING");
-        return teamInviteRepository.save(invite);
+        try {
+            return teamInviteRepository.save(invite);
+        } catch (org.springframework.dao.DataIntegrityViolationException ex) {
+            // In case of race conditions or lingering unique row, reset existing invite
+            TeamInvite existing = teamInviteRepository.findByTeamIdAndInviteeUserId(teamId, inviteeUserId)
+                    .orElseThrow(() -> ex);
+            existing.setStatus("PENDING");
+            existing.setExpiresAt(java.time.LocalDateTime.now().plusDays(7));
+            return teamInviteRepository.save(existing);
+        }
     }
 
     public List<Map<String, Object>> getPendingInvitesForUserExpanded(Long userId) {
@@ -104,16 +126,14 @@ public class TeamService {
             teamMemberRepository.save(member);
 
             // Activity for all team members about new member
-            Team team = teamRepository.findById(invite.getTeamId()).orElse(null);
-            String teamName = team != null ? team.getName() : ("Team #" + invite.getTeamId());
             String username = userService.getUsernameById(invite.getInviteeUserId());
-            String message = "team: " + teamName + "\n(" + username + ") has joined the squad!";
+            String message = "@" + username + " joined the squad!";
 
             List<Long> allUserIds = teamMemberRepository.findUserIdsByTeamId(invite.getTeamId());
             List<Long> recipients = new java.util.ArrayList<>(allUserIds);
             // Do not notify the user who just joined
             recipients.remove(invite.getInviteeUserId());
-            activityService.createActivityForUsers(recipients, "MEMBER_JOINED", message);
+            activityService.createActivityForUsersWithTeam(recipients, "MEMBER_JOINED", invite.getTeamId(), message);
         }
         return invite;
     }

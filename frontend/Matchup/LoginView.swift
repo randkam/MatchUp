@@ -17,6 +17,7 @@ struct LoginView: View {
                 Button(action: {
                     authCoordinator.showDropIn()
                 }) {
+                    // add vertical spacing before top of scereen
                     Image(systemName: "arrow.left")
                         .font(.title2)
                         .foregroundColor(ModernColorScheme.text)
@@ -24,6 +25,8 @@ struct LoginView: View {
                         .background(ModernColorScheme.surface)
                         .clipShape(Circle())
                 }
+                .padding(.top, 30) // 👈 add vertical padding from the top
+
                 .opacity(isAnimating ? 1 : 0)
                 .offset(x: isAnimating ? 0 : -50)
                 .animation(.easeOut(duration: 0.8), value: isAnimating)
@@ -52,6 +55,7 @@ struct LoginView: View {
                             .padding()
                             .background(ModernColorScheme.surface)
                             .foregroundColor(ModernColorScheme.text)
+                            .tint(.white)
                             .cornerRadius(12)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12)
@@ -77,10 +81,12 @@ struct LoginView: View {
                                 TextField("", text: $password)
                                     .font(ModernFontScheme.body)
                                     .foregroundColor(ModernColorScheme.text)
+                                    .tint(.white)
                             } else {
                                 SecureField("", text: $password)
                                     .font(ModernFontScheme.body)
                                     .foregroundColor(ModernColorScheme.text)
+                                    .tint(.white)
                             }
 
                             Button(action: { showPassword.toggle() }) {
