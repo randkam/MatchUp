@@ -25,6 +25,20 @@ public class ActivityService {
         activityRepository.saveAll(batch);
     }
 
+    public void createActivityForUsersWithTeam(List<Long> userIds, String type, Long teamId, String message) {
+        if (userIds == null || userIds.isEmpty()) return;
+        List<Activity> batch = new ArrayList<>();
+        for (Long uid : userIds) {
+            Activity a = new Activity();
+            a.setUserId(uid);
+            a.setTeamId(teamId);
+            a.setType(type);
+            a.setMessage(message);
+            batch.add(a);
+        }
+        activityRepository.saveAll(batch);
+    }
+
     public List<Activity> getRecentForUser(Long userId) {
         return activityRepository.findTop50ByUserIdOrderByCreatedAtDesc(userId);
     }
