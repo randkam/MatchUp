@@ -2,6 +2,7 @@ import SwiftUI
 
 struct TeamDetailedView: View {
     let team: TeamModel
+    let readonly: Bool
     @State private var members: [TeamMemberModel] = []
     @State private var isLoading = false
     @State private var errorMessage: String? = nil
@@ -10,23 +11,33 @@ struct TeamDetailedView: View {
     @State private var upcomingTournaments: [Tournament] = []
     private let network = NetworkManager()
     
+    init(team: TeamModel, readonly: Bool = false) {
+        self.team = team
+        self.readonly = readonly
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
                 .padding(.horizontal)
                 .padding(.top)
             
+            // Invite button (captain only), hidden in read-only mode
             HStack {
-                NavigationLink(destination: InviteUsersView(team: team)) {
-                    HStack {
-                        Image(systemName: "person.badge.plus")
-                        Text("Invite Users")
+                let loggedInUserId = UserDefaults.standard.integer(forKey: "loggedInUserId")
+                let isCaptain = team.ownerUserId == loggedInUserId
+                if !readonly && isCaptain {
+                    NavigationLink(destination: InviteUsersView(team: team)) {
+                        HStack {
+                            Image(systemName: "person.badge.plus")
+                            Text("Invite Users")
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(ModernColorScheme.accentMinimal.opacity(0.15))
+                        .foregroundColor(ModernColorScheme.accentMinimal)
+                        .cornerRadius(10)
                     }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    .background(ModernColorScheme.accentMinimal.opacity(0.15))
-                    .foregroundColor(ModernColorScheme.accentMinimal)
-                    .cornerRadius(10)
                 }
                 Spacer()
             }
@@ -44,30 +55,56 @@ struct TeamDetailedView: View {
                     Section(header: Text("Roster")) {
                         ForEach(members) { member in
                             HStack(spacing: 12) {
-                                ZStack {
-                                    Circle().fill(ModernColorScheme.primary.opacity(0.15)).frame(width: 32, height: 32)
-                                    Image(systemName: member.role == "CAPTAIN" ? "crown.fill" : "person.fill")
-                                        .foregroundColor(member.role == "CAPTAIN" ? .yellow : ModernColorScheme.accentMinimal)
-                                }
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(member.username ?? userNames[member.userId] ?? "User #\(member.userId)")
-                                        .foregroundColor(ModernColorScheme.text)
-                                    Text(member.role.capitalized)
-                                        .font(.caption)
-                                        .foregroundColor(.gray)
+                                if member.userId == UserDefaults.standard.integer(forKey: "loggedInUserId") {
+                                    HStack(spacing: 12) {
+                                        ZStack {
+                                            Circle().fill(ModernColorScheme.primary.opacity(0.15)).frame(width: 32, height: 32)
+                                            Image(systemName: member.role == "CAPTAIN" ? "crown.fill" : "person.fill")
+                                                .foregroundColor(member.role == "CAPTAIN" ? .yellow : ModernColorScheme.accentMinimal)
+                                        }
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(member.username ?? userNames[member.userId] ?? "User #\(member.userId)")
+                                                .foregroundColor(ModernColorScheme.text)
+                                            Text(member.role.capitalized)
+                                                .font(.caption)
+                                                .foregroundColor(.gray)
+                                        }
+                                    }
+                                } else {
+                                    NavigationLink(destination: UserProfileView(userId: member.userId)) {
+                                        HStack(spacing: 12) {
+                                            ZStack {
+                                                Circle().fill(ModernColorScheme.primary.opacity(0.15)).frame(width: 32, height: 32)
+                                                Image(systemName: member.role == "CAPTAIN" ? "crown.fill" : "person.fill")
+                                                    .foregroundColor(member.role == "CAPTAIN" ? .yellow : ModernColorScheme.accentMinimal)
+                                            }
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                Text(member.username ?? userNames[member.userId] ?? "User #\(member.userId)")
+                                                    .foregroundColor(ModernColorScheme.text)
+                                                Text(member.role.capitalized)
+                                                    .font(.caption)
+                                                    .foregroundColor(.gray)
+                                            }
+                                        }
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
                                 }
                                 Spacer()
-                                if canRemove(member: member) {
-                                    Button(role: .destructive) { remove(member: member) } label: {
-                                        Image(systemName: "xmark.circle.fill").foregroundColor(.red)
-                                    }
-                                }
                             }
                             .padding(10)
                             .background(ModernColorScheme.surface)
                             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                             .listRowInsets(EdgeInsets())
                             .listRowBackground(Color.clear)
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                if canRemove(member: member) {
+                                    Button(role: .destructive) {
+                                        remove(member: member)
+                                    } label: {
+                                        Label("Remove", systemImage: "trash")
+                                    }
+                                }
+                            }
                         }
                     }
                     if !upcomingTournaments.isEmpty {
@@ -92,11 +129,13 @@ struct TeamDetailedView: View {
                             }
                         }
                     }
-                    Section {
-                        if let actionError = actionError {
-                            Text(actionError).foregroundColor(.red)
+                    if !readonly {
+                        Section {
+                            if let actionError = actionError {
+                                Text(actionError).foregroundColor(.red)
+                            }
+                            actionButtons
                         }
-                        actionButtons
                     }
                 }
                 .listStyle(.insetGrouped)
@@ -210,7 +249,7 @@ struct TeamDetailedView: View {
     private func canRemove(member: TeamMemberModel) -> Bool {
         let loggedInUserId = UserDefaults.standard.integer(forKey: "loggedInUserId")
         let isCaptain = team.ownerUserId == loggedInUserId
-        return isCaptain && member.role != "CAPTAIN"
+        return !readonly && isCaptain && member.role != "CAPTAIN"
     }
 
     private func remove(member: TeamMemberModel) {

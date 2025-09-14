@@ -531,7 +531,7 @@ class NetworkManager {
     
     func delete(_ endpoint: String, completion: @escaping (Error?) -> Void) {
         guard let url = URL(string: endpoint) else {
-            completion(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"]))
+            completion(NSError(domain: "NetworkManager", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"]))
             return
         }
         
@@ -539,19 +539,33 @@ class NetworkManager {
         request.httpMethod = "DELETE"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         
-        URLSession.shared.dataTask(with: request) { _, response, error in
+        URLSession.shared.dataTask(with: request) { data, response, error in
             if let error = error {
                 completion(error)
                 return
             }
             
-            guard let httpResponse = response as? HTTPURLResponse,
-                  (200...299).contains(httpResponse.statusCode) else {
-                completion(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Server error"]))
+            guard let httpResponse = response as? HTTPURLResponse else {
+                completion(NSError(domain: "NetworkManager", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid response"]))
                 return
             }
             
-            completion(nil)
+            if (200...299).contains(httpResponse.statusCode) {
+                completion(nil)
+                return
+            }
+            
+            // Try to surface a helpful message from the server body
+            var message = "Server error (status \(httpResponse.statusCode))"
+            if let data = data {
+                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let msg = json[NSLocalizedDescriptionKey] as? String ?? json["message"] as? String {
+                    message = msg
+                } else if let body = String(data: data, encoding: .utf8), !body.isEmpty {
+                    message = body
+                }
+            }
+            completion(NSError(domain: "NetworkManager", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: message]))
         }.resume()
     }
     

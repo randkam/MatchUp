@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct FeedbackHistoryView: View {
-    @Environment(\.presentationMode) var presentationMode
+    @Environment(\.dismiss) var dismiss
     @State private var feedbackHistory: [FeedbackItem] = []
     @State private var isLoading = true
     @State private var error: String?

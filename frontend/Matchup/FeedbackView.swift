@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct FeedbackView: View {
-    @Environment(\.presentationMode) var presentationMode
+    @Environment(\.dismiss) var dismiss
     
     @State private var feedbackType: FeedbackType = .generalFeedback
     @State private var title = ""
@@ -20,8 +20,7 @@ struct FeedbackView: View {
     }
     
     var body: some View {
-        NavigationView {
-            Form {
+        Form {
                 // Feedback Type
                 Section(header: Text("Type")) {
                     Picker("Feedback Type", selection: $feedbackType) {
@@ -61,27 +60,17 @@ struct FeedbackView: View {
                     .disabled(isSubmitting || !isValidForm)
                 }
             }
-            .navigationTitle("Submit Feedback")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        presentationMode.wrappedValue.dismiss()
-                    }
-                }
-            }
             .alert(isPresented: $showAlert) {
                 Alert(
                     title: Text("Feedback"),
                     message: Text(alertMessage),
                     dismissButton: .default(Text("OK")) {
                         if alertMessage.contains("submitted") {
-                            presentationMode.wrappedValue.dismiss()
+                            dismiss()
                         }
                     }
                 )
             }
-        }
     }
     
     private var isValidForm: Bool {
