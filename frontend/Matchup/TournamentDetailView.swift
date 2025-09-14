@@ -7,6 +7,7 @@ struct TournamentDetailView: View {
     @State private var selectedTab: DetailTab = .overview
     @State private var registeredTeams: [TournamentRegistrationExpandedModel] = []
     @State private var userTeamIds: Set<Int> = []
+    @State private var userTeams: [TeamModel] = []
     @State private var errorMessage: String?
     private let network = NetworkManager()
     
@@ -34,7 +35,7 @@ struct TournamentDetailView: View {
                     case .overview:
                         overviewDetails
                     case .registered:
-                        RegisteredTeamsView(totalSlots: tournament.maxTeams, teams: registeredTeams, userTeamIds: userTeamIds)
+                        RegisteredTeamsView(totalSlots: tournament.maxTeams, teams: registeredTeams, userTeamIds: userTeamIds, userTeamsById: userTeamsById)
                     case .bracket:
                         BracketLockedView(startsAt: tournament.startsAt)
                     }
@@ -60,6 +61,10 @@ struct TournamentDetailView: View {
         }
     }
     
+    private var userTeamsById: [Int: TeamModel] {
+        Dictionary(uniqueKeysWithValues: userTeams.map { ($0.id, $0) })
+    }
+
     private var titleHeader: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(tournament.name)
@@ -208,6 +213,7 @@ struct TournamentDetailView: View {
             DispatchQueue.main.async {
                 if case .success(let teams) = result {
                     self.userTeamIds = Set(teams.map { $0.id })
+                    self.userTeams = teams
                 }
             }
         }
@@ -288,6 +294,7 @@ private struct RegisteredTeamsView: View {
     let totalSlots: Int
     let teams: [TournamentRegistrationExpandedModel]
     let userTeamIds: Set<Int>
+    let userTeamsById: [Int: TeamModel]
 
     private var registeredCount: Int { min(teams.count, totalSlots) }
     private var display: [DisplayItem] {
@@ -318,10 +325,36 @@ private struct RegisteredTeamsView: View {
 
             LazyVGrid(columns: columns, spacing: 12) {
                 ForEach(display) { item in
-                    TeamSlotCard(name: item.name, isEmpty: item.isEmpty, isUserTeam: userTeamIds.contains(item.teamId))
+                    if item.isEmpty {
+                        TeamSlotCard(name: item.name, isEmpty: true, isUserTeam: false)
+                    } else {
+                        if let myTeam = userTeamsById[item.teamId] {
+                            NavigationLink(destination: TeamDetailedView(team: myTeam)) {
+                                TeamSlotCard(name: item.name, isEmpty: false, isUserTeam: true)
+                            }
+                            .buttonStyle(.plain)
+                        } else {
+                            NavigationLink(destination: LazyTeamDetailDestination(teamId: item.teamId, teamName: item.name)) {
+                                TeamSlotCard(name: item.name, isEmpty: false, isUserTeam: userTeamIds.contains(item.teamId))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
                 }
             }
         }
+    }
+}
+
+// Destination that builds a lightweight TeamModel and shows read-only TeamDetailedView
+private struct LazyTeamDetailDestination: View {
+    let teamId: Int
+    let teamName: String
+
+    var body: some View {
+        TeamDetailedView(team: TeamModel(id: teamId, name: teamName, sport: "basketball", ownerUserId: -1, logoUrl: nil, createdAt: nil), readonly: true)
+        .navigationTitle("Team")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
