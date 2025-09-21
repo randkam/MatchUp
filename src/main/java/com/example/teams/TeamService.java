@@ -6,7 +6,6 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Map;
 import com.example.activities.ActivityService;
-import com.example.users.UserService;
 
 @Service
 public class TeamService {
@@ -19,8 +18,7 @@ public class TeamService {
     private TeamInviteRepository teamInviteRepository;
     @Autowired
     private ActivityService activityService;
-    @Autowired
-    private UserService userService;
+    // userService no longer needed for activity messages
 
     public List<Team> getTeamsForUser(Long userId) {
         return teamRepository.findAllForUser(userId);
@@ -126,14 +124,8 @@ public class TeamService {
             teamMemberRepository.save(member);
 
             // Activity for all team members about new member
-            String username = userService.getUsernameById(invite.getInviteeUserId());
-            String message = "@" + username + " joined the squad!";
-
-            List<Long> allUserIds = teamMemberRepository.findUserIdsByTeamId(invite.getTeamId());
-            List<Long> recipients = new java.util.ArrayList<>(allUserIds);
-            // Do not notify the user who just joined
-            recipients.remove(invite.getInviteeUserId());
-            activityService.createActivityForUsersWithTeam(recipients, "MEMBER_JOINED", invite.getTeamId(), message);
+            String teamName = teamRepository.findById(invite.getTeamId()).map(Team::getName).orElse(null);
+            activityService.createTeamEvent("TEAM_MEMBER_ADDED", invite.getTeamId(), invite.getInviteeUserId(), teamName, null, null);
         }
         return invite;
     }
@@ -149,8 +141,8 @@ public class TeamService {
             throw new IllegalStateException("Captain cannot leave; delete team instead");
         }
         teamMemberRepository.delete(target);
-        List<Long> userIds = teamMemberRepository.findUserIdsByTeamId(teamId);
-        activityService.createActivityForUsers(userIds, "MEMBER_LEFT", "A member left your team");
+        String teamName = teamRepository.findById(teamId).map(Team::getName).orElse(null);
+        activityService.createTeamEvent("TEAM_MEMBER_LEFT", teamId, userId, teamName, null, null);
     }
 
     public void deleteTeam(Long teamId, Long requestingUserId) {
@@ -158,10 +150,11 @@ public class TeamService {
         if (!team.getOwnerUserId().equals(requestingUserId)) {
             throw new IllegalStateException("Only captain can delete team");
         }
-        List<Long> userIds = teamMemberRepository.findUserIdsByTeamId(teamId);
+        String teamName = team.getName();
+        // Snapshot and payload before delete
+        activityService.createTeamDeletedEvent(teamId, requestingUserId, teamName);
         teamMemberRepository.deleteAll(teamMemberRepository.findByTeamId(teamId));
         teamRepository.delete(team);
-        activityService.createActivityForUsers(userIds, "TEAM_DELETED", "Your team was deleted by the captain");
     }
 
     public void removeMember(Long teamId, Long targetUserId, Long requestingUserId) {

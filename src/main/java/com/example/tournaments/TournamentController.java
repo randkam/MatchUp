@@ -22,5 +22,12 @@ public class TournamentController {
         Page<Tournament> tournaments = tournamentService.getUpcomingTournaments(page, size, sortBy, direction);
         return ResponseEntity.ok(tournaments);
     }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<Tournament> getById(@PathVariable Long id) {
+        return tournamentService.findById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
 }
 

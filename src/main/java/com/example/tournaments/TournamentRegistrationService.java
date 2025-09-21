@@ -70,10 +70,10 @@ public class TournamentRegistrationService {
         reg.setCheckedIn(false);
         TournamentRegistration saved = registrationRepository.save(reg);
 
-        // Create activity for all team members with formatted message
-        List<Long> memberUserIds = teamMemberRepository.findUserIdsByTeamId(teamId);
-        String message = "registered for " + tournament.getName();
-        activityService.createActivityForUsersWithTeam(memberUserIds, "TEAM_REGISTERED", teamId, message);
+        // Create activity (single row) with snapshot and payload message
+        String teamName = teamRepository.findById(teamId).map(t -> t.getName()).orElse(null);
+        String dedupeKey = "TEAM_REGISTERED_TOURNAMENT:" + tournamentId + ":" + teamId;
+        activityService.createTeamEvent("TEAM_REGISTERED_TOURNAMENT", teamId, requestingUserId, teamName, tournamentId, dedupeKey);
         return saved;
     }
 

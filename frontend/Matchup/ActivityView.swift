@@ -1,4 +1,84 @@
+private struct TeamRouterView: View {
+    let teamId: Int
+    @State private var team: TeamModel? = nil
+    @State private var isLoading = true
+    private let network = NetworkManager()
+
+    var body: some View {
+        Group {
+            if isLoading {
+                ProgressView().tint(ModernColorScheme.accentMinimal)
+            } else if let team = team {
+                TeamDetailedView(team: team, readonly: false)
+            } else {
+                VStack(spacing: 12) {
+                    Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.orange)
+                    Text("Oops, this team was deleted")
+                        .foregroundColor(ModernColorScheme.text)
+                    Text("Team #\(teamId)")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+            }
+        }
+        .navigationTitle("Team")
+        .onAppear(perform: load)
+    }
+
+    private func load() {
+        network.getTeamById(teamId: teamId) { result in
+            DispatchQueue.main.async {
+                isLoading = false
+                switch result {
+                case .success(let t): team = t
+                case .failure: team = nil
+                }
+            }
+        }
+    }
+}
+private struct TournamentRouterView: View {
+    let tournamentId: Int
+    @State private var tournament: Tournament? = nil
+    @State private var isLoading = true
+    private let network = NetworkManager()
+
+    var body: some View {
+        Group {
+            if isLoading {
+                ProgressView().tint(ModernColorScheme.accentMinimal)
+            } else if let tournament = tournament {
+                TournamentDetailView(tournament: tournament)
+            } else {
+                VStack(spacing: 12) {
+                    Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.orange)
+                    Text("Oops, this tournament was deleted")
+                        .foregroundColor(ModernColorScheme.text)
+                    Text("Tournament #\(tournamentId)")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+            }
+        }
+        .navigationTitle("Tournament")
+        .onAppear(perform: load)
+    }
+
+    private func load() {
+        network.getTournamentById(tournamentId: tournamentId) { result in
+            DispatchQueue.main.async {
+                isLoading = false
+                switch result {
+                case .success(let t): tournament = t
+                case .failure: tournament = nil
+                }
+            }
+        }
+    }
+}
 import SwiftUI
+
+enum ActivityRoute: Hashable { case team(Int); case user(Int); case tournament(Int) }
 
 struct ActivityView: View {
     @State private var invites: [TeamInviteModel] = []
@@ -7,10 +87,11 @@ struct ActivityView: View {
     @State private var errorMessage: String? = nil
     @State private var filter: ActivityFilter = .all
     @State private var respondingIds: Set<Int> = []
+    @State private var navPath = NavigationPath()
     private let network = NetworkManager()
     
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $navPath) {
             ZStack {
                 ModernColorScheme.background.ignoresSafeArea()
                 Group {
@@ -19,58 +100,104 @@ struct ActivityView: View {
                     } else if let errorMessage = errorMessage {
                         Text(errorMessage)
                             .foregroundColor(ModernColorScheme.textSecondary)
+                            .padding(.horizontal, 20)
                     } else if invites.isEmpty && activities.isEmpty {
-                        VStack(spacing: 10) {
-                            Image(systemName: "bell")
-                                .font(.system(size: 36))
-                                .foregroundColor(ModernColorScheme.accentMinimal)
-                            Text("No activity right now")
-                                .foregroundColor(ModernColorScheme.textSecondary)
-                            Text("Pull to refresh")
+                        VStack(spacing: 12) {
+                            ZStack {
+                                Circle().fill(ModernColorScheme.accentMinimal.opacity(0.12)).frame(width: 88, height: 88)
+                                Image(systemName: "bell.slash.fill")
+                                    .font(.system(size: 34, weight: .semibold))
+                                    .foregroundColor(ModernColorScheme.accentMinimal)
+                            }
+                            Text("You're all caught up")
+                                .font(.headline)
+                                .foregroundColor(ModernColorScheme.text)
+                            Text("Pull to refresh whenever you like.")
                                 .font(.caption)
                                 .foregroundColor(ModernColorScheme.textSecondary)
                         }
+                        .padding(.horizontal, 20)
                     } else {
-                        List {
-                            Section {
-                                Picker("Filter", selection: $filter) {
-                                    Text("All").tag(ActivityFilter.all)
-                                    Text("Teams").tag(ActivityFilter.teams)
-                                    Text("Invites").tag(ActivityFilter.invites)
+                        ScrollView {
+                            LazyVStack(alignment: .leading, spacing: 14, pinnedViews: []) {
+                                // Filter
+                                VStack(alignment: .leading, spacing: 10) {
+                                    Picker("Filter", selection: $filter) {
+                                        Text("All").tag(ActivityFilter.all)
+                                        Text("Teams").tag(ActivityFilter.teams)
+                                        Text("Invites").tag(ActivityFilter.invites)
+                                    }
+                                    .pickerStyle(.segmented)
                                 }
-                                .pickerStyle(.segmented)
-                            }
-                            .listRowBackground(ModernColorScheme.background)
-                            .listRowSeparator(.hidden)
-                            if !activities.isEmpty {
-                                ForEach(groupedSections()) { section in
-                                    Section(header: sectionHeader(section.title)) {
-                                        ForEach(section.items.filter { shouldShow($0) }) { item in
-                                            ActivityRow(message: item.message, type: item.type, createdAt: item.createdAt, teamId: item.teamId)
+                                .padding(12)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 14)
+                                        .fill(ModernColorScheme.surface)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 14)
+                                                .stroke(ModernColorScheme.accentMinimal.opacity(0.06), lineWidth: 1)
+                                        )
+                                )
+                                .padding(.horizontal, 16)
+
+                                // Activities
+                                if !activities.isEmpty {
+                                    ForEach(groupedSections()) { section in
+                                        VStack(alignment: .leading, spacing: 8) {
+                                            sectionHeader(section.title)
+                                                .padding(.horizontal, 16)
+                                            ForEach(section.items.filter { shouldShow($0) }) { item in
+                                                ActivityRow(
+                                                    message: item.message ?? "",
+                                                    typeCode: item.typeCode,
+                                                    createdAt: item.createdAt,
+                                                    teamId: item.teamId,
+                                                    teamName: item.teamName,
+                                                    actorUserId: item.actorUserId,
+                                                    actorUsername: item.actorUsername,
+                                                    tournamentId: item.tournamentId,
+                                                    tournamentName: item.tournamentName,
+                                                    onTeamTap: { id in navPath.append(ActivityRoute.team(id)) },
+                                                    onUserTap: { id in navPath.append(ActivityRoute.user(id)) },
+                                                    onTournamentTap: { id in navPath.append(ActivityRoute.tournament(id)) }
+                                                )
+                                                .padding(.horizontal, 16)
+                                            }
                                         }
                                     }
                                 }
-                            }
-                            if !invites.isEmpty && (filter == .all || filter == .invites) {
-                                Section(header: Text("Invites")) {
+
+                                // Invites
+                                if !invites.isEmpty && (filter == .all || filter == .invites) {
+                                    Text("Invites")
+                                        .font(.caption)
+                                        .foregroundColor(.gray)
+                                        .padding(.horizontal, 16)
                                     ForEach(invites) { invite in
-                                        InviteRow(invite: invite,
-                                                  isResponding: respondingIds.contains(invite.id),
-                                                  acceptAction: { respond(invite: invite, accept: true) },
-                                                  declineAction: { respond(invite: invite, accept: false) })
+                                        InviteRow(
+                                            invite: invite,
+                                            isResponding: respondingIds.contains(invite.id),
+                                            acceptAction: { respond(invite: invite, accept: true) },
+                                            declineAction: { respond(invite: invite, accept: false) }
+                                        )
+                                        .padding(.horizontal, 16)
                                     }
                                 }
                             }
+                            .padding(.vertical, 10)
                         }
-                        .listStyle(.plain)
-                        .scrollContentBackground(.hidden)
-                        .listRowBackground(ModernColorScheme.surface)
                         .tint(ModernColorScheme.accentMinimal)
-                        .listRowSeparator(.hidden)
                     }
                 }
             }
             .navigationTitle("Activity")
+            .navigationDestination(for: ActivityRoute.self) { route in
+                switch route {
+                case .team(let teamId): TeamRouterView(teamId: teamId)
+                case .user(let userId): UserProfileView(userId: userId)
+                case .tournament(let tournamentId): TournamentRouterView(tournamentId: tournamentId)
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(action: {
@@ -180,17 +307,20 @@ struct ActivityView: View {
     }
 
     private func sectionHeader(_ text: String) -> some View {
-        Text(text.uppercased())
-            .font(.caption)
-            .foregroundColor(.gray)
-            .padding(.leading, -8)
+        HStack(spacing: 8) {
+            Text(text.uppercased())
+                .font(.caption)
+                .foregroundColor(.gray)
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 2)
     }
     private func shouldShow(_ item: NetworkManager.ActivityItem) -> Bool {
         switch filter {
         case .all:
             return true
         case .teams:
-            return isTeamEvent(item.type)
+            return isTeamEvent(item.typeCode)
         case .invites:
             return false
         }
@@ -199,9 +329,9 @@ struct ActivityView: View {
 
 private enum ActivityFilter { case all, teams, invites }
 
-private func isTeamEvent(_ type: String) -> Bool {
-    switch type {
-    case "TEAM_REGISTERED", "MEMBER_JOINED", "MEMBER_LEFT", "TEAM_DELETED":
+private func isTeamEvent(_ typeCode: String) -> Bool {
+    switch typeCode {
+    case "TEAM_REGISTERED_TOURNAMENT", "TEAM_MEMBER_ADDED", "TEAM_MEMBER_LEFT", "TEAM_DELETED":
         return true
     default:
         return false
@@ -210,49 +340,73 @@ private func isTeamEvent(_ type: String) -> Bool {
 
 private struct ActivityRow: View {
     let message: String
-    let type: String
+    let typeCode: String
     let createdAt: String?
     let teamId: Int?
+    let teamName: String?
+    let actorUserId: Int?
+    let actorUsername: String?
+    let tournamentId: Int?
+    let tournamentName: String?
+    let onTeamTap: ((Int) -> Void)?
+    let onUserTap: ((Int) -> Void)?
+    let onTournamentTap: ((Int) -> Void)?
     
-    @State private var teamName: String? = nil
+    @State private var resolvedTeamName: String? = nil
     private static var teamNameCache: [Int: String] = [:]
     
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             ZStack {
-                RoundedRectangle(cornerRadius: 8).fill(ModernColorScheme.accentMinimal.opacity(0.15)).frame(width: 36, height: 36)
-                Image(systemName: iconName(for: type)).foregroundColor(ModernColorScheme.accentMinimal)
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(LinearGradient(colors: [ModernColorScheme.accentMinimal.opacity(0.18), ModernColorScheme.accentMinimal.opacity(0.06)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .frame(width: 40, height: 40)
+                Image(systemName: iconName(for: typeCode))
+                    .foregroundColor(ModernColorScheme.accentMinimal)
             }
             VStack(alignment: .leading, spacing: 8) {
-                if let teamId = teamId {
-                    VStack(alignment: .leading, spacing: 8) {
-                        teamPill(teamName ?? "Team #\(teamId)")
-                        Divider()
-                        Text(message)
-                            .foregroundColor(ModernColorScheme.text)
+                // Always show team pill: clickable if teamId exists, otherwise static (e.g., deleted team)
+                let pillText: String = {
+                    if let name = teamName ?? resolvedTeamName, !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return name }
+                    if let id = teamId { return "Team #\(id)" }
+                    return "Deleted Team"
+                }()
+                Group {
+                    if let id = teamId {
+                        Button(action: { onTeamTap?(id) }) { teamPill(pillText) }
+                            .buttonStyle(PlainButtonStyle())
+                    } else {
+                        teamPill(pillText)
                     }
-                    .onAppear {
-                        loadTeamNameIfNeeded(teamId: teamId)
-                    }
-                } else {
-                    Text(message)
-                        .foregroundColor(ModernColorScheme.text)
                 }
+                messageView
+                    .foregroundColor(ModernColorScheme.text)
                 if let createdAt = createdAt {
                     Text(relativeTime(createdAt))
                         .font(.caption)
                         .foregroundColor(.gray)
                 }
             }
-            Spacer()
+            Spacer(minLength: 0)
         }
-        .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
-        .listRowBackground(ModernColorScheme.surface)
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(ModernColorScheme.surface)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(ModernColorScheme.accentMinimal.opacity(0.06), lineWidth: 1)
+                )
+                .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 4)
+        )
+        .onAppear {
+            if let teamId = teamId { loadTeamNameIfNeeded(teamId: teamId) }
+        }
     }
     
     private func loadTeamNameIfNeeded(teamId: Int) {
         if let cached = Self.teamNameCache[teamId] {
-            teamName = cached
+            resolvedTeamName = cached
             return
         }
         NetworkManager().getTeamById(teamId: teamId) { result in
@@ -260,13 +414,54 @@ private struct ActivityRow: View {
                 switch result {
                 case .success(let team):
                     Self.teamNameCache[teamId] = team.name
-                    teamName = team.name
+                    resolvedTeamName = team.name
                 case .failure:
                     break
                 }
             }
         }
     }
+
+    @ViewBuilder
+    private var messageView: some View {
+        if typeCode == "TEAM_MEMBER_LEFT" || typeCode == "TEAM_MEMBER_ADDED" {
+            if let actorUserId = actorUserId {
+                HStack(spacing: 4) {
+                    Button(action: { onUserTap?(actorUserId) }) {
+                        Text(verbatim: "@" + (actorUsername ?? "user"))
+                            .foregroundColor(ModernColorScheme.accentMinimal)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    Text(cleanedMessage())
+                }
+            } else {
+                Text(cleanedMessage())
+            }
+        } else if typeCode == "TEAM_REGISTERED_TOURNAMENT", let tid = tournamentId {
+            HStack(spacing: 4) {
+                Text("registered for")
+                Button(action: { onTournamentTap?(tid) }) {
+                    Text(tournamentName ?? "Tournament #\(tid)")
+                        .foregroundColor(ModernColorScheme.accentMinimal)
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+        } else {
+            Text(cleanedMessage())
+        }
+    }
+
+    private func cleanedMessage() -> String {
+        var text = message
+        // Remove any leading ">" characters and whitespace that might slip in from server
+        while text.hasPrefix(">") || text.hasPrefix("›") || text.hasPrefix("→") {
+            text.removeFirst()
+            text = text.trimmingCharacters(in: .whitespaces)
+        }
+        return text
+    }
+
+    // Removed complex splitting; message constructed inline for clarity.
     
     private func relativeTime(_ iso: String) -> String {
         let iso1 = ISO8601DateFormatter()
@@ -279,19 +474,19 @@ private struct ActivityRow: View {
         return rel.localizedString(for: d, relativeTo: Date())
     }
     
-    private func iconName(for type: String) -> String {
-        switch type {
-        case "TEAM_REGISTERED": return "trophy"
-        case "MEMBER_JOINED": return "person.badge.plus"
-        case "MEMBER_LEFT": return "person.fill.xmark"
+    private func iconName(for typeCode: String) -> String {
+        switch typeCode {
+        case "TEAM_REGISTERED_TOURNAMENT": return "trophy"
+        case "TEAM_MEMBER_ADDED": return "person.badge.plus"
+        case "TEAM_MEMBER_LEFT": return "person.fill.xmark"
         case "TEAM_DELETED": return "trash"
         default: return "bell"
         }
     }
     
-    private func isTeamEvent(_ type: String) -> Bool {
-        switch type {
-        case "TEAM_REGISTERED", "MEMBER_JOINED", "MEMBER_LEFT", "TEAM_DELETED":
+    private func isTeamEvent(_ typeCode: String) -> Bool {
+        switch typeCode {
+        case "TEAM_REGISTERED_TOURNAMENT", "TEAM_MEMBER_ADDED", "TEAM_MEMBER_LEFT", "TEAM_DELETED":
             return true
         default:
             return false
@@ -306,8 +501,14 @@ private struct InviteRow: View {
     let declineAction: () -> Void
     
     var body: some View {
-        HStack(alignment: .center, spacing: 10) {
-            Image(systemName: "envelope.fill").foregroundColor(ModernColorScheme.accentMinimal)
+        HStack(alignment: .center, spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(LinearGradient(colors: [ModernColorScheme.accentMinimal.opacity(0.18), ModernColorScheme.accentMinimal.opacity(0.06)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .frame(width: 40, height: 40)
+                Image(systemName: "envelope.fill")
+                    .foregroundColor(ModernColorScheme.accentMinimal)
+            }
             VStack(alignment: .leading, spacing: 6) {
                 teamPill(invite.teamName ?? "Team #\(invite.teamId)")
                 Text("invited you")
@@ -316,7 +517,7 @@ private struct InviteRow: View {
                     .font(.caption)
                     .foregroundColor(.gray)
             }
-            Spacer()
+            Spacer(minLength: 0)
             HStack(spacing: 8) {
                 Button("Decline") { declineAction() }
                     .buttonStyle(.bordered)
@@ -326,7 +527,16 @@ private struct InviteRow: View {
                     .disabled(isResponding)
             }
         }
-        .listRowBackground(ModernColorScheme.surface)
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(ModernColorScheme.surface)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(ModernColorScheme.accentMinimal.opacity(0.06), lineWidth: 1)
+                )
+                .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 4)
+        )
     }
 }
 

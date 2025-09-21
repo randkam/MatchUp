@@ -848,6 +848,55 @@ extension NetworkManager {
 }
 
 extension NetworkManager {
+    func getTournamentById(tournamentId: Int, completion: @escaping (Result<Tournament, Error>) -> Void) {
+        let endpoint = "\(APIConfig.tournamentsEndpoint)/\(tournamentId)"
+        guard let url = URL(string: endpoint) else {
+            completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])));
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error { completion(.failure(error)); return }
+            guard let data = data else {
+                completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "No data received"])));
+                return
+            }
+
+            if let responseString = String(data: data, encoding: .utf8) {
+                print("Raw tournament-by-id response: \(responseString)")
+            }
+
+            do {
+                let decoder = JSONDecoder()
+                decoder.dateDecodingStrategy = .custom { decoder in
+                    let container = try decoder.singleValueContainer()
+                    let dateString = try container.decode(String.self)
+                    let isoWithFraction = ISO8601DateFormatter()
+                    isoWithFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                    if let d = isoWithFraction.date(from: dateString) { return d }
+                    let iso = ISO8601DateFormatter()
+                    iso.formatOptions = [.withInternetDateTime]
+                    if let d = iso.date(from: dateString) { return d }
+                    let df = DateFormatter()
+                    df.locale = Locale(identifier: "en_US_POSIX")
+                    df.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+                    if let d = df.date(from: dateString) { return d }
+                    throw DecodingError.dataCorrupted(DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid date: \(dateString)"))
+                }
+                let tournament = try decoder.decode(Tournament.self, from: data)
+                completion(.success(tournament))
+            } catch {
+                completion(.failure(error))
+            }
+        }.resume()
+    }
+}
+
+extension NetworkManager {
     func getLocationById(locationId: Int, completion: @escaping (Result<Location, Error>) -> Void) {
         let endpoint = "\(APIConfig.locationsEndpoint)/\(locationId)"
         print("Fetching location by id from endpoint: \(endpoint)")
@@ -1126,19 +1175,27 @@ extension NetworkManager {
     // MARK: - Activities
     struct ActivityItem: Codable, Identifiable {
         let id: Int
-        let userId: Int
+        let typeCode: String
         let teamId: Int?
-        let type: String
-        let message: String
+        let tournamentId: Int?
+        let actorUserId: Int?
+        let actorUsername: String?
+        let teamName: String?
+        let tournamentName: String?
+        let message: String?
         let createdAt: String?
 
         enum CodingKeys: String, CodingKey {
             case id
-            case userId = "user_id"
-            case teamId = "team_id"
-            case type
+            case typeCode = "typeCode"
+            case teamId = "teamId"
+            case tournamentId = "tournamentId"
+            case actorUserId = "actorUserId"
+            case actorUsername = "actorUsername"
+            case teamName = "teamName"
+            case tournamentName = "tournamentName"
             case message
-            case createdAt = "created_at"
+            case createdAt
         }
     }
 
