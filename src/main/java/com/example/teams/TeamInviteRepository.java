@@ -12,7 +12,8 @@ public interface TeamInviteRepository extends JpaRepository<TeamInvite, Long> {
     List<TeamInvite> findByInviteeUserIdAndStatus(Long inviteeUserId, String status);
     Optional<TeamInvite> findByTeamIdAndInviteeUserId(Long teamId, Long inviteeUserId);
 
-    @Query("SELECT ti.id as id, ti.teamId as teamId, ti.inviteeUserId as inviteeUserId, ti.status as status, ti.token as token, CAST(ti.expiresAt as string) as expiresAt, CAST(ti.createdAt as string) as createdAt, t.name as teamName FROM TeamInvite ti JOIN Team t ON t.id = ti.teamId WHERE ti.inviteeUserId = :userId AND ti.status = 'PENDING'")
+    // Format timestamps as ISO 8601 UTC with fractional seconds, to match activities API
+    @Query(value = "SELECT ti.id AS id, ti.team_id AS teamId, ti.invitee_user_id AS inviteeUserId, ti.status AS status, ti.token AS token, DATE_FORMAT(ti.expires_at, '%Y-%m-%dT%T.%fZ') AS expiresAt, DATE_FORMAT(ti.created_at, '%Y-%m-%dT%T.%fZ') AS createdAt, t.name AS teamName FROM team_invites ti JOIN teams t ON t.id = ti.team_id WHERE ti.invitee_user_id = :userId AND ti.status = 'PENDING' ORDER BY ti.created_at DESC", nativeQuery = true)
     List<TeamInviteProjection> findPendingInvitesExpanded(Long userId);
 }
 

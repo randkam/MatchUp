@@ -124,10 +124,25 @@ struct ActivityView: View {
                                 VStack(alignment: .leading, spacing: 10) {
                                     Picker("Filter", selection: $filter) {
                                         Text("All").tag(ActivityFilter.all)
-                                        Text("Teams").tag(ActivityFilter.teams)
+                                        Text("Updates").tag(ActivityFilter.teams)
                                         Text("Invites").tag(ActivityFilter.invites)
                                     }
                                     .pickerStyle(.segmented)
+                                    .overlay(alignment: .topTrailing) {
+                                        if invites.count > 0 {
+                                            ZStack {
+                                                Circle()
+                                                    .fill(Color.red)
+                                                    .overlay(Circle().stroke(Color.white, lineWidth: 1))
+                                                Text(String(min(invites.count, 99)))
+                                                    .foregroundColor(.white)
+                                                    .font(.caption2)
+                                            }
+                                            .frame(width: 16, height: 16)
+                                            .offset(x: -10, y: 6)
+                                            .accessibilityLabel("\(invites.count) pending invites")
+                                        }
+                                    }
                                 }
                                 .padding(12)
                                 .background(
@@ -141,46 +156,35 @@ struct ActivityView: View {
                                 .padding(.horizontal, 16)
 
                                 // Activities
-                                if !activities.isEmpty {
-                                    ForEach(groupedSections()) { section in
-                                        VStack(alignment: .leading, spacing: 8) {
-                                            sectionHeader(section.title)
-                                                .padding(.horizontal, 16)
-                                            ForEach(section.items.filter { shouldShow($0) }) { item in
-                                                ActivityRow(
-                                                    message: item.message ?? "",
-                                                    typeCode: item.typeCode,
-                                                    createdAt: item.createdAt,
-                                                    teamId: item.teamId,
-                                                    teamName: item.teamName,
-                                                    actorUserId: item.actorUserId,
-                                                    actorUsername: item.actorUsername,
-                                                    tournamentId: item.tournamentId,
-                                                    tournamentName: item.tournamentName,
-                                                    onTeamTap: { id in navPath.append(ActivityRoute.team(id)) },
-                                                    onUserTap: { id in navPath.append(ActivityRoute.user(id)) },
-                                                    onTournamentTap: { id in navPath.append(ActivityRoute.tournament(id)) }
-                                                )
-                                                .padding(.horizontal, 16)
-                                            }
+                                if !combinedFeed().isEmpty {
+                                    ForEach(combinedFeedFilteredSorted()) { item in
+                                        switch item {
+                                        case .activity(let a):
+                                            ActivityRow(
+                                                message: a.message ?? "",
+                                                typeCode: a.typeCode,
+                                                createdAt: a.createdAt,
+                                                teamId: a.teamId,
+                                                teamName: a.teamName,
+                                                actorUserId: a.actorUserId,
+                                                actorUsername: a.actorUsername,
+                                                tournamentId: a.tournamentId,
+                                                tournamentName: a.tournamentName,
+                                                onTeamTap: { id in navPath.append(ActivityRoute.team(id)) },
+                                                onUserTap: { id in navPath.append(ActivityRoute.user(id)) },
+                                                onTournamentTap: { id in navPath.append(ActivityRoute.tournament(id)) }
+                                            )
+                                            .padding(.horizontal, 16)
+                                        case .invite(let inv):
+                                            InviteRow(
+                                                invite: inv,
+                                                isResponding: respondingIds.contains(inv.id),
+                                                acceptAction: { respond(invite: inv, accept: true) },
+                                                declineAction: { respond(invite: inv, accept: false) },
+                                                onTeamTap: { _ in navPath.append(ActivityRoute.team(inv.teamId)) }
+                                            )
+                                            .padding(.horizontal, 16)
                                         }
-                                    }
-                                }
-
-                                // Invites
-                                if !invites.isEmpty && (filter == .all || filter == .invites) {
-                                    Text("Invites")
-                                        .font(.caption)
-                                        .foregroundColor(.gray)
-                                        .padding(.horizontal, 16)
-                                    ForEach(invites) { invite in
-                                        InviteRow(
-                                            invite: invite,
-                                            isResponding: respondingIds.contains(invite.id),
-                                            acceptAction: { respond(invite: invite, accept: true) },
-                                            declineAction: { respond(invite: invite, accept: false) }
-                                        )
-                                        .padding(.horizontal, 16)
                                     }
                                 }
                             }
@@ -323,6 +327,133 @@ struct ActivityView: View {
             return isTeamEvent(item.typeCode)
         case .invites:
             return false
+        }
+    }
+
+    // MARK: - Unified feed (activities + invites)
+    private enum FeedItem: Identifiable {
+        case activity(NetworkManager.ActivityItem)
+        case invite(TeamInviteModel)
+        var id: String {
+            switch self {
+            case .activity(let a): return "a_\(a.id)"
+            case .invite(let i): return "i_\(i.id)"
+            }
+        }
+        var createdAt: String? {
+            switch self {
+            case .activity(let a): return a.createdAt
+            case .invite(let i): return i.createdAt
+            }
+        }
+    }
+
+    private func combinedFeed() -> [FeedItem] {
+        switch filter {
+        case .all:
+            let a = activities.map { FeedItem.activity($0) }
+            let inv = invites.map { FeedItem.invite($0) }
+            return a + inv
+        case .teams:
+            return activities.filter { isTeamEvent($0.typeCode) }.map { FeedItem.activity($0) }
+        case .invites:
+            return invites.map { FeedItem.invite($0) }
+        }
+    }
+
+    private func combinedFeedFilteredSorted() -> [FeedItem] {
+        func parseDate(_ s: String) -> Date? {
+            if s.isEmpty { return nil }
+            // Try ISO8601 with/without fractional seconds
+            let isoFrac = ISO8601DateFormatter(); isoFrac.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let d = isoFrac.date(from: s) { return d }
+            let iso = ISO8601DateFormatter(); iso.formatOptions = [.withInternetDateTime]
+            if let d = iso.date(from: s) { return d }
+            // Common backend formats
+            let formats = [
+                "yyyy-MM-dd'T'HH:mm:ss.SSSXXXXX",
+                "yyyy-MM-dd'T'HH:mm:ssXXXXX",
+                "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+                "yyyy-MM-dd'T'HH:mm:ss'Z'",
+                // 6-digit fractional seconds without timezone (observed in invites previously)
+                "yyyy-MM-dd'T'HH:mm:ss.SSSSSS",
+                "yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'",
+                "yyyy-MM-dd'T'HH:mm:ss.SSS",
+                "yyyy-MM-dd'T'HH:mm:ss",
+                "yyyy-MM-dd HH:mm:ss"
+            ]
+            let df = DateFormatter(); df.locale = Locale(identifier: "en_US_POSIX")
+            for f in formats {
+                df.dateFormat = f
+                // Assume UTC for naive timestamps (no timezone info)
+                if !s.contains("Z") && !s.contains("+") && !s.contains("-") {
+                    df.timeZone = TimeZone(secondsFromGMT: 0)
+                } else {
+                    df.timeZone = TimeZone(secondsFromGMT: 0)
+                }
+                if let d = df.date(from: s) { return d }
+            }
+            return nil
+        }
+        func date(for item: FeedItem) -> Date {
+            let s = item.createdAt ?? ""
+            return parseDate(s) ?? Date.distantPast
+        }
+        return combinedFeed().sorted { date(for: $0) > date(for: $1) }
+    }
+
+    private struct FeedSection: Identifiable {
+        let id = UUID()
+        let title: String
+        let items: [FeedItem]
+    }
+
+    private func groupedFeedSections() -> [FeedSection] {
+        let df1 = ISO8601DateFormatter()
+        let df2 = DateFormatter()
+        df2.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSXXXXX"
+        let out = DateFormatter()
+        out.dateStyle = .medium
+        out.timeStyle = .none
+        let cal = Calendar.current
+
+        var groups: [String: [FeedItem]] = [:]
+        for item in combinedFeed() {
+            let label: String
+            if let ts = item.createdAt, let date = df1.date(from: ts) ?? df2.date(from: ts) {
+                if cal.isDateInToday(date) { label = "Today" }
+                else if cal.isDateInYesterday(date) { label = "Yesterday" }
+                else { label = out.string(from: date) }
+            } else {
+                label = "Earlier"
+            }
+            groups[label, default: []].append(item)
+        }
+        func keyDate(_ s: String) -> Date {
+            if s == "Today" { return Date() }
+            if s == "Yesterday" { return Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date() }
+            return out.date(from: s) ?? Date.distantPast
+        }
+        let ordered = groups.keys.sorted { keyDate($0) > keyDate($1) }
+        return ordered.map { FeedSection(title: $0, items: (groups[$0] ?? []).sorted(by: { (lhs, rhs) in
+            let d1s = lhs.createdAt ?? ""
+            let d2s = rhs.createdAt ?? ""
+            let dfIso = ISO8601DateFormatter()
+            let dfAlt = DateFormatter(); dfAlt.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSXXXXX"
+            let d1 = dfIso.date(from: d1s) ?? dfAlt.date(from: d1s) ?? Date.distantPast
+            let d2 = dfIso.date(from: d2s) ?? dfAlt.date(from: d2s) ?? Date.distantPast
+            return d1 > d2
+        })) }
+    }
+
+    private func shouldShowFeed(_ item: FeedItem) -> Bool {
+        switch filter {
+        case .all:
+            return true
+        case .teams:
+            if case .activity(let a) = item { return isTeamEvent(a.typeCode) } else { return false }
+        case .invites:
+            switch item { case .invite: return true; default: return false }
         }
     }
 }
@@ -499,6 +630,7 @@ private struct InviteRow: View {
     let isResponding: Bool
     let acceptAction: () -> Void
     let declineAction: () -> Void
+    let onTeamTap: ((Int) -> Void)?
     
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
@@ -510,7 +642,10 @@ private struct InviteRow: View {
                     .foregroundColor(ModernColorScheme.accentMinimal)
             }
             VStack(alignment: .leading, spacing: 6) {
-                teamPill(invite.teamName ?? "Team #\(invite.teamId)")
+                Button(action: { onTeamTap?(invite.teamId) }) {
+                    teamPill(invite.teamName ?? "Team #\(invite.teamId)")
+                }
+                .buttonStyle(PlainButtonStyle())
                 Text("invited you")
                     .foregroundColor(ModernColorScheme.text)
                 Text(invite.status)
