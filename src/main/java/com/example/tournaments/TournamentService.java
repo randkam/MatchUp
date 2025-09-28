@@ -7,6 +7,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 @Service
 public class TournamentService {
@@ -17,6 +18,10 @@ public class TournamentService {
     public Page<Tournament> getUpcomingTournaments(int page, Integer size, String sortBy, String direction) {
         Pageable pageable = PaginationConfig.createPageRequest(page, size, sortBy, direction);
         return tournamentRepository.findUpcoming(LocalDateTime.now(), pageable);
+    }
+
+    public Optional<Tournament> findById(Long id) {
+        return tournamentRepository.findById(id);
     }
 }
 

@@ -12,41 +12,59 @@ public class Activity {
     @Column(name = "id")
     private Long id;
 
-    @Column(name = "user_id", nullable = false)
-    private Long userId;
+    // New schema
+    @Column(name = "type_id", nullable = false)
+    private Short typeId;
 
     @Column(name = "team_id")
-    private Long teamId; // nullable; present if related to a team
+    private Long teamId;
 
-    @Column(name = "type", nullable = false, length = 40)
-    private String type; // TEAM_REGISTERED, MEMBER_JOINED
+    @Column(name = "tournament_id")
+    private Long tournamentId;
 
-    @Column(name = "message", nullable = false, length = 255)
-    private String message;
+    @Column(name = "actor_user_id")
+    private Long actorUserId;
+
+    @Column(name = "team_name_snapshot")
+    private String teamNameSnapshot;
+
+    @Column(name = "payload", columnDefinition = "json")
+    private String payload;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "dedupe_key", unique = true)
+    private String dedupeKey;
 
     @PrePersist
     protected void onCreate() { this.createdAt = LocalDateTime.now(); }
 
     @JsonProperty("id")
     public Long getId() { return id; }
-    @JsonProperty("user_id")
-    public Long getUserId() { return userId; }
+    @JsonProperty("type_id")
+    public Short getTypeId() { return typeId; }
     @JsonProperty("team_id")
     public Long getTeamId() { return teamId; }
-    @JsonProperty("type")
-    public String getType() { return type; }
-    @JsonProperty("message")
-    public String getMessage() { return message; }
+    @JsonProperty("tournament_id")
+    public Long getTournamentId() { return tournamentId; }
+    @JsonProperty("actor_user_id")
+    public Long getActorUserId() { return actorUserId; }
+    @JsonProperty("team_name_snapshot")
+    public String getTeamNameSnapshot() { return teamNameSnapshot; }
+    @JsonProperty("payload")
+    public String getPayload() { return payload; }
     @JsonProperty("created_at")
     public LocalDateTime getCreatedAt() { return createdAt; }
+    public String getDedupeKey() { return dedupeKey; }
 
-    public void setUserId(Long userId) { this.userId = userId; }
+    public void setTypeId(Short typeId) { this.typeId = typeId; }
     public void setTeamId(Long teamId) { this.teamId = teamId; }
-    public void setType(String type) { this.type = type; }
-    public void setMessage(String message) { this.message = message; }
+    public void setTournamentId(Long tournamentId) { this.tournamentId = tournamentId; }
+    public void setActorUserId(Long actorUserId) { this.actorUserId = actorUserId; }
+    public void setTeamNameSnapshot(String teamNameSnapshot) { this.teamNameSnapshot = teamNameSnapshot; }
+    public void setPayload(String payload) { this.payload = payload; }
+    public void setDedupeKey(String dedupeKey) { this.dedupeKey = dedupeKey; }
 }
 
 

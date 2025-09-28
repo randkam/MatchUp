@@ -14,8 +14,8 @@ public class ActivityController {
     private ActivityService activityService;
 
     @GetMapping("/user/{userId}")
-    public ResponseEntity<List<Activity>> getUserActivities(@PathVariable Long userId) {
-        return ResponseEntity.ok(activityService.getRecentForUser(userId));
+    public ResponseEntity<List<ActivityFeedItem>> getUserActivities(@PathVariable Long userId) {
+        return ResponseEntity.ok(activityService.getRecentFeedForUser(userId));
     }
 }
 
