@@ -6,6 +6,15 @@ struct TeamsView: View {
     @State private var errorMessage: String? = nil
     @State private var showingCreate = false
     private let network = NetworkManager()
+    @State private var searchText: String = ""
+    
+    private var filteredTeams: [TeamModel] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if query.isEmpty { return teams }
+        return teams.filter { team in
+            team.name.range(of: query, options: .caseInsensitive) != nil
+        }
+    }
     
     var body: some View {
         NavigationStack {
@@ -31,21 +40,29 @@ struct TeamsView: View {
                             .font(ModernFontScheme.body)
                             .foregroundColor(ModernColorScheme.textSecondary)
                     } else {
-                        ScrollView {
-                            LazyVStack(spacing: 16) {
-                                ForEach(teams) { team in
-                                    NavigationLink(destination: TeamDetailedView(team: team)) {
-                                        TeamCard(team: team)
+                        if filteredTeams.isEmpty && !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            Text("No matching teams")
+                                .font(ModernFontScheme.body)
+                                .foregroundColor(ModernColorScheme.textSecondary)
+                                .padding()
+                        } else {
+                            ScrollView {
+                                LazyVStack(spacing: 16) {
+                                    ForEach(filteredTeams) { team in
+                                        NavigationLink(destination: TeamDetailedView(team: team)) {
+                                            TeamCard(team: team)
+                                        }
+                                        .padding(.horizontal)
                                     }
-                                    .padding(.horizontal)
                                 }
+                                .padding(.vertical)
                             }
-                            .padding(.vertical)
                         }
                     }
                 }
             }
             .navigationTitle("Teams")
+            .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search teams")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: { showingCreate = true }) {
