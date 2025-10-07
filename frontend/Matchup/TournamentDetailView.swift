@@ -10,6 +10,7 @@ struct TournamentDetailView: View {
     @State private var userTeams: [TeamModel] = []
     @State private var errorMessage: String?
     private let network = NetworkManager()
+    @State private var latestStatus: TournamentStatus? = nil
     
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -72,7 +73,7 @@ struct TournamentDetailView: View {
                     .foregroundColor(ModernColorScheme.text)
                     .lineLimit(2)
                 Spacer(minLength: 8)
-                statusPill(status: tournament.status)
+                statusPill(status: latestStatus ?? tournament.status)
             }
         }
     }
@@ -241,6 +242,14 @@ struct TournamentDetailView: View {
                 }
             }
         }
+        // Refresh the tournament to get up-to-date status
+        network.getTournamentById(tournamentId: tournament.id) { result in
+            DispatchQueue.main.async {
+                if case .success(let t) = result {
+                    self.latestStatus = t.status
+                }
+            }
+        }
         // Load user's teams to highlight
         let userId = UserDefaults.standard.integer(forKey: "loggedInUserId")
         network.getTeamsForUser(userId: userId) { result in
@@ -285,10 +294,10 @@ struct TournamentDetailView: View {
                     .font(ModernFontScheme.caption)
                     .foregroundColor(ModernColorScheme.textSecondary)
                 Spacer()
-                if tournament.status == .signupsOpen {
+                if (latestStatus ?? tournament.status) == .signupsOpen && registeredTeams.count < tournament.maxTeams {
                     NavigationLink(destination: registerDestination()) {
                         Text("Sign up")
-                            .font(.caption)
+                            .font(ModernFontScheme.caption)
                             .fontWeight(.semibold)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
@@ -337,6 +346,7 @@ private func statusPill(status: TournamentStatus) -> some View {
         switch status {
         case .draft: return ("Draft", Color.gray)
         case .signupsOpen: return ("Signups Open", ModernColorScheme.accentMinimal)
+        case .full: return ("Full", Color.red)
         case .locked: return ("Locked", Color.orange)
         case .live: return ("Live", Color.green)
         case .complete: return ("Complete", Color.blue)
@@ -398,21 +408,21 @@ private func infoRow(icon: String, text: String) -> some View {
 }
 
 private func summaryTile(icon: String, title: String, value: String) -> some View {
-    VStack(alignment: .leading, spacing: 6) {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Image(systemName: icon)
-                .foregroundColor(ModernColorScheme.accentMinimal)
-                .frame(width: 22, alignment: .leading)
+    HStack(alignment: .top, spacing: 10) {
+        Image(systemName: icon)
+            .foregroundColor(ModernColorScheme.accentMinimal)
+            .imageScale(.medium)
+            .frame(width: 28, alignment: .leading)
+        VStack(alignment: .leading, spacing: 6) {
             Text(title)
                 .font(ModernFontScheme.caption)
                 .foregroundColor(ModernColorScheme.textSecondary)
+            Text(value)
+                .font(ModernFontScheme.body)
+                .foregroundColor(ModernColorScheme.text)
         }
-        Text(value)
-            .font(ModernFontScheme.body)
-            .foregroundColor(ModernColorScheme.text)
-            .frame(maxWidth: .infinity, alignment: .leading)
+        Spacer(minLength: 0)
     }
-    .frame(maxWidth: .infinity, alignment: .leading)
     .padding()
     .background(ModernColorScheme.surface.opacity(0.6))
     .cornerRadius(12)

@@ -6,6 +6,11 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Map;
 import com.example.activities.ActivityService;
+import com.example.tournaments.Tournament;
+import com.example.tournaments.TournamentRepository;
+import com.example.tournaments.TournamentRegistration;
+import com.example.tournaments.TournamentRegistrationRepository;
+import com.example.tournaments.TournamentStatus;
 
 @Service
 public class TeamService {
@@ -18,10 +23,19 @@ public class TeamService {
     private TeamInviteRepository teamInviteRepository;
     @Autowired
     private ActivityService activityService;
+    @Autowired
+    private TournamentRegistrationRepository tournamentRegistrationRepository;
+    @Autowired
+    private TournamentRepository tournamentRepository;
     // userService no longer needed for activity messages
 
     public List<Team> getTeamsForUser(Long userId) {
         return teamRepository.findAllForUser(userId);
+    }
+
+    public Team getTeamById(Long teamId) {
+        return teamRepository.findById(teamId)
+                .orElseThrow(() -> new IllegalStateException("Team not found"));
     }
 
     public Team createTeam(String name, Long ownerUserId, String logoUrl) {
@@ -153,8 +167,25 @@ public class TeamService {
         String teamName = team.getName();
         // Snapshot and payload before delete
         activityService.createTeamDeletedEvent(teamId, requestingUserId, teamName);
+        // Capture impacted tournaments before removing registrations
+        List<Tournament> impacted = tournamentRegistrationRepository.findUpcomingTournamentsForTeam(teamId);
+
+        // Remove team members and any tournament registrations for robustness (in addition to DB FK cascade)
         teamMemberRepository.deleteAll(teamMemberRepository.findByTeamId(teamId));
+        List<TournamentRegistration> regs = tournamentRegistrationRepository.findByTeamId(teamId);
+        tournamentRegistrationRepository.deleteAll(regs);
+        
+        // Delete team
         teamRepository.delete(team);
+
+        // Recalculate tournament status for impacted tournaments
+        for (Tournament t : impacted) {
+            long count = tournamentRegistrationRepository.countRegisteredByTournamentId(t.getId());
+            if (t.getStatus() == TournamentStatus.FULL && count < t.getMaxTeams()) {
+                t.setStatus(TournamentStatus.SIGNUPS_OPEN);
+                tournamentRepository.save(t);
+            }
+        }
     }
 
     public void removeMember(Long teamId, Long targetUserId, Long requestingUserId) {

@@ -21,6 +21,15 @@ public class TeamController {
         return ResponseEntity.ok(teamService.getTeamsForUser(userId));
     }
 
+    @GetMapping("/{teamId}")
+    public ResponseEntity<Team> getTeam(@PathVariable Long teamId) {
+        try {
+            return ResponseEntity.ok(teamService.getTeamById(teamId));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
     @PostMapping
     public ResponseEntity<Team> createTeam(@RequestBody Map<String, Object> body) {
         String name = (String) body.get("name");

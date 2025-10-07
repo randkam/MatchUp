@@ -15,6 +15,7 @@ enum LocationType: String, Codable {
 enum TournamentStatus: String, Codable {
     case draft = "DRAFT"
     case signupsOpen = "SIGNUPS_OPEN"
+    case full = "FULL"
     case locked = "LOCKED"
     case live = "LIVE"
     case complete = "COMPLETE"

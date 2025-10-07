@@ -11,6 +11,7 @@ import java.util.Optional;
 public interface TournamentRegistrationRepository extends JpaRepository<TournamentRegistration, Long> {
     List<TournamentRegistration> findByTournamentId(Long tournamentId);
     Optional<TournamentRegistration> findByTournamentIdAndTeamId(Long tournamentId, Long teamId);
+    List<TournamentRegistration> findByTeamId(Long teamId);
 
     @Query("SELECT COUNT(tr) > 0 FROM TournamentRegistration tr WHERE tr.tournamentId = :tournamentId AND tr.teamId = :teamId")
     boolean existsByTournamentIdAndTeamId(Long tournamentId, Long teamId);
@@ -26,7 +27,7 @@ public interface TournamentRegistrationRepository extends JpaRepository<Tourname
     @Query("SELECT COUNT(tr) FROM TournamentRegistration tr WHERE tr.tournamentId = :tournamentId AND tr.status = 'REGISTERED'")
     long countRegisteredByTournamentId(Long tournamentId);
 
-    @Query("SELECT tr.id as id, tr.teamId as teamId, t.name as teamName, CAST(tr.createdAt as string) as createdAt FROM TournamentRegistration tr JOIN com.example.teams.Team t ON t.id = tr.teamId WHERE tr.tournamentId = :tournamentId ORDER BY tr.createdAt ASC")
+    @Query("SELECT tr.id as id, tr.teamId as teamId, t.name as teamName, CAST(tr.createdAt as string) as createdAt FROM TournamentRegistration tr JOIN com.example.teams.Team t ON t.id = tr.teamId WHERE tr.tournamentId = :tournamentId AND tr.status = 'REGISTERED' ORDER BY tr.createdAt ASC")
     List<TournamentRegistrationProjection> findExpandedByTournamentId(Long tournamentId);
 
     // Upcoming tournaments for a team

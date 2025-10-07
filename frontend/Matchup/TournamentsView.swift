@@ -317,6 +317,7 @@ private struct TournamentRowCard: View {
         case .live: return "Live"
         case .complete: return "Complete"
         case .draft: return "Draft"
+        case .full: return "Full"
         }
     }
 
@@ -327,6 +328,7 @@ private struct TournamentRowCard: View {
         case .live: return .blue
         case .complete: return .gray
         case .draft: return .gray
+        case .full: return .red
         }
     }
 
@@ -364,7 +366,7 @@ private struct SkeletonTournamentRow: View {
 }
 
 // MARK: - Shimmer Modifier
-private struct ShimmerModifier: ViewModifier {
+struct ShimmerModifier: ViewModifier {
     @State private var phase: CGFloat = -0.6
     func body(content: Content) -> some View {
         content
@@ -388,7 +390,7 @@ private struct ShimmerModifier: ViewModifier {
     }
 }
 
-private extension View {
+extension View {
     func shimmer() -> some View { self.modifier(ShimmerModifier()) }
 }
 
