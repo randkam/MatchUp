@@ -53,25 +53,6 @@ struct TeamDetailedView: View {
                     .padding()
             } else {
                 List {
-                    if let s = stats {
-                        Section(header: Text("Tournament Record")) {
-                            HStack {
-                                Label("Wins", systemImage: "checkmark.circle.fill").foregroundColor(.green)
-                                Spacer()
-                                Text("\(s.wins)")
-                            }
-                            HStack {
-                                Label("Losses", systemImage: "xmark.circle.fill").foregroundColor(.red)
-                                Spacer()
-                                Text("\(s.losses)")
-                            }
-                            HStack {
-                                Label("Tournaments Won", systemImage: "crown.fill").foregroundColor(.yellow)
-                                Spacer()
-                                Text("\(s.tournaments_won)")
-                            }
-                        }
-                    }
                     Section(header: Text("Roster")) {
                         ForEach(members) { member in
                             HStack(spacing: 12) {
@@ -174,6 +155,12 @@ struct TeamDetailedView: View {
             Text(team.name)
                 .font(ModernFontScheme.heading)
                 .foregroundColor(ModernColorScheme.text)
+            if let s = stats {
+                HStack(spacing: 8) {
+                    HeaderStatPill(icon: "chart.bar.fill", text: "\(s.wins)-\(s.losses)")
+                    HeaderStatPill(icon: "crown.fill", text: "\(s.tournaments_won)")
+                }
+            }
             Text("Basketball")
                 .font(ModernFontScheme.caption)
                 .foregroundColor(ModernColorScheme.textSecondary)
@@ -312,6 +299,23 @@ struct TeamDetailedView: View {
             }
         }
         return "\(startDate), \(startTime)"
+    }
+}
+
+private struct HeaderStatPill: View {
+    let icon: String
+    let text: String
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon).foregroundColor(ModernColorScheme.accentMinimal)
+            Text(text).foregroundColor(ModernColorScheme.text)
+        }
+        .font(ModernFontScheme.caption)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(ModernColorScheme.surface.opacity(0.6))
+        .clipShape(Capsule())
+        .overlay(Capsule().stroke(Color.black.opacity(0.06), lineWidth: 1))
     }
 }
 

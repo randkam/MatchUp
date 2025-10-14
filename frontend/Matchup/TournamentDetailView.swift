@@ -37,7 +37,7 @@ struct TournamentDetailView: View {
                     case .overview:
                         overviewDetails
                     case .registered:
-                        RegisteredTeamsView(totalSlots: tournament.maxTeams, teams: registeredTeams, userTeamIds: userTeamIds, userTeamsById: userTeamsById, statsByTeamId: teamStatsById)
+                        RegisteredTeamsView(totalSlots: tournament.maxTeams, teams: registeredTeams, userTeamIds: userTeamIds, userTeamsById: userTeamsById)
                     case .bracket:
                         TournamentBracketSection(tournament: tournament)
                     }
@@ -474,7 +474,6 @@ private struct RegisteredTeamsView: View {
     let teams: [TournamentRegistrationExpandedModel]
     let userTeamIds: Set<Int>
     let userTeamsById: [Int: TeamModel]
-    let statsByTeamId: [Int: NetworkManager.TeamTournamentStats]
 
     private var registeredCount: Int { min(teams.count, totalSlots) }
     private var display: [DisplayItem] {
@@ -518,12 +517,12 @@ private struct RegisteredTeamsView: View {
                     } else {
                         if let myTeam = userTeamsById[item.teamId] {
                             NavigationLink(destination: TeamDetailedView(team: myTeam)) {
-                                TeamSlotCardWithStats(name: item.name, seed: item.seed, isEmpty: false, isUserTeam: true, stats: statsByTeamId[item.teamId])
+                                TeamSlotCard(name: item.name, seed: item.seed, isEmpty: false, isUserTeam: true)
                             }
                             .buttonStyle(.plain)
                         } else {
                             NavigationLink(destination: LazyTeamDetailDestination(teamId: item.teamId, teamName: item.name)) {
-                                TeamSlotCardWithStats(name: item.name, seed: item.seed, isEmpty: false, isUserTeam: userTeamIds.contains(item.teamId), stats: statsByTeamId[item.teamId])
+                                TeamSlotCard(name: item.name, seed: item.seed, isEmpty: false, isUserTeam: userTeamIds.contains(item.teamId))
                             }
                             .buttonStyle(.plain)
                         }
@@ -621,38 +620,7 @@ private struct TeamSlotCard: View {
     }
 }
 
-private struct TeamSlotCardWithStats: View {
-    let name: String
-    let seed: Int?
-    let isEmpty: Bool
-    let isUserTeam: Bool
-    let stats: NetworkManager.TeamTournamentStats?
-
-    var body: some View {
-        VStack(spacing: 6) {
-            TeamSlotCard(name: name, seed: seed, isEmpty: isEmpty, isUserTeam: isUserTeam)
-            if let s = stats, !isEmpty {
-                HStack(spacing: 6) {
-                    Text("Record:")
-                        .font(ModernFontScheme.caption)
-                        .foregroundColor(ModernColorScheme.textSecondary)
-                    Text("\(s.wins)-\(s.losses)")
-                        .font(ModernFontScheme.caption)
-                        .fontWeight(.semibold)
-                        .foregroundColor(ModernColorScheme.text)
-                    Spacer()
-                    HStack(spacing: 4) {
-                        Image(systemName: "crown.fill").foregroundColor(.yellow)
-                        Text("\(s.tournaments_won)")
-                            .font(ModernFontScheme.caption)
-                            .foregroundColor(ModernColorScheme.text)
-                    }
-                }
-                .padding(.horizontal, 8)
-            }
-        }
-    }
-}
+// Stats row removed from registered teams view per request
 
 private struct BracketLockedView: View {
     let startsAt: Date
