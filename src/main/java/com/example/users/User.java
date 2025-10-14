@@ -205,6 +205,16 @@ public class User {
         this.userLatitude = userLatitude;
     }
 
+    // Optional role for admin authorization
+    @jakarta.persistence.Column(name = "role")
+    @JsonProperty("role")
+    private String role; // e.g., USER, ADMIN
+
+    @JsonProperty("role")
+    public String getRole() { return role; }
+
+    public void setRole(String role) { this.role = role; }
+
     @Override
     public String toString() {
         return "users [userId=" + userId + ", userName=" + userName + ", userNickName=" + userNickName 

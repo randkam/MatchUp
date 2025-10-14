@@ -51,6 +51,22 @@ public class TournamentRegistrationController {
         return ResponseEntity.ok(registrationService.getEligibility(tournamentId, userId));
     }
 
+    @DeleteMapping("/{tournamentId}/registrations/by-team/{teamId}")
+    public ResponseEntity<?> unregister(@PathVariable Long tournamentId,
+                                        @PathVariable Long teamId,
+                                        @RequestParam("requesting_user_id") Long requestingUserId) {
+        try {
+            registrationService.unregisterTeam(tournamentId, teamId, requestingUserId);
+            Map<String, String> body = new HashMap<>();
+            body.put("message", "Team unregistered");
+            return ResponseEntity.ok(body);
+        } catch (IllegalStateException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(error);
+        }
+    }
+
     // Upcoming tournaments a specific team is registered for
     @GetMapping("/teams/{teamId}/upcoming")
     public ResponseEntity<List<Tournament>> teamUpcoming(@PathVariable Long teamId) {

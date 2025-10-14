@@ -109,6 +109,9 @@ public class Tournament {
     @JsonProperty("prize_cents")
     public Integer getPrizeCents() { return prizeCents; }
 
+    @JsonProperty("created_by")
+    public Long getCreatedBy() { return createdBy; }
+
     // Setters
     public void setName(String name) { this.name = name; }
     public void setFormatSize(Integer formatSize) { this.formatSize = formatSize; }

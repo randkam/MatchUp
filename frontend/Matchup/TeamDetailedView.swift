@@ -10,6 +10,7 @@ struct TeamDetailedView: View {
     @State private var actionError: String? = nil
     @State private var upcomingTournaments: [Tournament] = []
     private let network = NetworkManager()
+    @State private var stats: NetworkManager.TeamTournamentStats? = nil
     
     init(team: TeamModel, readonly: Bool = false) {
         self.team = team
@@ -146,7 +147,7 @@ struct TeamDetailedView: View {
         .background(ModernColorScheme.background.ignoresSafeArea())
         .navigationTitle("Team")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { loadMembers(); loadUpcoming() }
+        .onAppear { loadMembers(); loadUpcoming(); loadStats() }
     }
     
     private var header: some View {
@@ -154,6 +155,12 @@ struct TeamDetailedView: View {
             Text(team.name)
                 .font(ModernFontScheme.heading)
                 .foregroundColor(ModernColorScheme.text)
+            if let s = stats {
+                HStack(spacing: 8) {
+                    HeaderStatPill(icon: "chart.bar.fill", text: "\(s.wins)-\(s.losses)")
+                    HeaderStatPill(icon: "crown.fill", text: "\(s.tournaments_won)")
+                }
+            }
             Text("Basketball")
                 .font(ModernFontScheme.caption)
                 .foregroundColor(ModernColorScheme.textSecondary)
@@ -172,6 +179,14 @@ struct TeamDetailedView: View {
                 case .failure(let err):
                     errorMessage = err.localizedDescription
                 }
+            }
+        }
+    }
+
+    private func loadStats() {
+        network.getTeamTournamentStats(teamId: team.id) { result in
+            DispatchQueue.main.async {
+                if case .success(let s) = result { self.stats = s }
             }
         }
     }
@@ -284,6 +299,23 @@ struct TeamDetailedView: View {
             }
         }
         return "\(startDate), \(startTime)"
+    }
+}
+
+private struct HeaderStatPill: View {
+    let icon: String
+    let text: String
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon).foregroundColor(ModernColorScheme.accentMinimal)
+            Text(text).foregroundColor(ModernColorScheme.text)
+        }
+        .font(ModernFontScheme.caption)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(ModernColorScheme.surface.opacity(0.6))
+        .clipShape(Capsule())
+        .overlay(Capsule().stroke(Color.black.opacity(0.06), lineWidth: 1))
     }
 }
 

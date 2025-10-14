@@ -15,6 +15,7 @@ enum LocationType: String, Codable {
 enum TournamentStatus: String, Codable {
     case draft = "DRAFT"
     case signupsOpen = "SIGNUPS_OPEN"
+    case full = "FULL"
     case locked = "LOCKED"
     case live = "LIVE"
     case complete = "COMPLETE"
@@ -34,6 +35,7 @@ struct Tournament: Identifiable, Codable {
     let endsAt: Date?
     let location: String?
     let status: TournamentStatus
+    let createdBy: Int
     
     enum CodingKeys: String, CodingKey {
         case id
@@ -49,6 +51,44 @@ struct Tournament: Identifiable, Codable {
         case endsAt = "ends_at"
         case location
         case status
+        case createdBy = "created_by"
+    }
+}
+
+// Tournament match models
+struct TournamentMatchModel: Identifiable, Codable {
+    let id: Int
+    let tournamentId: Int
+    let roundNumber: Int
+    let matchNumber: Int
+    let teamAId: Int?
+    let teamBId: Int?
+    let scoreA: Int?
+    let scoreB: Int?
+    let winnerTeamId: Int?
+    let status: String
+    let scheduledAt: String?
+    let nextMatchId: Int?
+    let nextMatchSlot: String?
+    let createdAt: String?
+    let updatedAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case tournamentId = "tournament_id"
+        case roundNumber = "round_number"
+        case matchNumber = "match_number"
+        case teamAId = "team_a_id"
+        case teamBId = "team_b_id"
+        case scoreA = "score_a"
+        case scoreB = "score_b"
+        case winnerTeamId = "winner_team_id"
+        case status
+        case scheduledAt = "scheduled_at"
+        case nextMatchId = "next_match_id"
+        case nextMatchSlot = "next_match_slot"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
     }
 }
 

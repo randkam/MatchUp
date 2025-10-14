@@ -25,17 +25,26 @@ public class TournamentRegistrationService {
     private ActivityService activityService;
 
     public TournamentRegistration registerTeam(Long tournamentId, Long teamId, Long requestingUserId) {
-        // Validate tournament exists and is open for signup
+        // Validate tournament exists
         Tournament tournament = tournamentRepository.findById(tournamentId)
                 .orElseThrow(() -> new IllegalStateException("Tournament not found"));
-        if (!(tournament.getStatus() == TournamentStatus.SIGNUPS_OPEN || tournament.getStatus() == TournamentStatus.LOCKED)) {
-            throw new IllegalStateException("Tournament signups are not open");
-        }
 
-        // Capacity check
+        // Capacity check first, treat FULL as a derived state
         long registeredCount = registrationRepository.countRegisteredByTournamentId(tournamentId);
         if (registeredCount >= tournament.getMaxTeams()) {
+            if (tournament.getStatus() != TournamentStatus.FULL) {
+                tournament.setStatus(TournamentStatus.FULL);
+                tournamentRepository.save(tournament);
+            }
             throw new IllegalStateException("Tournament is at capacity");
+        }
+
+        // Gate signups by status but allow if status was incorrectly FULL while capacity remains
+        boolean signupsAllowedStatus = (tournament.getStatus() == TournamentStatus.SIGNUPS_OPEN
+                || tournament.getStatus() == TournamentStatus.LOCKED
+                || tournament.getStatus() == TournamentStatus.FULL);
+        if (!signupsAllowedStatus) {
+            throw new IllegalStateException("Tournament signups are not open");
         }
 
         // Validate team exists
@@ -69,6 +78,13 @@ public class TournamentRegistrationService {
         reg.setStatus("REGISTERED");
         reg.setCheckedIn(false);
         TournamentRegistration saved = registrationRepository.save(reg);
+
+        // If we hit capacity after this registration, mark tournament as FULL
+        long newCount = registrationRepository.countRegisteredByTournamentId(tournamentId);
+        if (newCount == tournament.getMaxTeams() && tournament.getStatus() != TournamentStatus.FULL) {
+            tournament.setStatus(TournamentStatus.FULL);
+            tournamentRepository.save(tournament);
+        }
 
         // Create activity (single row) with snapshot and payload message
         String teamName = teamRepository.findById(teamId).map(t -> t.getName()).orElse(null);
@@ -108,6 +124,43 @@ public class TournamentRegistrationService {
 
     public List<Tournament> getUpcomingForTeam(Long teamId) {
         return registrationRepository.findUpcomingTournamentsForTeam(teamId);
+    }
+
+    public void unregisterTeam(Long tournamentId, Long teamId, Long requestingUserId) {
+        // Validate tournament exists
+        Tournament tournament = tournamentRepository.findById(tournamentId)
+                .orElseThrow(() -> new IllegalStateException("Tournament not found"));
+
+        // Validate team exists
+        teamRepository.findById(teamId).orElseThrow(() -> new IllegalStateException("Team not found"));
+
+        // Only captain can unregister the team
+        boolean isCaptain = teamMemberRepository.isCaptain(teamId, requestingUserId);
+        if (!isCaptain) {
+            throw new IllegalStateException("Only team captains can unregister teams");
+        }
+
+        TournamentRegistration reg = registrationRepository
+                .findByTournamentIdAndTeamId(tournamentId, teamId)
+                .orElseThrow(() -> new IllegalStateException("Registration not found"));
+
+        if (!"REGISTERED".equals(reg.getStatus())) {
+            // No-op if already cancelled/other
+            return;
+        }
+
+        reg.setStatus("CANCELLED");
+        registrationRepository.save(reg);
+
+        recalcTournamentStatusIfNeeded(tournament);
+    }
+
+    private void recalcTournamentStatusIfNeeded(Tournament tournament) {
+        long count = registrationRepository.countRegisteredByTournamentId(tournament.getId());
+        if (tournament.getStatus() == TournamentStatus.FULL && count < tournament.getMaxTeams()) {
+            tournament.setStatus(TournamentStatus.SIGNUPS_OPEN);
+            tournamentRepository.save(tournament);
+        }
     }
 }
 

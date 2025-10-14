@@ -1,8 +1,8 @@
 import Foundation
 
 struct APIConfig {
-    //  static let baseAPI = "https://matchup-api.xyz"
-   static let baseAPI = "http://localhost:9095"
+     static let baseAPI = "https://matchup-api.xyz"
+//    static let baseAPI = "http://localhost:9095"
     
     // Determine if we're using local or remot  e environment
     private static var isLocal: Bool {
@@ -22,8 +22,16 @@ struct APIConfig {
     static func tournamentRegistrationsEndpoint(tournamentId: Int) -> String { "\(tournamentsEndpoint)/\(tournamentId)/registrations" }
     static func tournamentRegistrationsExpandedEndpoint(tournamentId: Int) -> String { "\(tournamentsEndpoint)/\(tournamentId)/registrations/expanded" }
     static func tournamentEligibilityEndpoint(tournamentId: Int, userId: Int) -> String { "\(tournamentsEndpoint)/\(tournamentId)/eligibility?user_id=\(userId)" }
+    static func tournamentBracketEndpoint(tournamentId: Int) -> String { "\(tournamentsEndpoint)/\(tournamentId)/bracket" }
+    static func tournamentGenerateBracketEndpoint(tournamentId: Int, shuffle: Bool, requestingUserId: Int) -> String {
+        "\(tournamentsEndpoint)/\(tournamentId)/bracket/generate?shuffle=\(shuffle)&requesting_user_id=\(requestingUserId)"
+    }
+    static func tournamentMatchScoreEndpoint(tournamentId: Int, matchId: Int, requestingUserId: Int) -> String {
+        "\(tournamentsEndpoint)/\(tournamentId)/matches/\(matchId)/score?requesting_user_id=\(requestingUserId)"
+    }
     static func activitiesEndpoint(userId: Int) -> String { "\(baseAPI)/api/v1/activities/user/\(userId)" }
     static func teamUpcomingTournamentsEndpoint(teamId: Int) -> String { "\(tournamentsEndpoint)/teams/\(teamId)/upcoming" }
+    static func teamTournamentStatsEndpoint(teamId: Int) -> String { "\(teamsEndpoint)/\(teamId)/tournament-stats" }
     
     
     // WebSocket configuration

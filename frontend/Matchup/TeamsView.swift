@@ -116,27 +116,64 @@ struct TeamsView: View {
 
 private struct TeamCard: View {
     let team: TeamModel
+    @State private var stats: NetworkManager.TeamTournamentStats? = nil
+    private let network = NetworkManager()
     
     var body: some View {
-        HStack(spacing: 12) {
-            ZStack {
-                Circle().fill(ModernColorScheme.primary.opacity(0.15)).frame(width: 46, height: 46)
-                Image(systemName: "person.3.fill").foregroundColor(ModernColorScheme.accentMinimal)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle().fill(ModernColorScheme.primary.opacity(0.15)).frame(width: 46, height: 46)
+                    Image(systemName: "person.3.fill").foregroundColor(ModernColorScheme.accentMinimal)
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(team.name)
+                        .font(ModernFontScheme.body)
+                        .foregroundColor(ModernColorScheme.text)
+                    Text("Basketball")
+                        .font(ModernFontScheme.caption)
+                        .foregroundColor(ModernColorScheme.textSecondary)
+                }
+                Spacer()
             }
-            VStack(alignment: .leading, spacing: 4) {
-                Text(team.name)
-                    .font(ModernFontScheme.body)
-                    .foregroundColor(ModernColorScheme.text)
-                Text("Basketball")
-                    .font(ModernFontScheme.caption)
-                    .foregroundColor(ModernColorScheme.textSecondary)
+            if let s = stats {
+                HStack(spacing: 12) {
+                    StatPill(icon: "chart.bar.fill", text: "\(s.wins)-\(s.losses)")
+                    StatPill(icon: "crown.fill", text: "\(s.tournaments_won)")
+                    Spacer()
+                }
             }
-            Spacer()
         }
         .padding()
         .background(ModernColorScheme.surface)
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.black.opacity(0.06), lineWidth: 1))
         .cornerRadius(16)
-        .shadow(color: ModernColorScheme.primary.opacity(0.1), radius: 5, x: 0, y: 2)
+        .shadow(color: ModernColorScheme.primary.opacity(0.06), radius: 5, x: 0, y: 2)
+        .onAppear { loadStats() }
+    }
+
+    private func loadStats() {
+        network.getTeamTournamentStats(teamId: team.id) { result in
+            DispatchQueue.main.async {
+                if case .success(let s) = result { self.stats = s }
+            }
+        }
+    }
+}
+
+private struct StatPill: View {
+    let icon: String
+    let text: String
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon).foregroundColor(ModernColorScheme.accentMinimal)
+            Text(text).font(ModernFontScheme.caption).foregroundColor(ModernColorScheme.text)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(ModernColorScheme.surface.opacity(0.6))
+        .clipShape(Capsule())
+        .overlay(Capsule().stroke(Color.black.opacity(0.06), lineWidth: 1))
     }
 }
 
