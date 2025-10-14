@@ -6,7 +6,7 @@ import org.springframework.stereotype.Repository;
 import java.util.Optional;
 
 @Repository
-public interface UserStatsRepository extends JpaRepository<UserStats, Long> {
+public interface UserStatsRepository extends JpaRepository<UserStats, UserStatsKey> {
     Optional<UserStats> findFirstByUserIdAndSport(Long userId, String sport);
 }
 

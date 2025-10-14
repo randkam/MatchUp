@@ -11,6 +11,7 @@ struct TournamentDetailView: View {
     @State private var errorMessage: String?
     private let network = NetworkManager()
     @State private var latestStatus: TournamentStatus? = nil
+    @State private var teamStatsById: [Int: NetworkManager.TeamTournamentStats] = [:]
     
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -36,9 +37,9 @@ struct TournamentDetailView: View {
                     case .overview:
                         overviewDetails
                     case .registered:
-                        RegisteredTeamsView(totalSlots: tournament.maxTeams, teams: registeredTeams, userTeamIds: userTeamIds, userTeamsById: userTeamsById)
+                        RegisteredTeamsView(totalSlots: tournament.maxTeams, teams: registeredTeams, userTeamIds: userTeamIds, userTeamsById: userTeamsById, statsByTeamId: teamStatsById)
                     case .bracket:
-                        BracketLockedView(startsAt: tournament.startsAt)
+                        TournamentBracketSection(tournament: tournament)
                     }
                 }
                 .padding(.horizontal)
@@ -61,6 +62,13 @@ struct TournamentDetailView: View {
     
     private var userTeamsById: [Int: TeamModel] {
         Dictionary(uniqueKeysWithValues: userTeams.map { ($0.id, $0) })
+    }
+
+    private var userAlreadyRegistered: Bool {
+        // Determine if any of the user's teams are already registered for this tournament
+        return registeredTeams.contains { reg in
+            userTeamIds.contains(reg.teamId)
+        }
     }
 
     private var heroHeader: some View {
@@ -237,6 +245,15 @@ struct TournamentDetailView: View {
                 switch result {
                 case .success(let regs):
                     self.registeredTeams = regs
+                    // Fetch team stats for all teams
+                    let ids = Set(regs.map { $0.teamId })
+                    ids.forEach { tid in
+                        self.network.getTeamTournamentStats(teamId: tid) { res in
+                            DispatchQueue.main.async {
+                                if case .success(let s) = res { self.teamStatsById[tid] = s }
+                            }
+                        }
+                    }
                 case .failure(let err):
                     self.errorMessage = err.localizedDescription
                 }
@@ -295,17 +312,29 @@ struct TournamentDetailView: View {
                     .foregroundColor(ModernColorScheme.textSecondary)
                 Spacer()
                 if (latestStatus ?? tournament.status) == .signupsOpen && registeredTeams.count < tournament.maxTeams {
-                    NavigationLink(destination: registerDestination()) {
-                        Text("Sign up")
+                    if userAlreadyRegistered {
+                        // Show message instead of sign up when already registered
+                        Text("Already registered")
                             .font(ModernFontScheme.caption)
                             .fontWeight(.semibold)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
-                            .background(ModernColorScheme.accentMinimal)
-                            .foregroundColor(.white)
+                            .foregroundColor(ModernColorScheme.accentMinimal)
+                            .background(ModernColorScheme.accentMinimal.opacity(0.12))
                             .clipShape(Capsule())
+                    } else {
+                        NavigationLink(destination: registerDestination()) {
+                            Text("Sign up")
+                                .font(ModernFontScheme.caption)
+                                .fontWeight(.semibold)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(ModernColorScheme.accentMinimal)
+                                .foregroundColor(.white)
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
             }
         }
@@ -445,6 +474,7 @@ private struct RegisteredTeamsView: View {
     let teams: [TournamentRegistrationExpandedModel]
     let userTeamIds: Set<Int>
     let userTeamsById: [Int: TeamModel]
+    let statsByTeamId: [Int: NetworkManager.TeamTournamentStats]
 
     private var registeredCount: Int { min(teams.count, totalSlots) }
     private var display: [DisplayItem] {
@@ -488,12 +518,12 @@ private struct RegisteredTeamsView: View {
                     } else {
                         if let myTeam = userTeamsById[item.teamId] {
                             NavigationLink(destination: TeamDetailedView(team: myTeam)) {
-                                TeamSlotCard(name: item.name, seed: item.seed, isEmpty: false, isUserTeam: true)
+                                TeamSlotCardWithStats(name: item.name, seed: item.seed, isEmpty: false, isUserTeam: true, stats: statsByTeamId[item.teamId])
                             }
                             .buttonStyle(.plain)
                         } else {
                             NavigationLink(destination: LazyTeamDetailDestination(teamId: item.teamId, teamName: item.name)) {
-                                TeamSlotCard(name: item.name, seed: item.seed, isEmpty: false, isUserTeam: userTeamIds.contains(item.teamId))
+                                TeamSlotCardWithStats(name: item.name, seed: item.seed, isEmpty: false, isUserTeam: userTeamIds.contains(item.teamId), stats: statsByTeamId[item.teamId])
                             }
                             .buttonStyle(.plain)
                         }
@@ -591,6 +621,39 @@ private struct TeamSlotCard: View {
     }
 }
 
+private struct TeamSlotCardWithStats: View {
+    let name: String
+    let seed: Int?
+    let isEmpty: Bool
+    let isUserTeam: Bool
+    let stats: NetworkManager.TeamTournamentStats?
+
+    var body: some View {
+        VStack(spacing: 6) {
+            TeamSlotCard(name: name, seed: seed, isEmpty: isEmpty, isUserTeam: isUserTeam)
+            if let s = stats, !isEmpty {
+                HStack(spacing: 6) {
+                    Text("Record:")
+                        .font(ModernFontScheme.caption)
+                        .foregroundColor(ModernColorScheme.textSecondary)
+                    Text("\(s.wins)-\(s.losses)")
+                        .font(ModernFontScheme.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(ModernColorScheme.text)
+                    Spacer()
+                    HStack(spacing: 4) {
+                        Image(systemName: "crown.fill").foregroundColor(.yellow)
+                        Text("\(s.tournaments_won)")
+                            .font(ModernFontScheme.caption)
+                            .foregroundColor(ModernColorScheme.text)
+                    }
+                }
+                .padding(.horizontal, 8)
+            }
+        }
+    }
+}
+
 private struct BracketLockedView: View {
     let startsAt: Date
     
@@ -633,6 +696,380 @@ private struct BracketLockedView: View {
         df.dateStyle = .medium
         df.timeStyle = .short
         return "Available after \(df.string(from: date))"
+    }
+}
+
+private struct TournamentBracketSection: View {
+    let tournament: Tournament
+    @State private var matches: [TournamentMatchModel] = []
+    @State private var errorMessage: String?
+    @State private var isGenerating: Bool = false
+    private let network = NetworkManager()
+    @State private var teamNamesById: [Int: String] = [:]
+
+    private var isWithin24h: Bool {
+        let now = Date()
+        guard let unlocked = Calendar.current.date(byAdding: .hour, value: -24, to: tournament.startsAt) else { return false }
+        return now >= unlocked
+    }
+
+    private var rounds: [[TournamentMatchModel]] {
+        let grouped = Dictionary(grouping: matches, by: { $0.roundNumber })
+        let keys = grouped.keys.sorted()
+        return keys.map { grouped[$0]!.sorted { $0.matchNumber < $1.matchNumber } }
+    }
+
+    private var championTeamId: Int? {
+        guard let lastRound = rounds.last, lastRound.count == 1 else { return nil }
+        let final = lastRound[0]
+        guard final.status == "COMPLETE", let winner = final.winnerTeamId else { return nil }
+        return Int(truncatingIfNeeded: winner)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if !isWithin24h {
+                BracketLockedView(startsAt: tournament.startsAt)
+            } else {
+                if matches.isEmpty {
+                    Text("Bracket not generated yet")
+                        .font(ModernFontScheme.body)
+                        .foregroundColor(ModernColorScheme.textSecondary)
+                } else {
+                    BracketCanvasView(rounds: rounds, teamNamesById: teamNamesById, onScoreUpdated: { reload() })
+                        .padding(.vertical, 4)
+                    if let champId = championTeamId, let champName = teamNamesById[champId] {
+                        ChampionBanner(teamId: champId, teamName: champName)
+                    }
+                }
+            }
+
+            if let err = errorMessage {
+                Text(err).foregroundColor(.red).font(ModernFontScheme.caption)
+            }
+        }
+        .onAppear(perform: reload)
+    }
+
+    private func reload() {
+        let group = DispatchGroup()
+        group.enter()
+        network.getBracket(tournamentId: tournament.id) { result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let data): self.matches = data; self.errorMessage = nil
+                case .failure(let err): self.errorMessage = err.localizedDescription
+                }
+                group.leave()
+            }
+        }
+        group.enter()
+        network.getTournamentRegistrationsExpanded(tournamentId: tournament.id) { result in
+            DispatchQueue.main.async {
+                if case .success(let regs) = result {
+                    var map: [Int: String] = [:]
+                    for r in regs { map[r.teamId] = r.teamName }
+                    self.teamNamesById = map
+                }
+                group.leave()
+            }
+        }
+    }
+
+    // generation now happens automatically on GET within 24h window (server-side)
+}
+
+// Canvas-style bracket
+private struct BracketCanvasView: View {
+    let rounds: [[TournamentMatchModel]]
+    let teamNamesById: [Int: String]
+    var onScoreUpdated: () -> Void
+    @State private var editingMatch: TournamentMatchModel? = nil
+    @State private var scoreA: String = ""
+    @State private var scoreB: String = ""
+
+    private let cardWidth: CGFloat = 160
+    private let cardHeight: CGFloat = 60
+    private let hSpacing: CGFloat = 32
+    private let vSpacing: CGFloat = 20
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            GeometryReader { geo in
+                ZStack(alignment: .topLeading) {
+                    connectorsPath().stroke(Color.white.opacity(0.2), lineWidth: 1)
+                    cardsLayer
+                }
+                .frame(width: max(geo.size.width, contentWidth), height: contentHeight)
+            }
+            .frame(height: contentHeight)
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(ModernColorScheme.surface)
+                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.black.opacity(0.08), lineWidth: 1))
+                .shadow(color: ModernColorScheme.primary.opacity(0.06), radius: 5, x: 0, y: 2)
+        )
+        .sheet(item: $editingMatch) { match in
+            AdminEditScoreSheet(match: match,
+                                teamNamesById: teamNamesById,
+                                onDismiss: {
+                                    editingMatch = nil
+                                    onScoreUpdated()
+                                })
+        }
+    }
+
+    private var maxMatchesInFirstRound: Int { rounds.first?.count ?? 0 }
+    private var contentWidth: CGFloat { CGFloat(rounds.count) * (cardWidth + hSpacing) - hSpacing + 24 }
+    private var contentHeight: CGFloat {
+        let rows = maxMatchesInFirstRound
+        return CGFloat(rows) * (cardHeight + vSpacing) - vSpacing + 24
+    }
+
+    private func xForRound(_ idx: Int) -> CGFloat {
+        12 + CGFloat(idx) * (cardWidth + hSpacing)
+    }
+
+    private func yForMatch(roundIndex: Int, matchIndex: Int) -> CGFloat {
+        // Space doubles each subsequent round
+        let block = Int(pow(2.0, Double(roundIndex)))
+        let slotHeight = cardHeight + vSpacing
+        let groupHeight = slotHeight * CGFloat(block)
+        let topOffset = 12 + (groupHeight - slotHeight) / 2
+        return topOffset + CGFloat(matchIndex) * groupHeight
+    }
+
+    private var isAdmin: Bool {
+        (UserDefaults.standard.string(forKey: "userRole")?.uppercased() == "ADMIN")
+    }
+
+    private func connectorsPath() -> Path {
+        var path = Path()
+        guard rounds.count > 1 else { return path }
+        for (roundIdx, round) in rounds.enumerated() where roundIdx < rounds.count - 1 {
+            for (matchIdx, _) in round.enumerated() {
+                let sourceY = yForMatch(roundIndex: roundIdx, matchIndex: matchIdx)
+                let nextIndex = (matchIdx) / 2
+                let destY = yForMatch(roundIndex: roundIdx + 1, matchIndex: nextIndex)
+                let x1 = xForRound(roundIdx) + cardWidth
+                let x2 = xForRound(roundIdx) + cardWidth + hSpacing / 2
+                let x3 = xForRound(roundIdx + 1)
+                path.move(to: CGPoint(x: x1, y: sourceY + cardHeight / 2))
+                path.addLine(to: CGPoint(x: x2, y: sourceY + cardHeight / 2))
+                path.addLine(to: CGPoint(x: x2, y: destY + cardHeight / 2))
+                path.addLine(to: CGPoint(x: x3, y: destY + cardHeight / 2))
+            }
+        }
+        return path
+    }
+
+    @ViewBuilder
+    private var cardsLayer: some View {
+        ForEach(Array(rounds.enumerated()), id: \.offset) { rIdx, round in
+            ForEach(Array(round.enumerated()), id: \.offset) { mIdx, match in
+                BracketMatchCard(
+                    match: match,
+                    teamNamesById: teamNamesById,
+                    showEdit: isAdmin,
+                    onEdit: { editingMatch = match }
+                )
+                    .frame(width: cardWidth, height: cardHeight)
+                    .position(x: xForRound(rIdx) + cardWidth / 2,
+                              y: yForMatch(roundIndex: rIdx, matchIndex: mIdx) + cardHeight / 2)
+                    .zIndex(1)
+            }
+        }
+    }
+
+}
+
+private struct BracketMatchCard: View {
+    let match: TournamentMatchModel
+    let teamNamesById: [Int: String]
+    let showEdit: Bool
+    var onEdit: () -> Void = {}
+
+    private var showScores: Bool { match.status != "SCHEDULED" }
+
+    var body: some View {
+        VStack(spacing: 6) {
+            teamRow(teamId: match.teamAId, score: match.scoreA)
+            Divider().background(Color.black.opacity(0.06))
+            teamRow(teamId: match.teamBId, score: match.scoreB)
+        }
+        .padding(10)
+        .background(ModernColorScheme.surface)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.black.opacity(0.08), lineWidth: 1))
+        .cornerRadius(12)
+        .shadow(color: ModernColorScheme.primary.opacity(0.05), radius: 4, x: 0, y: 2)
+        .overlay(alignment: .topTrailing) {
+            if showEdit {
+                Button(action: onEdit) {
+                    Image(systemName: "pencil.circle.fill")
+                        .foregroundColor(ModernColorScheme.accentMinimal)
+                        .background(Circle().fill(Color.white))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .padding(6)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func teamRow(teamId: Int?, score: Int?) -> some View {
+        HStack(spacing: 8) {
+            if let id = teamId, let name = teamNamesById[id] {
+                NavigationLink(destination: LazyTeamDetailDestination(teamId: id, teamName: name)) {
+                    HStack(spacing: 8) {
+                        avatarView(for: name)
+                        let isWinner = (match.winnerTeamId == id)
+                        let isLoser = (match.winnerTeamId != nil && match.winnerTeamId != id)
+                        Text(name)
+                            .font(ModernFontScheme.caption)
+                            .fontWeight(isWinner ? .semibold : .regular)
+                            .foregroundColor(isLoser ? .gray : ModernColorScheme.text)
+                            .lineLimit(1)
+                    }
+                }
+                .buttonStyle(.plain)
+            } else {
+                HStack(spacing: 8) {
+                    placeholderAvatar()
+                    Text("TBD")
+                        .font(ModernFontScheme.caption)
+                        .foregroundColor(.gray)
+                }
+            }
+            Spacer()
+            if showScores, let s = score {
+                Text("\(s)")
+                    .font(ModernFontScheme.caption)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.black.opacity(0.06))
+                    .clipShape(Capsule())
+                    .foregroundColor(ModernColorScheme.textSecondary)
+            }
+        }
+    }
+
+    private func avatarView(for name: String) -> some View {
+        let initial = String(name.prefix(1)).uppercased()
+        return ZStack {
+            Circle()
+                .fill(LinearGradient(colors: [ModernColorScheme.accentMinimal.opacity(0.25), ModernColorScheme.accentMinimal], startPoint: .topLeading, endPoint: .bottomTrailing))
+                .frame(width: 18, height: 18)
+            Text(initial)
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(.white)
+        }
+    }
+
+    private func placeholderAvatar() -> some View {
+        ZStack {
+            Circle()
+                .stroke(Color.black.opacity(0.1), lineWidth: 1)
+                .background(Circle().fill(Color.gray.opacity(0.15)))
+                .frame(width: 18, height: 18)
+            Image(systemName: "questionmark")
+                .font(.system(size: 9, weight: .bold))
+                .foregroundColor(.gray)
+        }
+    }
+}
+
+private struct ChampionBanner: View {
+    let teamId: Int
+    let teamName: String
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "crown.fill")
+                .foregroundColor(Color.yellow)
+            Text("Champion:")
+                .font(ModernFontScheme.body)
+                .foregroundColor(ModernColorScheme.textSecondary)
+            NavigationLink(destination: LazyTeamDetailDestination(teamId: teamId, teamName: teamName)) {
+                Text(teamName)
+                    .font(ModernFontScheme.body)
+                    .fontWeight(.semibold)
+                    .foregroundColor(ModernColorScheme.text)
+            }
+            .buttonStyle(.plain)
+            Spacer()
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(ModernColorScheme.surface)
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.black.opacity(0.08), lineWidth: 1))
+                .shadow(color: ModernColorScheme.primary.opacity(0.06), radius: 5, x: 0, y: 2)
+        )
+    }
+}
+
+// Admin score editor sheet
+private struct AdminEditScoreSheet: View, Identifiable {
+    let id = UUID()
+    let match: TournamentMatchModel
+    let teamNamesById: [Int: String]
+    var onDismiss: () -> Void
+
+    @State private var scoreA: String = ""
+    @State private var scoreB: String = ""
+    @State private var isSaving = false
+    @State private var errorMessage: String?
+    private let network = NetworkManager()
+
+    var body: some View {
+        NavigationView {
+            Form {
+                Section(header: Text("Match \(match.roundNumber)-\(match.matchNumber)")) {
+                    HStack {
+                        Text(teamNamesById[match.teamAId ?? -1] ?? "Team A")
+                        Spacer()
+                        TextField("0", text: $scoreA).keyboardType(.numberPad).frame(width: 60)
+                    }
+                    HStack {
+                        Text(teamNamesById[match.teamBId ?? -1] ?? "Team B")
+                        Spacer()
+                        TextField("0", text: $scoreB).keyboardType(.numberPad).frame(width: 60)
+                    }
+                }
+                if let err = errorMessage { Text(err).foregroundColor(.red) }
+            }
+            .navigationTitle("Edit Score")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel", action: onDismiss) }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(isSaving ? "Saving..." : "Save", action: save).disabled(isSaving)
+                }
+            }
+            .onAppear {
+                scoreA = String(match.scoreA ?? 0)
+                scoreB = String(match.scoreB ?? 0)
+            }
+        }
+    }
+
+    private func save() {
+        guard let sA = Int(scoreA), let sB = Int(scoreB) else { errorMessage = "Scores must be numbers"; return }
+        isSaving = true
+        let uid = UserDefaults.standard.integer(forKey: "loggedInUserId")
+        network.updateMatchScore(tournamentId: match.tournamentId, matchId: match.id, scoreA: sA, scoreB: sB, requestingUserId: uid) { result in
+            DispatchQueue.main.async {
+                isSaving = false
+                switch result {
+                case .success:
+                    self.errorMessage = nil
+                    onDismiss()
+                case .failure(let err):
+                    self.errorMessage = err.localizedDescription
+                }
+            }
+        }
     }
 }
 

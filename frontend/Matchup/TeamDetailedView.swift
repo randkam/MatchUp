@@ -10,6 +10,7 @@ struct TeamDetailedView: View {
     @State private var actionError: String? = nil
     @State private var upcomingTournaments: [Tournament] = []
     private let network = NetworkManager()
+    @State private var stats: NetworkManager.TeamTournamentStats? = nil
     
     init(team: TeamModel, readonly: Bool = false) {
         self.team = team
@@ -52,6 +53,25 @@ struct TeamDetailedView: View {
                     .padding()
             } else {
                 List {
+                    if let s = stats {
+                        Section(header: Text("Tournament Record")) {
+                            HStack {
+                                Label("Wins", systemImage: "checkmark.circle.fill").foregroundColor(.green)
+                                Spacer()
+                                Text("\(s.wins)")
+                            }
+                            HStack {
+                                Label("Losses", systemImage: "xmark.circle.fill").foregroundColor(.red)
+                                Spacer()
+                                Text("\(s.losses)")
+                            }
+                            HStack {
+                                Label("Tournaments Won", systemImage: "crown.fill").foregroundColor(.yellow)
+                                Spacer()
+                                Text("\(s.tournaments_won)")
+                            }
+                        }
+                    }
                     Section(header: Text("Roster")) {
                         ForEach(members) { member in
                             HStack(spacing: 12) {
@@ -146,7 +166,7 @@ struct TeamDetailedView: View {
         .background(ModernColorScheme.background.ignoresSafeArea())
         .navigationTitle("Team")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { loadMembers(); loadUpcoming() }
+        .onAppear { loadMembers(); loadUpcoming(); loadStats() }
     }
     
     private var header: some View {
@@ -172,6 +192,14 @@ struct TeamDetailedView: View {
                 case .failure(let err):
                     errorMessage = err.localizedDescription
                 }
+            }
+        }
+    }
+
+    private func loadStats() {
+        network.getTeamTournamentStats(teamId: team.id) { result in
+            DispatchQueue.main.async {
+                if case .success(let s) = result { self.stats = s }
             }
         }
     }

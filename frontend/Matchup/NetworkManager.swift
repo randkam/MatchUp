@@ -13,6 +13,7 @@ struct User: Codable {
     var token: String?
     var userLatitude: Double?
     var userLongitude: Double?
+    let role: String?
     
     enum CodingKeys: String, CodingKey {
         case userId
@@ -26,6 +27,7 @@ struct User: Codable {
         case token
         case userLatitude
         case userLongitude
+        case role
     }
 }
 
@@ -154,6 +156,7 @@ class NetworkManager {
                 UserDefaults.standard.set("sudo@localhost", forKey: "loggedInUserEmail")
                 UserDefaults.standard.set(sudoUser, forKey: "loggedInUserName")
                 UserDefaults.standard.set(sudoNickName, forKey: "loggedInUserNickName")
+                UserDefaults.standard.set("ADMIN", forKey: "userRole")
                 completion(true, nil)
             } else {
                 completion(false, NSError(domain: "", code: -1, userInfo: nil))
@@ -198,6 +201,7 @@ class NetworkManager {
                     if let profilePictureUrl = user.profilePictureUrl {
                         UserDefaults.standard.set(profilePictureUrl, forKey: "loggedInUserProfilePicture")
                     }
+                    UserDefaults.standard.set((user.role ?? "USER").uppercased(), forKey: "userRole")
                     print("Login successful for user: \(user.userName)")
                     completion(true, nil)
                 } else {
@@ -528,6 +532,33 @@ class NetworkManager {
             }
         }.resume()
     }
+
+    func patch<T: Decodable>(_ endpoint: String, body: [String: Any], completion: @escaping (Result<T, Error>) -> Void) {
+        guard let url = URL(string: endpoint) else {
+            completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])))
+            return
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "PATCH"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        do { request.httpBody = try JSONSerialization.data(withJSONObject: body) } catch {
+            completion(.failure(error)); return
+        }
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error { completion(.failure(error)); return }
+            guard let http = response as? HTTPURLResponse, let data = data else {
+                completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid response"])))
+                return
+            }
+            if !(200...299).contains(http.statusCode) {
+                let msg = String(data: data, encoding: .utf8) ?? "Server error"
+                completion(.failure(NSError(domain: "", code: http.statusCode, userInfo: [NSLocalizedDescriptionKey: msg])))
+                return
+            }
+            do { let decoded = try JSONDecoder().decode(T.self, from: data); completion(.success(decoded)) }
+            catch { completion(.failure(error)) }
+        }.resume()
+    }
     
     func delete(_ endpoint: String, completion: @escaping (Error?) -> Void) {
         guard let url = URL(string: endpoint) else {
@@ -843,6 +874,33 @@ extension NetworkManager {
     
     func getPaginatedMessages(locationId: Int, page: Int = 0, size: Int = 20, completion: @escaping (Result<PaginatedResponse<ChatMessage>, Error>) -> Void) {
         let endpoint = "\(APIConfig.messagesEndpoint)/\(locationId)?page=\(page)&size=\(size)"
+        get(endpoint, completion: completion)
+    }
+}
+
+extension NetworkManager {
+    // MARK: - Bracket
+    func getBracket(tournamentId: Int, completion: @escaping (Result<[TournamentMatchModel], Error>) -> Void) {
+        let endpoint = APIConfig.tournamentBracketEndpoint(tournamentId: tournamentId)
+        get(endpoint, completion: completion)
+    }
+
+    func generateBracket(tournamentId: Int, shuffle: Bool = true, requestingUserId: Int, completion: @escaping (Result<[TournamentMatchModel], Error>) -> Void) {
+        let endpoint = APIConfig.tournamentGenerateBracketEndpoint(tournamentId: tournamentId, shuffle: shuffle, requestingUserId: requestingUserId)
+        post(endpoint, parameters: [:], completion: completion)
+    }
+
+    func updateMatchScore(tournamentId: Int, matchId: Int, scoreA: Int, scoreB: Int, requestingUserId: Int, completion: @escaping (Result<TournamentMatchModel, Error>) -> Void) {
+        let endpoint = APIConfig.tournamentMatchScoreEndpoint(tournamentId: tournamentId, matchId: matchId, requestingUserId: requestingUserId)
+        patch(endpoint, body: ["team1_score": scoreA, "team2_score": scoreB], completion: completion)
+    }
+}
+
+extension NetworkManager {
+    struct TeamTournamentStats: Codable { let wins: Int; let losses: Int; let tournaments_won: Int }
+
+    func getTeamTournamentStats(teamId: Int, completion: @escaping (Result<TeamTournamentStats, Error>) -> Void) {
+        let endpoint = APIConfig.teamTournamentStatsEndpoint(teamId: teamId)
         get(endpoint, completion: completion)
     }
 }
