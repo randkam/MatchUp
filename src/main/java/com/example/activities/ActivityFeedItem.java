@@ -11,8 +11,9 @@ public class ActivityFeedItem {
     public String teamName;
     public String message;
     public String createdAt;
+    public String payload;
 
-    public ActivityFeedItem(Long id, String typeCode, Long teamId, Long tournamentId, Long actorUserId, String actorUsername, String teamName, String tournamentName, String message, String createdAt) {
+    public ActivityFeedItem(Long id, String typeCode, Long teamId, Long tournamentId, Long actorUserId, String actorUsername, String teamName, String tournamentName, String message, String createdAt, String payload) {
         this.id = id;
         this.typeCode = typeCode;
         this.teamId = teamId;
@@ -23,6 +24,7 @@ public class ActivityFeedItem {
         this.tournamentName = tournamentName;
         this.message = message;
         this.createdAt = createdAt;
+        this.payload = payload;
     }
 }
 

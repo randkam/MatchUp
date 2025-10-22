@@ -1,5 +1,6 @@
 package com.example.tournaments;
 
+import com.example.activities.ActivityService;
 import com.example.teams.TeamMemberRepository;
 import com.example.teams.TeamRepository;
 import com.example.users.UserStats;
@@ -15,21 +16,26 @@ public class BracketService {
     private final TournamentRegistrationRepository registrationRepository;
     private final TournamentMatchRepository matchRepository;
     // TeamRepository available if needed later for validations
+    private final TeamRepository teamRepository;
     private final TeamMemberRepository teamMemberRepository;
     private final UserStatsRepository userStatsRepository;
+
+    private final ActivityService activityService;
 
     public BracketService(TournamentRepository tournamentRepository,
                           TournamentRegistrationRepository registrationRepository,
                           TournamentMatchRepository matchRepository,
                           TeamRepository teamRepository,
                           TeamMemberRepository teamMemberRepository,
-                          UserStatsRepository userStatsRepository) {
+                          UserStatsRepository userStatsRepository,
+                          ActivityService activityService) {
         this.tournamentRepository = tournamentRepository;
         this.registrationRepository = registrationRepository;
         this.matchRepository = matchRepository;
-        // not used yet: this.teamRepository = teamRepository;
+        this.teamRepository = teamRepository;
         this.teamMemberRepository = teamMemberRepository;
         this.userStatsRepository = userStatsRepository;
+        this.activityService = activityService;
     }
 
     public List<TournamentMatch> getBracket(Long tournamentId) {
@@ -99,10 +105,11 @@ public class BracketService {
         for (int r = 1; r < rounds; r++) {
             int matchesInRound = 1 << (rounds - r);
             for (int m = 1; m <= matchesInRound; m++) {
-                TournamentMatch cur = index.get(r + ":" + m);
+                // Pre-link index keys; IDs set after initial save
+                index.get(r + ":" + m);
                 int nextRound = r + 1;
                 int nextMatchNumber = (m + 1) / 2;
-                TournamentMatch next = index.get(nextRound + ":" + nextMatchNumber);
+                index.get(nextRound + ":" + nextMatchNumber);
                 // Persist after save to get IDs
                 // We'll set references after first save when IDs are known
             }
@@ -179,7 +186,67 @@ public class BracketService {
         // Update user stats for both teams
         updateUserStatsForMatch(winner, loser, isFinal);
 
-        return matchRepository.save(match);
+        TournamentMatch saved = matchRepository.save(match);
+
+        // Post activities for both teams with scores
+        if (winner != null && loser != null) {
+            String loserName = teamRepository.findById(loser).map(com.example.teams.Team::getName).orElse(null);
+            String winnerName = teamRepository.findById(winner).map(com.example.teams.Team::getName).orElse(null);
+            Map<String, Object> extras = new HashMap<>();
+            extras.put("opponent_team_id", loser);
+            if (loserName != null) extras.put("opponent_team_name", loserName);
+            extras.put("score_for", Objects.equals(winner, match.getTeamAId()) ? scoreA : scoreB);
+            extras.put("score_against", Objects.equals(winner, match.getTeamAId()) ? scoreB : scoreA);
+            String dedupeWin = "MR:WIN:" + saved.getId() + ":" + winner;
+            activityService.createTeamEventWithExtras(
+                    "MATCH_RESULT_WIN",
+                    winner,
+                    null,
+                    null,
+                    match.getTournamentId(),
+                    dedupeWin,
+                    extras
+            );
+
+            Map<String, Object> extrasL = new HashMap<>();
+            extrasL.put("opponent_team_id", winner);
+            if (winnerName != null) extrasL.put("opponent_team_name", winnerName);
+            extrasL.put("score_for", Objects.equals(winner, match.getTeamAId()) ? scoreB : scoreA);
+            extrasL.put("score_against", Objects.equals(winner, match.getTeamAId()) ? scoreA : scoreB);
+            String dedupeLoss = "MR:LOSS:" + saved.getId() + ":" + loser;
+            activityService.createTeamEventWithExtras(
+                    "MATCH_RESULT_LOSS",
+                    loser,
+                    null,
+                    null,
+                    match.getTournamentId(),
+                    dedupeLoss,
+                    extrasL
+            );
+        }
+
+        // If final, post single tournament completion notification to all teams with winner info
+        if (isFinal && winner != null) {
+            java.util.List<Long> teamIds = registrationRepository.findRegisteredTeamIds(match.getTournamentId());
+            String winnerName = teamRepository.findById(winner).map(com.example.teams.Team::getName).orElse(null);
+            for (Long teamId : teamIds) {
+                String dedupe = "T_DONE:" + match.getTournamentId() + ":" + teamId;
+                java.util.Map<String, Object> extras = new java.util.HashMap<>();
+                extras.put("winner_team_id", winner);
+                if (winnerName != null) extras.put("winner_team_name", winnerName);
+                activityService.createTeamEventWithExtras(
+                        "TOURNAMENT_COMPLETED",
+                        teamId,
+                        null,
+                        null,
+                        match.getTournamentId(),
+                        dedupe,
+                        extras
+                );
+            }
+        }
+
+        return saved;
     }
 
     private void updateUserStatsForMatch(Long winnerTeamId, Long loserTeamId, boolean isFinal) {

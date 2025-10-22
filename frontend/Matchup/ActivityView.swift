@@ -172,7 +172,8 @@ struct ActivityView: View {
                                                 tournamentName: a.tournamentName,
                                                 onTeamTap: { id in navPath.append(ActivityRoute.team(id)) },
                                                 onUserTap: { id in navPath.append(ActivityRoute.user(id)) },
-                                                onTournamentTap: { id in navPath.append(ActivityRoute.tournament(id)) }
+                                                onTournamentTap: { id in navPath.append(ActivityRoute.tournament(id)) },
+                                                payloadJSON: a.payload
                                             )
                                             .padding(.horizontal, 16)
                                         case .invite(let inv):
@@ -462,14 +463,14 @@ private enum ActivityFilter { case all, teams, invites }
 
 private func isTeamEvent(_ typeCode: String) -> Bool {
     switch typeCode {
-    case "TEAM_REGISTERED_TOURNAMENT", "TEAM_MEMBER_ADDED", "TEAM_MEMBER_LEFT", "TEAM_DELETED":
+    case "TEAM_REGISTERED_TOURNAMENT", "TEAM_MEMBER_ADDED", "TEAM_MEMBER_LEFT", "TEAM_DELETED", "TOURNAMENT_BRACKET_AVAILABLE", "TOURNAMENT_STARTS_SOON", "MATCH_RESULT_WIN", "MATCH_RESULT_LOSS", "TOURNAMENT_COMPLETED", "TOURNAMENT_WINNER":
         return true
     default:
         return false
     }
 }
 
-private struct ActivityRow: View {
+    private struct ActivityRow: View {
     let message: String
     let typeCode: String
     let createdAt: String?
@@ -482,6 +483,7 @@ private struct ActivityRow: View {
     let onTeamTap: ((Int) -> Void)?
     let onUserTap: ((Int) -> Void)?
     let onTournamentTap: ((Int) -> Void)?
+        var payloadJSON: String? = nil
     
     @State private var resolvedTeamName: String? = nil
     private static var teamNameCache: [Int: String] = [:]
@@ -496,18 +498,26 @@ private struct ActivityRow: View {
                     .foregroundColor(ModernColorScheme.accentMinimal)
             }
             VStack(alignment: .leading, spacing: 8) {
-                // Always show team pill: clickable if teamId exists, otherwise static (e.g., deleted team)
-                let pillText: String = {
-                    if let name = teamName ?? resolvedTeamName, !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return name }
-                    if let id = teamId { return "Team #\(id)" }
-                    return "Deleted Team"
-                }()
-                Group {
-                    if let id = teamId {
-                        Button(action: { onTeamTap?(id) }) { teamPill(pillText) }
+                // Tag row: team + tournament pills side by side
+                HStack(spacing: 8) {
+                    // Team pill
+                    let pillText: String = {
+                        if let name = teamName ?? resolvedTeamName, !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return name }
+                        if let id = teamId { return "Team #\(id)" }
+                        return "Deleted Team"
+                    }()
+                    Group {
+                        if let id = teamId {
+                            Button(action: { onTeamTap?(id) }) { teamPill(pillText) }
+                                .buttonStyle(PlainButtonStyle())
+                        } else {
+                            teamPill(pillText)
+                        }
+                    }
+                    // Tournament pill
+                    if let tid = tournamentId {
+                        Button(action: { onTournamentTap?(tid) }) { tournamentPill(tournamentName ?? "Tournament #\(tid)") }
                             .buttonStyle(PlainButtonStyle())
-                    } else {
-                        teamPill(pillText)
                     }
                 }
                 messageView
@@ -577,9 +587,83 @@ private struct ActivityRow: View {
                 }
                 .buttonStyle(PlainButtonStyle())
             }
+        } else if (typeCode == "TOURNAMENT_BRACKET_AVAILABLE" || typeCode == "TOURNAMENT_STARTS_SOON"), let tid = tournamentId {
+            HStack(spacing: 4) {
+                if typeCode == "TOURNAMENT_BRACKET_AVAILABLE" { Text("bracket is now available for") } else { Text("tournament starts soon:") }
+                Button(action: { onTournamentTap?(tid) }) {
+                    Text(tournamentName ?? "Tournament #\(tid)")
+                        .foregroundColor(ModernColorScheme.accentMinimal)
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+        } else if typeCode == "MATCH_RESULT_WIN" || typeCode == "MATCH_RESULT_LOSS" {
+            let info = parseMatchPayload(payloadJSON)
+            HStack(spacing: 4) {
+                Text(typeCode == "MATCH_RESULT_WIN" ? "defeated" : "lost to")
+                if let oppId = info.opponentTeamId {
+                    Button(action: { onTeamTap?(oppId) }) {
+                        Text(info.opponentTeamName ?? "Team #\(oppId)")
+                            .foregroundColor(ModernColorScheme.accentMinimal)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                } else {
+                    Text("opponent")
+                }
+                Text("\(info.scoreFor)-\(info.scoreAgainst)")
+            }
+        } else if typeCode == "TOURNAMENT_COMPLETED", let tid = tournamentId {
+            HStack(spacing: 4) {
+                Text("tournament over. winner:")
+                let winner = parseWinnerPayload(payloadJSON)
+                if let winId = winner.id {
+                    Button(action: { onTeamTap?(winId) }) {
+                        Text(winner.name ?? "Team #\(winId)")
+                            .foregroundColor(ModernColorScheme.accentMinimal)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                } else {
+                    Text("TBD")
+                }
+            }
         } else {
             Text(cleanedMessage())
         }
+    }
+
+    private func parseMatchPayload(_ json: String?) -> (opponentTeamId: Int?, opponentTeamName: String?, scoreFor: Int, scoreAgainst: Int) {
+        guard let json = json, let data = json.data(using: .utf8) else {
+            return (nil, nil, 0, 0)
+        }
+        if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            let opp: Int? = {
+                if let n = obj["opponent_team_id"] as? NSNumber { return n.intValue }
+                return obj["opponent_team_id"] as? Int
+            }()
+            let oppName = obj["opponent_team_name"] as? String
+            let sf: Int = {
+                if let n = obj["score_for"] as? NSNumber { return n.intValue }
+                return obj["score_for"] as? Int ?? 0
+            }()
+            let sa: Int = {
+                if let n = obj["score_against"] as? NSNumber { return n.intValue }
+                return obj["score_against"] as? Int ?? 0
+            }()
+            return (opp, oppName, sf, sa)
+        }
+        return (nil, nil, 0, 0)
+    }
+
+    private func parseWinnerPayload(_ json: String?) -> (id: Int?, name: String?) {
+        guard let json = json, let data = json.data(using: .utf8) else { return (nil, nil) }
+        if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            let id: Int? = {
+                if let n = obj["winner_team_id"] as? NSNumber { return n.intValue }
+                return obj["winner_team_id"] as? Int
+            }()
+            let name = obj["winner_team_name"] as? String
+            return (id, name)
+        }
+        return (nil, nil)
     }
 
     private func cleanedMessage() -> String {
@@ -611,6 +695,11 @@ private struct ActivityRow: View {
         case "TEAM_MEMBER_ADDED": return "person.badge.plus"
         case "TEAM_MEMBER_LEFT": return "person.fill.xmark"
         case "TEAM_DELETED": return "trash"
+        case "TOURNAMENT_BRACKET_AVAILABLE": return "square.grid.3x3"
+        case "TOURNAMENT_STARTS_SOON": return "clock"
+        case "MATCH_RESULT_WIN": return "checkmark.seal.fill"
+        case "MATCH_RESULT_LOSS": return "xmark.seal.fill"
+        case "TOURNAMENT_COMPLETED": return "flag.checkered"
         default: return "bell"
         }
     }
@@ -686,6 +775,19 @@ private func teamPill(_ text: String) -> some View {
     .padding(.vertical, 4)
     .background(ModernColorScheme.accentMinimal.opacity(0.15))
     .foregroundColor(ModernColorScheme.accentMinimal)
+    .cornerRadius(10)
+}
+
+private func tournamentPill(_ text: String) -> some View {
+    HStack(spacing: 6) {
+        Image(systemName: "trophy")
+        Text(text)
+    }
+    .font(ModernFontScheme.caption)
+    .padding(.horizontal, 10)
+    .padding(.vertical, 4)
+    .background(Color.purple.opacity(0.12))
+    .foregroundColor(.purple)
     .cornerRadius(10)
 }
 
