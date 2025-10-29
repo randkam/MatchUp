@@ -31,6 +31,7 @@ struct APIConfig {
     }
     static func activitiesEndpoint(userId: Int) -> String { "\(baseAPI)/api/v1/activities/user/\(userId)" }
     static func teamUpcomingTournamentsEndpoint(teamId: Int) -> String { "\(tournamentsEndpoint)/teams/\(teamId)/upcoming" }
+    static func teamPastTournamentsEndpoint(teamId: Int) -> String { "\(tournamentsEndpoint)/teams/\(teamId)/past" }
     static func teamTournamentStatsEndpoint(teamId: Int) -> String { "\(teamsEndpoint)/\(teamId)/tournament-stats" }
     
     

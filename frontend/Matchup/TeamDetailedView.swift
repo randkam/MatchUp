@@ -9,6 +9,8 @@ struct TeamDetailedView: View {
     @State private var userNames: [Int: String] = [:]
     @State private var actionError: String? = nil
     @State private var upcomingTournaments: [Tournament] = []
+    @State private var pastTournaments: [Tournament] = []
+    @State private var tournamentTab: Int = 0 // 0 = Upcoming, 1 = Past
     private let network = NetworkManager()
     @State private var stats: NetworkManager.TeamTournamentStats? = nil
     
@@ -108,27 +110,46 @@ struct TeamDetailedView: View {
                             }
                         }
                     }
-                    if !upcomingTournaments.isEmpty {
-                        Section(header: Text("Upcoming Tournaments")) {
-                            ForEach(upcomingTournaments) { t in
-                                HStack(spacing: 12) {
-                                    ZStack {
-                                        RoundedRectangle(cornerRadius: 8).fill(ModernColorScheme.accentMinimal.opacity(0.15)).frame(width: 40, height: 40)
-                                        Image(systemName: "calendar").foregroundColor(ModernColorScheme.accentMinimal)
+                    Section(header: Text("Tournaments")) {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Picker("", selection: $tournamentTab) {
+                                Text("Upcoming").tag(0)
+                                Text("Past").tag(1)
+                            }
+                            .pickerStyle(.segmented)
+
+                            let items = tournamentTab == 0 ? upcomingTournaments : pastTournaments
+                            if items.isEmpty {
+                                Text(tournamentTab == 0 ? "No upcoming tournaments" : "No past tournaments")
+                                    .font(ModernFontScheme.caption)
+                                    .foregroundColor(ModernColorScheme.textSecondary)
+                                    .padding(.top, 4)
+                            } else {
+                                ForEach(items) { t in
+                                    NavigationLink(destination: TournamentDetailView(tournament: t)) {
+                                        TeamTournamentRow(
+                                            tournament: t,
+                                            isPast: tournamentTab == 1,
+                                            showWinnerBadge: tournamentTab == 1,
+                                            teamId: team.id
+                                        )
                                     }
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(t.name).foregroundColor(ModernColorScheme.text)
-                                        Text(dateRange(t)).font(.caption).foregroundColor(.gray)
-                                    }
-                                    Spacer()
+                                    .listRowInsets(EdgeInsets())
+                                    .listRowBackground(Color.clear)
                                 }
-                                .padding(10)
-                                .background(ModernColorScheme.surface)
-                                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                                .listRowInsets(EdgeInsets())
-                                .listRowBackground(Color.clear)
                             }
                         }
+                        .padding(12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14)
+                                .fill(ModernColorScheme.surface)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 14)
+                                        .stroke(ModernColorScheme.accentMinimal.opacity(0.06), lineWidth: 1)
+                                )
+                        )
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
                     }
                     if !readonly {
                         Section {
@@ -144,10 +165,12 @@ struct TeamDetailedView: View {
             }
             Spacer(minLength: 0)
         }
-        .background(ModernColorScheme.background.ignoresSafeArea())
+        .background(ModernColorScheme.background.edgesIgnoringSafeArea(.all))
         .navigationTitle("Team")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { loadMembers(); loadUpcoming(); loadStats() }
+        .toolbarBackground(ModernColorScheme.background, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .onAppear { loadMembers(); loadUpcoming(); loadPast(); loadStats() }
     }
     
     private var header: some View {
@@ -223,6 +246,33 @@ struct TeamDetailedView: View {
         }.resume()
     }
 
+    private func loadPast() {
+        guard let url = URL(string: APIConfig.teamPastTournamentsEndpoint(teamId: team.id)) else { return }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                guard let data = data else { return }
+                let decoder = JSONDecoder()
+                decoder.dateDecodingStrategy = .custom { decoder in
+                    let container = try decoder.singleValueContainer()
+                    let dateString = try container.decode(String.self)
+                    let isoWithFraction = ISO8601DateFormatter(); isoWithFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                    if let d = isoWithFraction.date(from: dateString) { return d }
+                    let iso = ISO8601DateFormatter(); iso.formatOptions = [.withInternetDateTime]
+                    if let d = iso.date(from: dateString) { return d }
+                    let df = DateFormatter(); df.locale = Locale(identifier: "en_US_POSIX"); df.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+                    if let d = df.date(from: dateString) { return d }
+                    throw DecodingError.dataCorrupted(DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid date: \(dateString)"))
+                }
+                if let list = try? decoder.decode([Tournament].self, from: data) {
+                    self.pastTournaments = list
+                }
+            }
+        }.resume()
+    }
+
     private var actionButtons: some View {
         let loggedInUserId = UserDefaults.standard.integer(forKey: "loggedInUserId")
         let isCaptain = team.ownerUserId == loggedInUserId
@@ -273,6 +323,105 @@ struct TeamDetailedView: View {
             DispatchQueue.main.async {
                 if let err = err { actionError = err.localizedDescription } else {
                     members.removeAll { $0.id == member.id }
+                }
+            }
+        }
+    }
+
+    private func dateRange(_ t: Tournament) -> String {
+        let calendar = Calendar.current
+        let dateFmt = DateFormatter()
+        dateFmt.dateStyle = .medium
+        dateFmt.timeStyle = .none
+        let timeFmt = DateFormatter()
+        timeFmt.dateStyle = .none
+        timeFmt.timeStyle = .short
+        let startDate = dateFmt.string(from: t.startsAt)
+        let startTime = timeFmt.string(from: t.startsAt)
+        if let end = t.endsAt {
+            if calendar.isDate(t.startsAt, inSameDayAs: end) {
+                let endTime = timeFmt.string(from: end)
+                return "\(startDate), \(startTime) – \(endTime)"
+            } else {
+                let endDate = dateFmt.string(from: end)
+                let endTime = timeFmt.string(from: end)
+                return "\(startDate), \(startTime) – \(endDate), \(endTime)"
+            }
+        }
+        return "\(startDate), \(startTime)"
+    }
+}
+
+// MARK: - Team tournaments row (used in TeamDetailedView)
+private struct TeamTournamentRow: View {
+    let tournament: Tournament
+    let isPast: Bool
+    let showWinnerBadge: Bool
+    var teamId: Int? = nil
+    @State private var isWinner: Bool = false
+    private let network = NetworkManager()
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(ModernColorScheme.accentMinimal.opacity(0.15))
+                    .frame(width: 40, height: 40)
+                Image(systemName: isPast ? "trophy" : "calendar")
+                    .foregroundColor(ModernColorScheme.accentMinimal)
+            }
+            VStack(alignment: .leading, spacing: 6) {
+                // Larger tournament tag
+                HStack(spacing: 8) {
+                    Image(systemName: "trophy")
+                    Text(tournament.name)
+                }
+                .font(ModernFontScheme.body)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color.purple.opacity(0.12))
+                .foregroundColor(.purple)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .lineLimit(1)
+
+                Text(dateRange(tournament))
+                    .font(ModernFontScheme.caption)
+                    .foregroundColor(.gray)
+
+                if isPast && showWinnerBadge && isWinner {
+                    HStack(spacing: 6) {
+                        Image(systemName: "crown.fill").foregroundColor(Color.yellow)
+                        Text("Winner")
+                    }
+                    .font(ModernFontScheme.caption)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(Color.yellow.opacity(0.15))
+                    .foregroundColor(ModernColorScheme.text)
+                    .cornerRadius(10)
+                }
+            }
+            Spacer()
+        }
+        .padding(10)
+        .background(ModernColorScheme.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+        .onAppear(perform: checkWinnerIfNeeded)
+    }
+
+    private func checkWinnerIfNeeded() {
+        guard isPast, showWinnerBadge, let teamId = teamId else { return }
+        network.getBracket(tournamentId: tournament.id) { result in
+            DispatchQueue.main.async {
+                if case .success(let matches) = result {
+                    let maxRound = matches.map { $0.roundNumber }.max() ?? 0
+                    let finals = matches.filter { $0.roundNumber == maxRound }
+                    if let last = finals.sorted(by: { $0.matchNumber < $1.matchNumber }).last, let champ = last.winnerTeamId {
+                        self.isWinner = (champ == teamId)
+                    } else if let anyWinner = matches.compactMap({ $0.winnerTeamId }).last {
+                        self.isWinner = (anyWinner == teamId)
+                    }
                 }
             }
         }
