@@ -1,8 +1,8 @@
 import Foundation
 
 struct APIConfig {
-     static let baseAPI = "https://matchup-api.xyz"
-//    static let baseAPI = "http://localhost:9095"
+    //  static let baseAPI = "https://matchup-api.xyz"
+   static let baseAPI = "http://localhost:9095"
     
     // Determine if we're using local or remot  e environment
     private static var isLocal: Bool {
@@ -31,6 +31,7 @@ struct APIConfig {
     }
     static func activitiesEndpoint(userId: Int) -> String { "\(baseAPI)/api/v1/activities/user/\(userId)" }
     static func teamUpcomingTournamentsEndpoint(teamId: Int) -> String { "\(tournamentsEndpoint)/teams/\(teamId)/upcoming" }
+    static func teamPastTournamentsEndpoint(teamId: Int) -> String { "\(tournamentsEndpoint)/teams/\(teamId)/past" }
     static func teamTournamentStatsEndpoint(teamId: Int) -> String { "\(teamsEndpoint)/\(teamId)/tournament-stats" }
     
     

@@ -126,6 +126,10 @@ public class TournamentRegistrationService {
         return registrationRepository.findUpcomingTournamentsForTeam(teamId);
     }
 
+    public List<Tournament> getPastForTeam(Long teamId) {
+        return registrationRepository.findPastTournamentsForTeam(teamId);
+    }
+
     public void unregisterTeam(Long tournamentId, Long teamId, Long requestingUserId) {
         // Validate tournament exists
         Tournament tournament = tournamentRepository.findById(tournamentId)

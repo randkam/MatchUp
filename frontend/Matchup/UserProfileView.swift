@@ -161,8 +161,18 @@ struct UserProfileView: View {
                             .foregroundColor(ModernColorScheme.textSecondary)
                             .padding(.top, 8)
                     } else {
-                        ForEach(items) { item in
-                            TournamentCard(item: item)
+                        if selectedTab == 0 {
+                            ForEach(items) { item in
+                                NavigationLink(destination: TournamentDetailView(tournament: item.tournament)) {
+                                    TournamentCard(item: item) // upcoming style unchanged
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        } else {
+                            // Past tournaments styled like Activity notifications
+                            ForEach(items) { item in
+                                PastTournamentRow(item: item)
+                            }
                         }
                     }
                 }
@@ -233,6 +243,7 @@ struct UserProfileView: View {
             loadUser()
             loadStats()
             loadUpcomingTournaments()
+            loadPastTournaments()
         }
     }
 
@@ -246,6 +257,13 @@ struct UserProfileView: View {
                 Circle()
                     .stroke(ModernColorScheme.accentMinimal, lineWidth: 3)
             )
+    }
+
+    private func navigateToTeam(item: UserTournamentItem) {
+        // Push TeamDetailedView for the specific team; minimal model to satisfy initializer
+        let team = TeamModel(id: item.teamId, name: item.teamName, sport: "basketball", ownerUserId: -1, logoUrl: item.teamLogoUrl, createdAt: nil)
+        // Use a programmatic navigation. Since we're inside NavigationLink for tournament, wrap team button with its own NavigationLink at call site
+        // Here we do nothing; navigation is handled in the Button caller by wrapping with NavigationLink if needed.
     }
 
     private func loadUser() {
@@ -311,8 +329,68 @@ struct UserProfileView: View {
         }
     }
 
+    private func loadPastTournaments() {
+        networkManager.getTeamsForUser(userId: userId) { result in
+            switch result {
+            case .failure(_):
+                break
+            case .success(let teams):
+                let group = DispatchGroup()
+                var aggregated: [UserTournamentItem] = []
+                let queue = DispatchQueue(label: "user.tournaments.past.merge")
+                for team in teams {
+                    group.enter()
+                    fetchTeamPast(teamId: team.id) { tournaments in
+                        queue.async {
+                            let mapped = tournaments.map { t in
+                                UserTournamentItem(id: t.id, tournament: t, teamId: team.id, teamName: team.name, teamLogoUrl: team.logoUrl)
+                            }
+                            aggregated.append(contentsOf: mapped)
+                            group.leave()
+                        }
+                    }
+                }
+                group.notify(queue: .main) {
+                    let unique = Dictionary(grouping: aggregated, by: { $0.id }).compactMap { $0.value.first }
+                    self.pastItems = unique.sorted { $0.tournament.startsAt > $1.tournament.startsAt }
+                }
+            }
+        }
+    }
+
     private func fetchTeamUpcoming(teamId: Int, completion: @escaping ([Tournament]) -> Void) {
         guard let url = URL(string: APIConfig.teamUpcomingTournamentsEndpoint(teamId: teamId)) else { completion([]); return }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            guard let data = data else { DispatchQueue.main.async { completion([]) }; return }
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .custom { decoder in
+                let container = try decoder.singleValueContainer()
+                let dateString = try container.decode(String.self)
+                let isoWithFraction = ISO8601DateFormatter()
+                isoWithFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                if let d = isoWithFraction.date(from: dateString) { return d }
+                let iso = ISO8601DateFormatter()
+                iso.formatOptions = [.withInternetDateTime]
+                if let d = iso.date(from: dateString) { return d }
+                let df = DateFormatter()
+                df.locale = Locale(identifier: "en_US_POSIX")
+                df.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+                if let d = df.date(from: dateString) { return d }
+                throw DecodingError.dataCorrupted(DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid date: \(dateString)"))
+            }
+            if let list = try? decoder.decode([Tournament].self, from: data) {
+                DispatchQueue.main.async { completion(list) }
+            } else {
+                DispatchQueue.main.async { completion([]) }
+            }
+        }.resume()
+    }
+
+    private func fetchTeamPast(teamId: Int, completion: @escaping ([Tournament]) -> Void) {
+        guard let url = URL(string: APIConfig.teamPastTournamentsEndpoint(teamId: teamId)) else { DispatchQueue.main.async { completion([]) }; return }
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -395,6 +473,7 @@ struct UserProfileView: View {
 
 private struct TournamentCard: View {
     let item: UserProfileView.UserTournamentItem
+    var onTapTeam: (() -> Void)? = nil
 
     var body: some View {
         HStack(spacing: 12) {
@@ -407,19 +486,28 @@ private struct TournamentCard: View {
             }
 
             VStack(alignment: .leading, spacing: 6) {
-                Text(item.tournament.name)
-                    .foregroundColor(ModernColorScheme.text)
-                    .font(ModernFontScheme.body)
-                    .lineLimit(1)
+                // Tournament tag (larger) on top
+                tournamentTag(item.tournament.name)
 
+                // Team tag under tournament tag
+                NavigationLink(destination: TeamDetailedView(team: TeamModel(id: item.teamId, name: item.teamName, sport: "basketball", ownerUserId: -1, logoUrl: item.teamLogoUrl, createdAt: nil), readonly: true)) {
+                    teamTag(item.teamName)
+                }
+                .buttonStyle(.plain)
+
+                // Date underneath
                 Text(formatDateRange(item.tournament))
                     .foregroundColor(ModernColorScheme.textSecondary)
                     .font(ModernFontScheme.caption)
+                    .lineLimit(1)
             }
 
             Spacer()
 
-            TeamAvatarCircle(name: item.teamName, logoUrl: item.teamLogoUrl)
+            NavigationLink(destination: TeamDetailedView(team: TeamModel(id: item.teamId, name: item.teamName, sport: "basketball", ownerUserId: -1, logoUrl: item.teamLogoUrl, createdAt: nil), readonly: true)) {
+                TeamAvatarCircle(name: item.teamName, logoUrl: item.teamLogoUrl)
+            }
+            .buttonStyle(.plain)
         }
         .padding(12)
         .background(ModernColorScheme.surface)
@@ -448,6 +536,35 @@ private struct TournamentCard: View {
             }
         }
         return "\(startDate), \(startTime)"
+    }
+
+    // MARK: - Tags
+    private func tournamentTag(_ text: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "trophy")
+            Text(text)
+        }
+        .font(ModernFontScheme.body)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(Color.purple.opacity(0.12))
+        .foregroundColor(.purple)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .lineLimit(1)
+    }
+
+    private func teamTag(_ text: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: "person.3.fill")
+            Text(text)
+        }
+        .font(ModernFontScheme.caption)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
+        .background(ModernColorScheme.accentMinimal.opacity(0.15))
+        .foregroundColor(ModernColorScheme.accentMinimal)
+        .cornerRadius(10)
+        .lineLimit(1)
     }
 }
 
@@ -492,6 +609,124 @@ private struct TeamAvatarCircle: View {
         let parts = name.split(separator: " ")
         if let first = parts.first { return String(first.prefix(1)).uppercased() }
         return String(name.prefix(1)).uppercased()
+    }
+}
+
+
+// MARK: - Past tournament row styled like Activity notifications
+private struct PastTournamentRow: View {
+    let item: UserProfileView.UserTournamentItem
+    @State private var championTeamId: Int? = nil
+    private let network = NetworkManager()
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(LinearGradient(colors: [ModernColorScheme.accentMinimal.opacity(0.18), ModernColorScheme.accentMinimal.opacity(0.06)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .frame(width: 40, height: 40)
+                Image(systemName: "trophy")
+                    .foregroundColor(ModernColorScheme.accentMinimal)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                // Reordered: tournament tag (larger) on top, team tag under it
+                NavigationLink(destination: TournamentDetailView(tournament: item.tournament)) {
+                    tournamentPillView(item.tournament.name)
+                }
+                .buttonStyle(PlainButtonStyle())
+
+                HStack(spacing: 8) {
+                    NavigationLink(destination: TeamDetailedView(team: TeamModel(id: item.teamId, name: item.teamName, sport: "basketball", ownerUserId: -1, logoUrl: item.teamLogoUrl, createdAt: nil), readonly: true)) {
+                        teamPillView(item.teamName)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+
+                    if championTeamId == item.teamId { winnerPill() }
+                }
+
+                // Subtitle: ended date/time
+                Text(endedSubtitle(for: item.tournament))
+                    .font(ModernFontScheme.caption)
+                    .foregroundColor(ModernColorScheme.textSecondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(ModernColorScheme.surface)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(ModernColorScheme.accentMinimal.opacity(0.06), lineWidth: 1)
+                )
+                .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 4)
+        )
+        .onAppear(perform: loadChampion)
+    }
+
+    private func endedSubtitle(for t: Tournament) -> String {
+        let dfDate = DateFormatter(); dfDate.dateStyle = .medium; dfDate.timeStyle = .none
+        let dfTime = DateFormatter(); dfTime.dateStyle = .none; dfTime.timeStyle = .short
+        if let end = t.endsAt {
+            return "Ended " + dfDate.string(from: end) + ", " + dfTime.string(from: end)
+        }
+        return dfDate.string(from: t.startsAt) + ", " + dfTime.string(from: t.startsAt)
+    }
+
+    private func loadChampion() {
+        network.getBracket(tournamentId: item.tournament.id) { result in
+            DispatchQueue.main.async {
+                if case .success(let matches) = result {
+                    let maxRound = matches.map { $0.roundNumber }.max() ?? 0
+                    let finals = matches.filter { $0.roundNumber == maxRound }
+                    if let last = finals.sorted(by: { ($0.matchNumber) < ($1.matchNumber) }).last, let winner = last.winnerTeamId {
+                        self.championTeamId = winner
+                    } else if let anyWinner = matches.compactMap({ $0.winnerTeamId }).last {
+                        self.championTeamId = anyWinner
+                    }
+                }
+            }
+        }
+    }
+
+    private func teamPillView(_ text: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: "person.3.fill")
+            Text(text)
+        }
+        .font(ModernFontScheme.caption)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
+        .background(ModernColorScheme.accentMinimal.opacity(0.15))
+        .foregroundColor(ModernColorScheme.accentMinimal)
+        .cornerRadius(10)
+    }
+
+    private func tournamentPillView(_ text: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: "trophy")
+            Text(text)
+        }
+        .font(ModernFontScheme.caption)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
+        .background(Color.purple.opacity(0.12))
+        .foregroundColor(.purple)
+        .cornerRadius(10)
+    }
+
+    private func winnerPill() -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: "crown.fill").foregroundColor(Color.yellow)
+            Text("Winner")
+        }
+        .font(ModernFontScheme.caption)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
+        .background(Color.yellow.opacity(0.15))
+        .foregroundColor(ModernColorScheme.text)
+        .cornerRadius(10)
     }
 }
 

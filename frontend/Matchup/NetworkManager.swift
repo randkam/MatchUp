@@ -1242,6 +1242,7 @@ extension NetworkManager {
         let tournamentName: String?
         let message: String?
         let createdAt: String?
+        let payload: String?
 
         enum CodingKeys: String, CodingKey {
             case id
@@ -1254,6 +1255,7 @@ extension NetworkManager {
             case tournamentName = "tournamentName"
             case message
             case createdAt
+            case payload
         }
     }
 

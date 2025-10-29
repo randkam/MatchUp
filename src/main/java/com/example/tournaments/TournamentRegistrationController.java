@@ -72,6 +72,12 @@ public class TournamentRegistrationController {
     public ResponseEntity<List<Tournament>> teamUpcoming(@PathVariable Long teamId) {
         return ResponseEntity.ok(registrationService.getUpcomingForTeam(teamId));
     }
+
+    // Past tournaments a specific team participated in (startsAt before now)
+    @GetMapping("/teams/{teamId}/past")
+    public ResponseEntity<List<Tournament>> teamPast(@PathVariable Long teamId) {
+        return ResponseEntity.ok(registrationService.getPastForTeam(teamId));
+    }
 }
 
 

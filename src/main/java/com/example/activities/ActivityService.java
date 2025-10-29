@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class ActivityService {
@@ -51,6 +52,57 @@ public class ActivityService {
         activityRepository.save(a);
     }
 
+    public void createTeamEventWithExtras(String typeCode,
+                                          Long teamId,
+                                          Long actorUserId,
+                                          String teamNameSnapshot,
+                                          Long tournamentId,
+                                          String dedupeKey,
+                                          Map<String, Object> extras) {
+        if (dedupeKey != null && activityRepository.existsByDedupeKey(dedupeKey)) return;
+        Activity a = new Activity();
+        a.setTypeId(getTypeId(typeCode));
+        a.setTeamId(teamId);
+        a.setActorUserId(actorUserId);
+        a.setTeamNameSnapshot(teamNameSnapshot);
+        a.setTournamentId(tournamentId);
+        a.setDedupeKey(dedupeKey);
+
+        StringBuilder payload = new StringBuilder("{");
+        boolean first = true;
+        if (teamId != null) { payload.append("\"team_id\":").append(teamId); first = false; }
+        if (teamNameSnapshot != null) {
+            if (!first) payload.append(",");
+            String safeName = teamNameSnapshot.replace("\\\"", "\\\\\"");
+            payload.append("\"team_name\":\"").append(safeName).append("\"");
+            first = false;
+        }
+        if (tournamentId != null) {
+            if (!first) payload.append(",");
+            payload.append("\"tournament_id\":").append(tournamentId);
+            first = false;
+        }
+        if (extras != null && !extras.isEmpty()) {
+            for (Map.Entry<String, Object> e : extras.entrySet()) {
+                if (!first) payload.append(",");
+                payload.append("\"").append(e.getKey().replace("\"", "\\\"")).append("\":");
+                Object v = e.getValue();
+                if (v == null) {
+                    payload.append("null");
+                } else if (v instanceof Number || v instanceof Boolean) {
+                    payload.append(v.toString());
+                } else {
+                    String s = String.valueOf(v).replace("\\\"", "\\\\\"");
+                    payload.append("\"").append(s).append("\"");
+                }
+                first = false;
+            }
+        }
+        payload.append("}");
+        a.setPayload(payload.toString());
+        activityRepository.save(a);
+    }
+
     public List<ActivityFeedItem> getRecentFeedForUser(Long userId) {
         List<Object[]> rows = activityRepository.findFeedForUser(userId);
         List<ActivityFeedItem> out = new ArrayList<>();
@@ -65,7 +117,8 @@ public class ActivityService {
             String tournamentName = (String) r[7];
             String message = (String) r[8];
             String createdAt = (String) r[9];
-            out.add(new ActivityFeedItem(id, typeCode, teamId, tournamentId, actorUserId, actorUsername, teamName, tournamentName, message, createdAt));
+            String payload = (String) r[10];
+            out.add(new ActivityFeedItem(id, typeCode, teamId, tournamentId, actorUserId, actorUsername, teamName, tournamentName, message, createdAt, payload));
         }
         return out;
     }

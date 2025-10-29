@@ -15,6 +15,13 @@ public class ActivityTypeInitializer {
             upsert(repo, "TEAM_DELETED", "team was deleted");
             upsert(repo, "TEAM_MEMBER_LEFT", "left the team");
             upsert(repo, "TEAM_INVITE_RECEIVED", "invited you to a team");
+            // Tournament lifecycle & match results
+            upsert(repo, "TOURNAMENT_BRACKET_AVAILABLE", "tournament bracket is available");
+            upsert(repo, "TOURNAMENT_STARTS_SOON", "tournament starts in 12 hours");
+            upsert(repo, "MATCH_RESULT_WIN", "won a match");
+            upsert(repo, "MATCH_RESULT_LOSS", "lost a match");
+            upsert(repo, "TOURNAMENT_COMPLETED", "tournament is complete");
+            upsert(repo, "TOURNAMENT_WINNER", "won the tournament");
         };
     }
 
