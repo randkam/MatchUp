@@ -13,6 +13,8 @@ struct RegisterTournamentView: View {
     private let network = NetworkManager()
     @State private var showTeamDetail: Bool = false
     @State private var teamForDetail: TeamModel? = nil
+    @State private var agreeRefundPolicy: Bool = false
+    @State private var acknowledgeNoShow: Bool = false
     
     private var captainTeams: [TeamModel] {
         let userId = UserDefaults.standard.integer(forKey: "loggedInUserId")
@@ -179,6 +181,23 @@ struct RegisterTournamentView: View {
             .scrollContentBackground(.hidden)
 
             VStack(spacing: 10) {
+                // Consent checkboxes
+                VStack(alignment: .leading, spacing: 8) {
+                    Toggle(isOn: $agreeRefundPolicy) {
+                        Text("I agree I can unregister up to 24h before start for a refund.")
+                            .font(ModernFontScheme.caption)
+                    }
+                    .toggleStyle(SwitchToggleStyle(tint: ModernColorScheme.accentMinimal))
+                    Toggle(isOn: $acknowledgeNoShow) {
+                        Text("I understand no-shows forfeit the deposit fee.")
+                            .font(ModernFontScheme.caption)
+                    }
+                    .toggleStyle(SwitchToggleStyle(tint: ModernColorScheme.accentMinimal))
+                }
+                .padding(12)
+                .background(ModernColorScheme.surface)
+                .cornerRadius(12)
+
                 Button(action: register) {
                     HStack {
                         Image(systemName: "square.and.pencil")
@@ -193,7 +212,7 @@ struct RegisterTournamentView: View {
                     .foregroundColor(.white)
                     .cornerRadius(14)
                 }
-                .disabled(selectedTeamId == nil)
+                .disabled(selectedTeamId == nil || !agreeRefundPolicy || !acknowledgeNoShow)
                 .animation(.easeInOut(duration: 0.2), value: selectedTeamId)
             }
             .padding()

@@ -547,8 +547,8 @@ private struct TournamentCard: View {
         .font(ModernFontScheme.body)
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
-        .background(Color.purple.opacity(0.12))
-        .foregroundColor(.purple)
+        .background(ModernColorScheme.accentMinimal.opacity(0.15))
+        .foregroundColor(ModernColorScheme.accentMinimal)
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .lineLimit(1)
     }
@@ -711,8 +711,8 @@ private struct PastTournamentRow: View {
         .font(ModernFontScheme.caption)
         .padding(.horizontal, 10)
         .padding(.vertical, 4)
-        .background(Color.purple.opacity(0.12))
-        .foregroundColor(.purple)
+        .background(ModernColorScheme.accentMinimal.opacity(0.15))
+        .foregroundColor(ModernColorScheme.accentMinimal)
         .cornerRadius(10)
     }
 

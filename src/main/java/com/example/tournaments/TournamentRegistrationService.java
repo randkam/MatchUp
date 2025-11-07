@@ -135,6 +135,12 @@ public class TournamentRegistrationService {
         Tournament tournament = tournamentRepository.findById(tournamentId)
                 .orElseThrow(() -> new IllegalStateException("Tournament not found"));
 
+        // Enforce 24-hour lockout before start time
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        if (tournament.getStartsAt() != null && !now.isBefore(tournament.getStartsAt().minusHours(24))) {
+            throw new IllegalStateException("Unregistration window has closed (24 hours before start)");
+        }
+
         // Validate team exists
         teamRepository.findById(teamId).orElseThrow(() -> new IllegalStateException("Team not found"));
 

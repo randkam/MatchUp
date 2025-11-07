@@ -56,11 +56,17 @@ public class TeamController {
     }
 
     @PostMapping("/{teamId}/invites")
-    public ResponseEntity<TeamInvite> invite(@PathVariable Long teamId, @RequestBody Map<String, Object> body) {
+    public ResponseEntity<?> invite(@PathVariable Long teamId, @RequestBody Map<String, Object> body) {
         Number inviteeNum = (Number) body.get("invitee_user_id");
         if (inviteeNum == null) return ResponseEntity.badRequest().build();
-        TeamInvite invite = teamService.inviteUserToTeam(teamId, inviteeNum.longValue());
-        return ResponseEntity.ok(invite);
+        try {
+            TeamInvite invite = teamService.inviteUserToTeam(teamId, inviteeNum.longValue());
+            return ResponseEntity.ok(invite);
+        } catch (IllegalStateException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(error);
+        }
     }
 
     @GetMapping("/invites/user/{userId}")
@@ -69,8 +75,14 @@ public class TeamController {
     }
 
     @PostMapping("/invites/{inviteId}/respond")
-    public ResponseEntity<TeamInvite> respond(@PathVariable Long inviteId, @RequestParam("accept") boolean accept) {
-        return ResponseEntity.ok(teamService.respondToInvite(inviteId, accept));
+    public ResponseEntity<?> respond(@PathVariable Long inviteId, @RequestParam("accept") boolean accept) {
+        try {
+            return ResponseEntity.ok(teamService.respondToInvite(inviteId, accept));
+        } catch (IllegalStateException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(error);
+        }
     }
 
     @PostMapping("/{teamId}/leave")

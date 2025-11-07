@@ -88,6 +88,8 @@ struct ActivityView: View {
     @State private var filter: ActivityFilter = .all
     @State private var respondingIds: Set<Int> = []
     @State private var navPath = NavigationPath()
+    @State private var inviteErrorMessage: String? = nil
+    @State private var showInviteErrorAlert: Bool = false
     private let network = NetworkManager()
     
     var body: some View {
@@ -215,6 +217,11 @@ struct ActivityView: View {
                 }
             }
         }
+        .alert("Cannot Join Team", isPresented: $showInviteErrorAlert, actions: {
+            Button("OK", role: .cancel) { }
+        }, message: {
+            Text(inviteErrorMessage ?? "You cannot join this team since they are already registered for a tournament you're already in.")
+        })
         .onAppear {
             loadInvites()
             loadActivities()
@@ -243,10 +250,17 @@ struct ActivityView: View {
     
     private func respond(invite: TeamInviteModel, accept: Bool) {
         respondingIds.insert(invite.id)
-        network.respondToInvite(inviteId: invite.id, accept: accept) { _ in
+        network.respondToInvite(inviteId: invite.id, accept: accept) { res in
             DispatchQueue.main.async {
                 respondingIds.remove(invite.id)
-                loadInvites()
+                switch res {
+                case .success:
+                    loadInvites()
+                case .failure:
+                    // Show a popup alert for tournament conflict instead of inline error
+                    inviteErrorMessage = "You cannot join this team since they are already registered for a tournament you're already in."
+                    showInviteErrorAlert = true
+                }
             }
         }
     }
@@ -786,8 +800,8 @@ private func tournamentPill(_ text: String) -> some View {
     .font(ModernFontScheme.caption)
     .padding(.horizontal, 10)
     .padding(.vertical, 4)
-    .background(Color.purple.opacity(0.12))
-    .foregroundColor(.purple)
+    .background(ModernColorScheme.accentMinimal.opacity(0.15))
+    .foregroundColor(ModernColorScheme.accentMinimal)
     .cornerRadius(10)
 }
 

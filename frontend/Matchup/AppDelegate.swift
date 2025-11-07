@@ -21,7 +21,7 @@ struct ModernFontScheme {
     static let title = Font.custom("Inter", size: 32).weight(.bold)
     static let heading = Font.custom("Inter", size: 24).weight(.semibold)
     static let body = Font.custom("Inter", size: 16)
-    static let caption = Font.custom("Inter", size: 14)		
+    static let caption = Font.custom("Inter", size: 14)		    
 }
 
 // Define the AppDelegatex  

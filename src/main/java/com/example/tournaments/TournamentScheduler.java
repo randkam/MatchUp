@@ -78,6 +78,15 @@ public class TournamentScheduler {
                     );
                 }
             }
+
+            // Lock registrations at T-24h if still open
+            LocalDateTime lockAt = startsAt.minusHours(24);
+            if (!lockAt.isAfter(now) && startsAt.isAfter(now)) {
+                if (t.getStatus() == TournamentStatus.SIGNUPS_OPEN) {
+                    t.setStatus(TournamentStatus.LOCKED);
+                    tournamentRepository.save(t);
+                }
+            }
         }
     }
 }

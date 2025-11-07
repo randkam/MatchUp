@@ -12,6 +12,7 @@ struct TournamentDetailView: View {
     private let network = NetworkManager()
     @State private var latestStatus: TournamentStatus? = nil
     @State private var teamStatsById: [Int: NetworkManager.TeamTournamentStats] = [:]
+    @State private var unregisterError: String? = nil
     
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -147,6 +148,28 @@ struct TournamentDetailView: View {
                     .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.black.opacity(0.08), lineWidth: 1))
                     .shadow(color: ModernColorScheme.primary.opacity(0.06), radius: 5, x: 0, y: 2)
             )
+
+            if let err = unregisterError {
+                Text(err)
+                    .font(ModernFontScheme.caption)
+                    .foregroundColor(.red)
+            }
+
+            if canUnregister {
+                Button(action: unregister) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "xmark.circle")
+                        Text("Unregister Team")
+                    }
+                    .font(ModernFontScheme.caption)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color.red.opacity(0.12))
+                    .foregroundColor(.red)
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
         }
     }
 
@@ -221,6 +244,33 @@ struct TournamentDetailView: View {
         if days > 0 { return "\(days)d \(hours)h left to sign up" }
         if hours > 0 { return "\(hours)h \(mins)m left to sign up" }
         return "\(mins)m left to sign up"
+    }
+    
+    private var canUnregister: Bool {
+        // Show unregister if user's team is registered and before deadline
+        guard userAlreadyRegistered else { return false }
+        return Date() < tournament.signupDeadline
+    }
+
+    private var registeredUserTeamId: Int? {
+        let registeredIds = Set(registeredTeams.map { $0.teamId })
+        let intersection = registeredIds.intersection(userTeamIds)
+        return intersection.first
+    }
+
+    private func unregister() {
+        guard let teamId = registeredUserTeamId else { return }
+        let uid = UserDefaults.standard.integer(forKey: "loggedInUserId")
+        NetworkManager().unregisterTeamFromTournament(tournamentId: tournament.id, teamId: teamId, requestingUserId: uid) { err in
+            DispatchQueue.main.async {
+                if let err = err {
+                    self.unregisterError = err.localizedDescription
+                } else {
+                    self.unregisterError = nil
+                    self.loadRegisteredTeams()
+                }
+            }
+        }
     }
     
     private func priceString(cents: Int, currency: String) -> String {
@@ -336,6 +386,21 @@ struct TournamentDetailView: View {
                         .buttonStyle(.plain)
                     }
                 }
+            }
+            if (latestStatus ?? tournament.status) == .full {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.circle")
+                    Text("Tournament full")
+                }
+                .font(ModernFontScheme.caption)
+                .foregroundColor(.red)
+            } else if (latestStatus ?? tournament.status) == .locked {
+                HStack(spacing: 8) {
+                    Image(systemName: "lock")
+                    Text("Registration locked")
+                }
+                .font(ModernFontScheme.caption)
+                .foregroundColor(.orange)
             }
         }
         .padding()
