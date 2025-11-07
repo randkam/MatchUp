@@ -1119,6 +1119,164 @@ extension NetworkManager {
             }
         }.resume()
     }
+
+    func getLiveTournaments(page: Int = 0, size: Int = 20, completion: @escaping (Result<PaginatedResponse<Tournament>, Error>) -> Void) {
+        guard var components = URLComponents(string: APIConfig.liveTournamentsEndpoint) else {
+            completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid tournaments endpoint URL string"])) )
+            return
+        }
+        components.queryItems = [
+            URLQueryItem(name: "page", value: String(page)),
+            URLQueryItem(name: "size", value: String(size))
+        ]
+        guard let url = components.url else {
+            completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])))
+            return
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error { completion(.failure(error)); return }
+            guard let data = data else { completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "No data received"]))); return }
+            do {
+                let decoder = JSONDecoder()
+                decoder.dateDecodingStrategy = .custom { decoder in
+                    let container = try decoder.singleValueContainer()
+                    let dateString = try container.decode(String.self)
+                    let isoWithFraction = ISO8601DateFormatter(); isoWithFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                    if let d = isoWithFraction.date(from: dateString) { return d }
+                    let iso = ISO8601DateFormatter(); iso.formatOptions = [.withInternetDateTime]
+                    if let d = iso.date(from: dateString) { return d }
+                    let df = DateFormatter(); df.locale = Locale(identifier: "en_US_POSIX"); df.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+                    if let d = df.date(from: dateString) { return d }
+                    throw DecodingError.dataCorrupted(DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid date: \(dateString)"))
+                }
+                if let pageResponse = try? decoder.decode(PaginatedResponse<Tournament>.self, from: data) {
+                    completion(.success(pageResponse)); return
+                }
+                if let arrayResponse = try? decoder.decode([Tournament].self, from: data) {
+                    let wrapped = PaginatedResponse(content: arrayResponse, totalPages: 1, totalElements: arrayResponse.count, last: true, size: arrayResponse.count, number: 0, first: true, numberOfElements: arrayResponse.count, empty: arrayResponse.isEmpty)
+                    completion(.success(wrapped)); return
+                }
+                let _ = try decoder.decode(PaginatedResponse<Tournament>.self, from: data)
+            } catch { completion(.failure(error)) }
+        }.resume()
+    }
+
+    func getPastTournaments(page: Int = 0, size: Int = 20, completion: @escaping (Result<PaginatedResponse<Tournament>, Error>) -> Void) {
+        guard var components = URLComponents(string: APIConfig.pastTournamentsEndpoint) else {
+            completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid tournaments endpoint URL string"])) )
+            return
+        }
+        components.queryItems = [
+            URLQueryItem(name: "page", value: String(page)),
+            URLQueryItem(name: "size", value: String(size))
+        ]
+        guard let url = components.url else {
+            completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])))
+            return
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error { completion(.failure(error)); return }
+            guard let data = data else { completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "No data received"]))); return }
+            do {
+                let decoder = JSONDecoder()
+                decoder.dateDecodingStrategy = .custom { decoder in
+                    let container = try decoder.singleValueContainer()
+                    let dateString = try container.decode(String.self)
+                    let isoWithFraction = ISO8601DateFormatter(); isoWithFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                    if let d = isoWithFraction.date(from: dateString) { return d }
+                    let iso = ISO8601DateFormatter(); iso.formatOptions = [.withInternetDateTime]
+                    if let d = iso.date(from: dateString) { return d }
+                    let df = DateFormatter(); df.locale = Locale(identifier: "en_US_POSIX"); df.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+                    if let d = df.date(from: dateString) { return d }
+                    throw DecodingError.dataCorrupted(DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid date: \(dateString)"))
+                }
+                if let pageResponse = try? decoder.decode(PaginatedResponse<Tournament>.self, from: data) {
+                    completion(.success(pageResponse)); return
+                }
+                if let arrayResponse = try? decoder.decode([Tournament].self, from: data) {
+                    let wrapped = PaginatedResponse(content: arrayResponse, totalPages: 1, totalElements: arrayResponse.count, last: true, size: arrayResponse.count, number: 0, first: true, numberOfElements: arrayResponse.count, empty: arrayResponse.isEmpty)
+                    completion(.success(wrapped)); return
+                }
+                let _ = try decoder.decode(PaginatedResponse<Tournament>.self, from: data)
+            } catch { completion(.failure(error)) }
+        }.resume()
+    }
+}
+
+extension NetworkManager {
+    // MARK: - Tournament Admin
+    func createTournament(name: String,
+                          formatSize: Int,
+                          maxTeams: Int,
+                          startsAt: Date,
+                          location: String,
+                          prizeCents: Int,
+                          requestingUserId: Int,
+                          completion: @escaping (Result<Tournament, Error>) -> Void) {
+        let endpoint = APIConfig.tournamentsEndpoint
+        let df = DateFormatter()
+        df.locale = Locale(identifier: "en_US_POSIX")
+        df.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+        let startsAtStr = df.string(from: startsAt)
+
+        let params: [String: Any] = [
+            "name": name,
+            "format_size": formatSize,
+            "max_teams": maxTeams,
+            "starts_at": startsAtStr,
+            "location": location,
+            "prize_cents": prizeCents,
+            "requesting_user_id": requestingUserId
+        ]
+        guard let url = URL(string: endpoint) else {
+            completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])));
+            return
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        do { request.httpBody = try JSONSerialization.data(withJSONObject: params) } catch {
+            completion(.failure(error)); return
+        }
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error { completion(.failure(error)); return }
+            guard let http = response as? HTTPURLResponse, let data = data else {
+                completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid response"])));
+                return
+            }
+            if !(200...299).contains(http.statusCode) {
+                let message = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["message"] as? String
+                    ?? String(data: data, encoding: .utf8)
+                    ?? "Server error"
+                completion(.failure(NSError(domain: "", code: http.statusCode, userInfo: [NSLocalizedDescriptionKey: message])));
+                return
+            }
+            do {
+                let decoder = JSONDecoder()
+                decoder.dateDecodingStrategy = .custom { decoder in
+                    let container = try decoder.singleValueContainer()
+                    let dateString = try container.decode(String.self)
+                    let isoWithFraction = ISO8601DateFormatter(); isoWithFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                    if let d = isoWithFraction.date(from: dateString) { return d }
+                    let iso = ISO8601DateFormatter(); iso.formatOptions = [.withInternetDateTime]
+                    if let d = iso.date(from: dateString) { return d }
+                    let df = DateFormatter(); df.locale = Locale(identifier: "en_US_POSIX"); df.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+                    if let d = df.date(from: dateString) { return d }
+                    throw DecodingError.dataCorrupted(DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid date: \(dateString)"))
+                }
+                let created = try decoder.decode(Tournament.self, from: data)
+                completion(.success(created))
+            } catch {
+                completion(.failure(error))
+            }
+        }.resume()
+    }
 }
 
 extension NetworkManager {
@@ -1226,6 +1384,29 @@ extension NetworkManager {
     func getTournamentRegistrationsExpanded(tournamentId: Int, completion: @escaping (Result<[TournamentRegistrationExpandedModel], Error>) -> Void) {
         let endpoint = APIConfig.tournamentRegistrationsExpandedEndpoint(tournamentId: tournamentId)
         get(endpoint, completion: completion)
+    }
+}
+
+extension NetworkManager {
+    // MARK: - Tournament Unregister
+    func unregisterTeamFromTournament(tournamentId: Int, teamId: Int, requestingUserId: Int, completion: @escaping (Error?) -> Void) {
+        guard let url = URL(string: "\(APIConfig.tournamentsEndpoint)/\(tournamentId)/registrations/by-team/\(teamId)?requesting_user_id=\(requestingUserId)") else {
+            completion(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"]))
+            return
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error { completion(error); return }
+            guard let http = response as? HTTPURLResponse else {
+                completion(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid response"]))
+                return
+            }
+            if (200...299).contains(http.statusCode) { completion(nil); return }
+            let msg = data.flatMap { String(data: $0, encoding: .utf8) } ?? "Server error"
+            completion(NSError(domain: "", code: http.statusCode, userInfo: [NSLocalizedDescriptionKey: msg]))
+        }.resume()
     }
 }
 

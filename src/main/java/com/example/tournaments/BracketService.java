@@ -225,8 +225,15 @@ public class BracketService {
             );
         }
 
-        // If final, post single tournament completion notification to all teams with winner info
+        // If final, set tournament as COMPLETE and post completion notifications
         if (isFinal && winner != null) {
+            Tournament tournament = tournamentRepository.findById(match.getTournamentId())
+                    .orElse(null);
+            if (tournament != null) {
+                tournament.setEndsAt(java.time.LocalDateTime.now());
+                tournament.setStatus(TournamentStatus.COMPLETE);
+                tournamentRepository.save(tournament);
+            }
             java.util.List<Long> teamIds = registrationRepository.findRegisteredTeamIds(match.getTournamentId());
             String winnerName = teamRepository.findById(winner).map(com.example.teams.Team::getName).orElse(null);
             for (Long teamId : teamIds) {

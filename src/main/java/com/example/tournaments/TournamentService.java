@@ -20,8 +20,22 @@ public class TournamentService {
         return tournamentRepository.findUpcoming(LocalDateTime.now(), pageable);
     }
 
+    public Page<Tournament> getLiveTournaments(int page, Integer size, String sortBy, String direction) {
+        Pageable pageable = PaginationConfig.createPageRequest(page, size, sortBy, direction);
+        return tournamentRepository.findLive(LocalDateTime.now(), pageable);
+    }
+
+    public Page<Tournament> getPastTournaments(int page, Integer size, String sortBy, String direction) {
+        Pageable pageable = PaginationConfig.createPageRequest(page, size, sortBy, direction);
+        return tournamentRepository.findPast(LocalDateTime.now(), pageable);
+    }
+
     public Optional<Tournament> findById(Long id) {
         return tournamentRepository.findById(id);
+    }
+
+    public Tournament save(Tournament tournament) {
+        return tournamentRepository.save(tournament);
     }
 }
 

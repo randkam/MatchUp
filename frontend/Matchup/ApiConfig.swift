@@ -17,6 +17,8 @@ struct APIConfig {
     static let reviewsEndpoint = "\(baseAPI)/api/reviews"
     static let tournamentsEndpoint = "\(baseAPI)/api/v1/tournaments"
     static let upcomingTournamentsEndpoint = "\(tournamentsEndpoint)/upcoming"
+    static let liveTournamentsEndpoint = "\(tournamentsEndpoint)/live"
+    static let pastTournamentsEndpoint = "\(tournamentsEndpoint)/past"
     static let teamsEndpoint = "\(baseAPI)/api/v1/teams"
     static let userSearchEndpoint = "\(usersEndpoint)/search"
     static func tournamentRegistrationsEndpoint(tournamentId: Int) -> String { "\(tournamentsEndpoint)/\(tournamentId)/registrations" }

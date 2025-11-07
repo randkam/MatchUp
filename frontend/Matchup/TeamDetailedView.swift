@@ -13,6 +13,7 @@ struct TeamDetailedView: View {
     @State private var tournamentTab: Int = 0 // 0 = Upcoming, 1 = Past
     private let network = NetworkManager()
     @State private var stats: NetworkManager.TeamTournamentStats? = nil
+    @State private var showDeleteConfirm: Bool = false
     
     init(team: TeamModel, readonly: Bool = false) {
         self.team = team
@@ -155,6 +156,15 @@ struct TeamDetailedView: View {
                         Section {
                             if let actionError = actionError {
                                 Text(actionError).foregroundColor(.red)
+                                if actionError.contains("Cannot delete team"), let t = upcomingTournaments.first {
+                                    NavigationLink(destination: TournamentDetailView(tournament: t)) {
+                                        HStack(spacing: 6) {
+                                            Image(systemName: "link")
+                                            Text("View registered tournament")
+                                        }
+                                    }
+                                    .buttonStyle(.plain)
+                                }
                             }
                             actionButtons
                         }
@@ -278,14 +288,20 @@ struct TeamDetailedView: View {
         let isCaptain = team.ownerUserId == loggedInUserId
         return HStack {
             if isCaptain {
-                Button(role: .destructive) {
-                    network.delete("\(APIConfig.teamsEndpoint)/\(team.id)?requesting_user_id=\(loggedInUserId)") { err in
-                        DispatchQueue.main.async {
-                            if let err = err { actionError = err.localizedDescription } else { actionError = "Team deleted" }
+                Button(role: .destructive) { showDeleteConfirm = true } label: {
+                    Label("Delete Team", systemImage: "trash")
+                }
+                .alert("Delete Team?", isPresented: $showDeleteConfirm) {
+                    Button("Delete", role: .destructive) {
+                        network.delete("\(APIConfig.teamsEndpoint)/\(team.id)?requesting_user_id=\(loggedInUserId)") { err in
+                            DispatchQueue.main.async {
+                                if let err = err { actionError = err.localizedDescription } else { actionError = "Team deleted" }
+                            }
                         }
                     }
-                } label: {
-                    Label("Delete Team", systemImage: "trash")
+                    Button("Cancel", role: .cancel) { }
+                } message: {
+                    Text("This will permanently delete the team and may remove related registrations. This action cannot be undone.")
                 }
             } else {
                 Button(role: .destructive) {
@@ -379,8 +395,8 @@ private struct TeamTournamentRow: View {
                 .font(ModernFontScheme.body)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                .background(Color.purple.opacity(0.12))
-                .foregroundColor(.purple)
+                .background(ModernColorScheme.accentMinimal.opacity(0.15))
+                .foregroundColor(ModernColorScheme.accentMinimal)
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 .lineLimit(1)
 

@@ -2,6 +2,7 @@ package com.example.teams;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
@@ -79,6 +80,8 @@ public class TeamService {
         if (teamMemberRepository.existsByTeamIdAndUserId(teamId, inviteeUserId)) {
             throw new IllegalStateException("User is already a team member");
         }
+        // Prevent inviting a user who is already participating in any tournament this team is registered in
+        validateUserNotAlreadyInRegisteredTournament(teamId, inviteeUserId);
         // If an invite already exists for this team/user, reuse or reset it instead of violating unique constraints
         java.util.Optional<TeamInvite> existingOpt = teamInviteRepository.findByTeamIdAndInviteeUserId(teamId, inviteeUserId);
         if (existingOpt.isPresent()) {
@@ -128,6 +131,10 @@ public class TeamService {
         if (!"PENDING".equals(invite.getStatus())) {
             return invite;
         }
+        // If accepting, ensure the user isn't already on another team registered in any same tournament(s)
+        if (accept) {
+            validateUserNotAlreadyInRegisteredTournament(invite.getTeamId(), invite.getInviteeUserId());
+        }
         invite.setStatus(accept ? "ACCEPTED" : "DECLINED");
         invite = teamInviteRepository.save(invite);
         if (accept) {
@@ -159,22 +166,26 @@ public class TeamService {
         activityService.createTeamEvent("TEAM_MEMBER_LEFT", teamId, userId, teamName, null, null);
     }
 
+    @Transactional
     public void deleteTeam(Long teamId, Long requestingUserId) {
         Team team = teamRepository.findById(teamId).orElseThrow(() -> new IllegalStateException("Team not found"));
         if (!team.getOwnerUserId().equals(requestingUserId)) {
             throw new IllegalStateException("Only captain can delete team");
         }
         String teamName = team.getName();
+        // Prevent deletion if team is registered for any upcoming tournament
+        java.util.List<Tournament> upcoming = tournamentRegistrationRepository.findUpcomingTournamentsForTeam(teamId);
+        if (upcoming != null && !upcoming.isEmpty()) {
+            Tournament t = upcoming.get(0);
+            String msg = "Cannot delete team: registered for upcoming tournament '" + t.getName() + "' (id: " + t.getId() + ")";
+            throw new IllegalStateException(msg);
+        }
+
         // Snapshot and payload before delete
         activityService.createTeamDeletedEvent(teamId, requestingUserId, teamName);
         // Capture impacted tournaments before removing registrations
         List<Tournament> impacted = tournamentRegistrationRepository.findUpcomingTournamentsForTeam(teamId);
 
-        // Remove team members and any tournament registrations for robustness (in addition to DB FK cascade)
-        teamMemberRepository.deleteAll(teamMemberRepository.findByTeamId(teamId));
-        List<TournamentRegistration> regs = tournamentRegistrationRepository.findByTeamId(teamId);
-        tournamentRegistrationRepository.deleteAll(regs);
-        
         // Delete team
         teamRepository.delete(team);
 
@@ -207,6 +218,16 @@ public class TeamService {
             throw new IllegalStateException("User is not a member of this team");
         }
         teamMemberRepository.delete(target);
+    }
+
+    private void validateUserNotAlreadyInRegisteredTournament(Long teamId, Long userId) {
+        java.util.List<TournamentRegistration> registrationsForTeam = tournamentRegistrationRepository.findByTeamId(teamId);
+        for (TournamentRegistration registration : registrationsForTeam) {
+            java.util.List<Long> userIdsAlreadyInTournament = tournamentRegistrationRepository.findAllUserIdsAlreadyInTournament(registration.getTournamentId());
+            if (userIdsAlreadyInTournament.contains(userId)) {
+                throw new IllegalStateException("User is already on another team registered for this tournament");
+            }
+        }
     }
 }
 
