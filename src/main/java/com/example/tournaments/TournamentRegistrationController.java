@@ -20,9 +20,22 @@ public class TournamentRegistrationController {
     public ResponseEntity<?> register(@PathVariable Long tournamentId, @RequestBody Map<String, Object> body) {
         Number teamIdNum = (Number) body.get("team_id");
         Number userIdNum = (Number) body.get("requesting_user_id");
+        Object agreementsAcceptedObj = body.get("agreements_accepted");
         if (teamIdNum == null || userIdNum == null) {
             Map<String, String> error = new HashMap<>();
             error.put("message", "Missing required fields: team_id, requesting_user_id");
+            return ResponseEntity.badRequest().body(error);
+        }
+        // Enforce agreements acceptance before allowing registration
+        boolean agreementsAccepted = false;
+        if (agreementsAcceptedObj instanceof Boolean) {
+            agreementsAccepted = (Boolean) agreementsAcceptedObj;
+        } else if (agreementsAcceptedObj instanceof String) {
+            agreementsAccepted = Boolean.parseBoolean((String) agreementsAcceptedObj);
+        }
+        if (!agreementsAccepted) {
+            Map<String, String> error = new HashMap<>();
+            error.put("message", "You must agree to all policies before registering.");
             return ResponseEntity.badRequest().body(error);
         }
         try {

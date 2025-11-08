@@ -3,6 +3,7 @@ import MapKit
 
 struct TournamentDetailView: View {
     let tournament: Tournament
+    private let startOnRegistered: Bool
     
     @State private var selectedTab: DetailTab = .overview
     @State private var registeredTeams: [TournamentRegistrationExpandedModel] = []
@@ -13,6 +14,13 @@ struct TournamentDetailView: View {
     @State private var latestStatus: TournamentStatus? = nil
     @State private var teamStatsById: [Int: NetworkManager.TeamTournamentStats] = [:]
     @State private var unregisterError: String? = nil
+    
+    init(tournament: Tournament, startOnRegistered: Bool = false) {
+        self.tournament = tournament
+        self.startOnRegistered = startOnRegistered
+        // Initialize selected tab based on preferred start
+        self._selectedTab = State(initialValue: startOnRegistered ? .registered : .overview)
+    }
     
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -38,7 +46,25 @@ struct TournamentDetailView: View {
                     case .overview:
                         overviewDetails
                     case .registered:
-                        RegisteredTeamsView(totalSlots: tournament.maxTeams, teams: registeredTeams, userTeamIds: userTeamIds, userTeamsById: userTeamsById)
+                        RegisteredTeamsView(tournamentId: tournament.id,
+                                            signupDeadline: tournament.signupDeadline,
+                                            totalSlots: tournament.maxTeams,
+                                            teams: registeredTeams,
+                                            userTeamIds: userTeamIds,
+                                            userTeamsById: userTeamsById,
+                                            onUnregister: { teamId in
+                                                let uid = UserDefaults.standard.integer(forKey: "loggedInUserId")
+                                                network.unregisterTeamFromTournament(tournamentId: tournament.id, teamId: teamId, requestingUserId: uid) { err in
+                                                    DispatchQueue.main.async {
+                                                        if let err = err {
+                                                            self.unregisterError = err.localizedDescription
+                                                        } else {
+                                                            self.unregisterError = nil
+                                                            self.loadRegisteredTeams()
+                                                        }
+                                                    }
+                                                }
+                                            })
                     case .bracket:
                         TournamentBracketSection(tournament: tournament)
                     }
@@ -154,22 +180,6 @@ struct TournamentDetailView: View {
                     .font(ModernFontScheme.caption)
                     .foregroundColor(.red)
             }
-
-            if canUnregister {
-                Button(action: unregister) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "xmark.circle")
-                        Text("Unregister Team")
-                    }
-                    .font(ModernFontScheme.caption)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(Color.red.opacity(0.12))
-                    .foregroundColor(.red)
-                    .clipShape(Capsule())
-                }
-                .buttonStyle(.plain)
-            }
         }
     }
 
@@ -246,32 +256,7 @@ struct TournamentDetailView: View {
         return "\(mins)m left to sign up"
     }
     
-    private var canUnregister: Bool {
-        // Show unregister if user's team is registered and before deadline
-        guard userAlreadyRegistered else { return false }
-        return Date() < tournament.signupDeadline
-    }
-
-    private var registeredUserTeamId: Int? {
-        let registeredIds = Set(registeredTeams.map { $0.teamId })
-        let intersection = registeredIds.intersection(userTeamIds)
-        return intersection.first
-    }
-
-    private func unregister() {
-        guard let teamId = registeredUserTeamId else { return }
-        let uid = UserDefaults.standard.integer(forKey: "loggedInUserId")
-        NetworkManager().unregisterTeamFromTournament(tournamentId: tournament.id, teamId: teamId, requestingUserId: uid) { err in
-            DispatchQueue.main.async {
-                if let err = err {
-                    self.unregisterError = err.localizedDescription
-                } else {
-                    self.unregisterError = nil
-                    self.loadRegisteredTeams()
-                }
-            }
-        }
-    }
+    // Unregister flow moved to Registered tab cards
     
     private func priceString(cents: Int, currency: String) -> String {
         let amount = Double(cents) / 100.0
@@ -535,10 +520,15 @@ private struct OverviewPlaceholder: View {
 }
 
 private struct RegisteredTeamsView: View {
+    let tournamentId: Int
+    let signupDeadline: Date
     let totalSlots: Int
     let teams: [TournamentRegistrationExpandedModel]
     let userTeamIds: Set<Int>
     let userTeamsById: [Int: TeamModel]
+    var onUnregister: (Int) -> Void = { _ in }
+    
+    @State private var confirmUnregisterTeamId: Int? = nil
 
     private var registeredCount: Int { min(teams.count, totalSlots) }
     private var display: [DisplayItem] {
@@ -580,17 +570,7 @@ private struct RegisteredTeamsView: View {
                     if item.isEmpty {
                         TeamSlotCard(name: item.name, seed: nil, isEmpty: true, isUserTeam: false)
                     } else {
-                        if let myTeam = userTeamsById[item.teamId] {
-                            NavigationLink(destination: TeamDetailedView(team: myTeam)) {
-                                TeamSlotCard(name: item.name, seed: item.seed, isEmpty: false, isUserTeam: true)
-                            }
-                            .buttonStyle(.plain)
-                        } else {
-                            NavigationLink(destination: LazyTeamDetailDestination(teamId: item.teamId, teamName: item.name)) {
-                                TeamSlotCard(name: item.name, seed: item.seed, isEmpty: false, isUserTeam: userTeamIds.contains(item.teamId))
-                            }
-                            .buttonStyle(.plain)
-                        }
+                        teamCard(item: item)
                     }
                 }
             }
@@ -602,6 +582,56 @@ private struct RegisteredTeamsView: View {
                 .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.black.opacity(0.06), lineWidth: 1))
                 .shadow(color: ModernColorScheme.primary.opacity(0.06), radius: 5, x: 0, y: 2)
         )
+        .alert("Unregister team?", isPresented: Binding(get: { confirmUnregisterTeamId != nil }, set: { if !$0 { confirmUnregisterTeamId = nil } }), actions: {
+            Button("Cancel", role: .cancel) { confirmUnregisterTeamId = nil }
+            if let tid = confirmUnregisterTeamId {
+                Button("Unregister", role: .destructive) { onUnregister(tid); confirmUnregisterTeamId = nil }
+            }
+        }, message: {
+            Text("This will free your team's spot. You can re-register while signups are open.")
+        })
+    }
+    
+    @ViewBuilder
+    private func teamCard(item: DisplayItem) -> some View {
+        let isUserTeam = userTeamIds.contains(item.teamId)
+        let myTeam = userTeamsById[item.teamId]
+        let isCaptain = (myTeam?.ownerUserId ?? -1) == UserDefaults.standard.integer(forKey: "loggedInUserId")
+        let canUnregisterNow = Date() < signupDeadline
+        let showUnregister = isUserTeam && isCaptain && canUnregisterNow
+        
+        ZStack(alignment: .topTrailing) {
+            if let my = myTeam {
+                NavigationLink(destination: TeamDetailedView(team: my)) {
+                    TeamSlotCard(name: item.name, seed: item.seed, isEmpty: false, isUserTeam: true, reserveTopSpace: showUnregister)
+                }
+                .buttonStyle(.plain)
+            } else {
+                NavigationLink(destination: LazyTeamDetailDestination(teamId: item.teamId, teamName: item.name)) {
+                    TeamSlotCard(name: item.name, seed: item.seed, isEmpty: false, isUserTeam: isUserTeam, reserveTopSpace: showUnregister)
+                }
+                .buttonStyle(.plain)
+            }
+            
+            if showUnregister {
+                Button(action: { confirmUnregisterTeamId = item.teamId }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "xmark.circle.fill")
+                        Text("Unregister")
+                    }
+                    .font(ModernFontScheme.caption)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color.red.opacity(0.15))
+                    .foregroundColor(.red)
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                // Top-right placement with a bit of spacing below it visually
+                .padding(.trailing, 10)
+                .padding(.top, 10) // small inset from the top edge
+            }
+        }
     }
 }
 
@@ -622,6 +652,7 @@ private struct TeamSlotCard: View {
     let seed: Int?
     let isEmpty: Bool
     let isUserTeam: Bool
+    var reserveTopSpace: Bool = false
     
     private var gradient: LinearGradient {
         LinearGradient(colors: [ModernColorScheme.accentMinimal.opacity(0.18), ModernColorScheme.accentMinimal.opacity(0.08)], startPoint: .topLeading, endPoint: .bottomTrailing)
@@ -649,6 +680,9 @@ private struct TeamSlotCard: View {
                 .shadow(color: ModernColorScheme.primary.opacity(0.05), radius: 6, x: 0, y: 3)
 
             VStack(alignment: .leading, spacing: 10) {
+                if reserveTopSpace {
+                    Color.clear.frame(height: 26)
+                }
                 HStack(spacing: 12) {
                     ZStack {
                         if isEmpty {

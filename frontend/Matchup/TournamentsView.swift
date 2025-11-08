@@ -2,16 +2,13 @@ import SwiftUI
 
 struct TournamentsView: View {
     @State private var tournamentsUpcoming: [Tournament] = []
-    @State private var tournamentsLive: [Tournament] = []
     @State private var tournamentsPast: [Tournament] = []
     @State private var isLoading: Bool = false
     @State private var errorMessage: String? = nil
-    @State private var selectedTab: Int = 0 // 0 upcoming, 1 live, 2 past
+	@State private var selectedTab: Int = 0 // 0 upcoming, 1 past
     @State private var pageUpcoming: Int = 0
-    @State private var pageLive: Int = 0
     @State private var pagePast: Int = 0
     @State private var hasMoreUpcoming: Bool = true
-    @State private var hasMoreLive: Bool = true
     @State private var hasMorePast: Bool = true
     @State private var query: String = ""
     @State private var selectedFilter: TournamentFilter = .all
@@ -27,38 +24,38 @@ struct TournamentsView: View {
             ZStack {
                 ModernColorScheme.background
                     .ignoresSafeArea()
-                Group {
-                    if let errorMessage = errorMessage {
-                        errorState(errorMessage)
-                    } else if isLoading && currentList.isEmpty {
-                        loadingSkeleton
-                    } else if currentList.isEmpty {
-                        emptyState
-                    } else {
-                        ScrollView {
-                            VStack(spacing: 16) {
-                                segmentBar
-                                filterBar
-                                    .padding(.horizontal)
-                                LazyVStack(spacing: 16) {
-                                    ForEach(displayedTournaments) { t in
-                                        NavigationLink(destination: TournamentDetailView(tournament: t)) {
-                                            TournamentRowCard(tournament: t)
-                                                .onAppear { loadMoreIfNeeded(current: t) }
-                                        }
-                                        .buttonStyle(.plain)
-                                        .padding(.horizontal)
-                                    }
-                                }
-                                if isLoading && currentHasMore {
-                                    ProgressView().tint(ModernColorScheme.brandBlue)
-                                }
-                            }
-                            .padding(.bottom, 24)
-                        }
-                        .refreshable { reload() }
-                    }
-                }
+				ScrollView {
+					VStack(spacing: 16) {
+						segmentBar
+						filterBar
+							.padding(.horizontal)
+						Group {
+							if let errorMessage = errorMessage {
+								errorState(errorMessage)
+							} else if isLoading && currentList.isEmpty {
+								loadingSkeleton
+							} else if currentList.isEmpty {
+								emptyState
+							} else {
+								LazyVStack(spacing: 16) {
+									ForEach(displayedTournaments) { t in
+										NavigationLink(destination: TournamentDetailView(tournament: t)) {
+											TournamentRowCard(tournament: t)
+												.onAppear { loadMoreIfNeeded(current: t) }
+										}
+										.buttonStyle(.plain)
+										.padding(.horizontal)
+									}
+								}
+								if isLoading && currentHasMore {
+									ProgressView().tint(ModernColorScheme.brandBlue)
+								}
+							}
+						}
+					}
+					.padding(.bottom, 24)
+				}
+				.refreshable { reload() }
             }
             .navigationTitle("Tournaments")
             .toolbar {
@@ -85,27 +82,28 @@ struct TournamentsView: View {
     private var segmentBar: some View {
         Picker("", selection: $selectedTab) {
             Text("Upcoming").tag(0)
-            Text("Live").tag(1)
-            Text("Past").tag(2)
+			Text("Past").tag(1)
         }
         .pickerStyle(.segmented)
         .padding(.horizontal)
         .onChange(of: selectedTab) { _ in
-            if selectedTab == 1 && tournamentsLive.isEmpty { fetchPage(reset: true) }
-            if selectedTab == 2 && tournamentsPast.isEmpty { fetchPage(reset: true) }
+			if selectedTab == 1 && tournamentsPast.isEmpty { fetchPage(reset: true) }
         }
     }
     
     private var currentList: [Tournament] {
         switch selectedTab {
         case 0: return tournamentsUpcoming
-        case 1: return tournamentsLive
-        default: return tournamentsPast
+		default: return tournamentsPast
         }
     }
 
     private var displayedTournaments: [Tournament] {
-        var list = currentList
+		var list = currentList
+		// Ensure Past tab never shows "live" items and prefers ended/completed ones
+		if selectedTab == 1 {
+			list = list.filter { isPastOrCompleted($0) }
+		}
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmed.isEmpty {
             let q = trimmed.lowercased()
@@ -120,7 +118,7 @@ struct TournamentsView: View {
         case .free:
             list = list.filter { ($0.entryFeeCents ?? 0) <= 0 }
         case .live:
-            list = list.filter { $0.status == .live }
+			list = list.filter { isLiveTournament($0) }
         case .complete:
             list = list.filter { $0.status == .complete }
         }
@@ -146,8 +144,6 @@ struct TournamentsView: View {
             switch selectedTab {
             case 0:
                 pageUpcoming = 0; tournamentsUpcoming = []; hasMoreUpcoming = true
-            case 1:
-                pageLive = 0; tournamentsLive = []; hasMoreLive = true
             default:
                 pagePast = 0; tournamentsPast = []; hasMorePast = true
             }
@@ -155,37 +151,78 @@ struct TournamentsView: View {
         guard currentHasMore, !isLoading else { return }
         isLoading = true
         errorMessage = nil
-        let fetch: (@escaping (Result<PaginatedResponse<Tournament>, Error>) -> Void) -> Void = { completion in
-            switch selectedTab {
-            case 0: self.network.getUpcomingTournaments(page: self.pageUpcoming, size: self.pageSize, completion: completion)
-            case 1: self.network.getLiveTournaments(page: self.pageLive, size: self.pageSize, completion: completion)
-            default: self.network.getPastTournaments(page: self.pagePast, size: self.pageSize, completion: completion)
-            }
-        }
-        fetch { result in
-            DispatchQueue.main.async {
-                isLoading = false
-                switch result {
-                case .success(let response):
-                    switch selectedTab {
-                    case 0:
-                        if pageUpcoming == 0 { tournamentsUpcoming = response.content } else { tournamentsUpcoming.append(contentsOf: response.content) }
-                        hasMoreUpcoming = !response.last
-                        pageUpcoming += 1
-                    case 1:
-                        if pageLive == 0 { tournamentsLive = response.content } else { tournamentsLive.append(contentsOf: response.content) }
-                        hasMoreLive = !response.last
-                        pageLive += 1
-                    default:
-                        if pagePast == 0 { tournamentsPast = response.content } else { tournamentsPast.append(contentsOf: response.content) }
-                        hasMorePast = !response.last
-                        pagePast += 1
-                    }
-                case .failure(let error):
-                    errorMessage = error.localizedDescription
-                }
-            }
-        }
+		if selectedTab == 0 {
+			// Fetch upcoming and live in parallel, merge into "upcoming" section
+			let group = DispatchGroup()
+			var upcomingResponse: PaginatedResponse<Tournament>?
+			var liveResponse: PaginatedResponse<Tournament>?
+			var upcomingError: Error?
+			var liveError: Error?
+			
+			group.enter()
+			network.getUpcomingTournaments(page: self.pageUpcoming, size: self.pageSize) { result in
+				switch result {
+				case .success(let resp): upcomingResponse = resp
+				case .failure(let err): upcomingError = err
+				}
+				group.leave()
+			}
+			group.enter()
+			network.getLiveTournaments(page: self.pageUpcoming, size: self.pageSize) { result in
+				switch result {
+				case .success(let resp): liveResponse = resp
+				case .failure(let err): liveError = err
+				}
+				group.leave()
+			}
+			group.notify(queue: .main) {
+				isLoading = false
+				
+				// If both failed, surface one error
+				if upcomingResponse == nil && liveResponse == nil {
+					errorMessage = (upcomingError ?? liveError)?.localizedDescription ?? "Failed to load tournaments"
+					return
+				}
+				
+				// Merge content and de-duplicate by id
+				var merged: [Tournament] = []
+				if let u = upcomingResponse?.content { merged.append(contentsOf: u) }
+				if let l = liveResponse?.content { merged.append(contentsOf: l) }
+				var seen = Set<Int>()
+				let deduped = merged.filter { t in
+					if seen.contains(t.id) { return false }
+					seen.insert(t.id)
+					return true
+				}
+				if pageUpcoming == 0 {
+					tournamentsUpcoming = deduped
+				} else {
+					// only append those not already present
+					let existingIds = Set(tournamentsUpcoming.map { $0.id })
+					let toAppend = deduped.filter { !existingIds.contains($0.id) }
+					tournamentsUpcoming.append(contentsOf: toAppend)
+				}
+				// Determine if more pages exist in either source
+				let upcomingHasMore = !(upcomingResponse?.last ?? true)
+				let liveHasMore = !(liveResponse?.last ?? true)
+				hasMoreUpcoming = upcomingHasMore || liveHasMore
+				pageUpcoming += 1
+			}
+		} else {
+			network.getPastTournaments(page: self.pagePast, size: self.pageSize) { result in
+				DispatchQueue.main.async {
+					isLoading = false
+					switch result {
+					case .success(let response):
+						if pagePast == 0 { tournamentsPast = response.content } else { tournamentsPast.append(contentsOf: response.content) }
+						hasMorePast = !response.last
+						pagePast += 1
+					case .failure(let error):
+						errorMessage = error.localizedDescription
+					}
+				}
+			}
+		}
     }
 
     private func loadMoreIfNeeded(current: Tournament) {
@@ -197,13 +234,30 @@ struct TournamentsView: View {
 
     private var currentHasMore: Bool {
         switch selectedTab {
-        case 0: return hasMoreUpcoming
-        case 1: return hasMoreLive
-        default: return hasMorePast
+		case 0: return hasMoreUpcoming
+		default: return hasMorePast
         }
     }
 
     // MARK: - UI Pieces
+	
+	private func isLiveTournament(_ t: Tournament) -> Bool {
+		return t.startsAt <= Date() && t.endsAt == nil
+	}
+	
+	private func isPastTournament(_ t: Tournament) -> Bool {
+		guard let ends = t.endsAt else { return false }
+		return ends <= Date()
+	}
+	
+	private func isPastOrCompleted(_ t: Tournament) -> Bool {
+		// Exclude live by definition
+		if isLiveTournament(t) { return false }
+		// Past if ended in the past
+		if isPastTournament(t) { return true }
+		// Fallback to backend-computed status
+		return t.status == .complete
+	}
 
     private var filterBar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -250,17 +304,14 @@ struct TournamentsView: View {
     }
 
     private var loadingSkeleton: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                LazyVStack(spacing: 16) {
-                    ForEach(0..<6, id: \.self) { _ in
-                        SkeletonTournamentRow()
-                            .padding(.horizontal)
-                    }
-                }
-                .padding(.bottom, 24)
-            }
-        }
+		VStack(spacing: 16) {
+			LazyVStack(spacing: 16) {
+				ForEach(0..<6, id: \.self) { _ in
+					SkeletonTournamentRow()
+						.padding(.horizontal)
+				}
+			}
+		}
     }
 
     private var emptyState: some View {
@@ -268,7 +319,7 @@ struct TournamentsView: View {
             Image(systemName: "trophy")
                 .font(.system(size: 40))
                 .foregroundColor(ModernColorScheme.accentMinimal)
-            Text("No upcoming tournaments yet")
+			Text(selectedTab == 1 ? "No past tournaments yet" : "No upcoming tournaments yet")
                 .font(ModernFontScheme.body)
                 .foregroundColor(ModernColorScheme.textSecondary)
             Button("Reload") { reload() }
@@ -313,7 +364,7 @@ private struct TournamentRowCard: View {
     let tournament: Tournament
 
     var body: some View {
-        ZStack(alignment: .topLeading) {
+		ZStack(alignment: .topLeading) {
             RoundedRectangle(cornerRadius: 16)
                 .fill(ModernColorScheme.surface)
                 .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.black.opacity(0.08), lineWidth: 1))
@@ -355,6 +406,20 @@ private struct TournamentRowCard: View {
                 .padding([.horizontal, .bottom])
                 .padding(.top, 10)
             }
+			// Live badge
+			.overlay(alignment: .topTrailing) {
+				if isLiveNow {
+					Text("LIVE")
+						.font(.system(size: 11, weight: .bold))
+						.padding(.horizontal, 8)
+						.padding(.vertical, 4)
+						.background(Color.red.opacity(0.95))
+						.foregroundColor(.white)
+						.clipShape(Capsule())
+						.padding(.top, 10)
+						.padding(.trailing, 10)
+				}
+			}
         }
         .frame(maxWidth: .infinity)
     }
@@ -408,6 +473,11 @@ private struct TournamentRowCard: View {
         df.dateFormat = "MMM d"
         return df.string(from: date)
     }
+	
+	private var isLiveNow: Bool {
+		// Live if started and has no end date
+		return tournament.startsAt <= Date() && tournament.endsAt == nil
+	}
 }
 
 private struct SkeletonTournamentRow: View {

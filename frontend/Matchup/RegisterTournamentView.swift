@@ -20,6 +20,10 @@ struct RegisterTournamentView: View {
         let userId = UserDefaults.standard.integer(forKey: "loggedInUserId")
         return teams.filter { $0.ownerUserId == userId }
     }
+    
+    private var canRegister: Bool {
+        return selectedTeamId != nil && agreeRefundPolicy && acknowledgeNoShow
+    }
 
     private var filteredTeams: [TeamModel] {
         let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -124,20 +128,26 @@ struct RegisterTournamentView: View {
                                                 .font(ModernFontScheme.body)
                                                 .foregroundColor(ModernColorScheme.text)
                                             if isAlreadyRegistered {
-                                                Text("Already registered")
-                                                    .font(ModernFontScheme.caption)
-                                                    .foregroundColor(.blue)
+                                                NavigationLink(destination: TournamentDetailView(tournament: tournament, startOnRegistered: true)) {
+                                                    Text("Already registered")
+                                                        .font(ModernFontScheme.caption)
+                                                        .foregroundColor(.blue)
+                                                }
+                                                .buttonStyle(.plain)
                                             }
                                         }
                                         Spacer()
                                         if isAlreadyRegistered {
-                                            Text("Registered")
-                                                .font(ModernFontScheme.caption)
-                                                .foregroundColor(.white)
-                                                .padding(.horizontal, 8)
-                                                .padding(.vertical, 4)
-                                                .background(Color.blue.opacity(0.7))
-                                                .clipShape(Capsule())
+                                            NavigationLink(destination: TournamentDetailView(tournament: tournament, startOnRegistered: true)) {
+                                                Text("Registered")
+                                                    .font(ModernFontScheme.caption)
+                                                    .foregroundColor(.white)
+                                                    .padding(.horizontal, 8)
+                                                    .padding(.vertical, 4)
+                                                    .background(Color.blue.opacity(0.7))
+                                                    .clipShape(Capsule())
+                                            }
+                                            .buttonStyle(.plain)
                                         } else if selectedTeamId == team.id {
                                             Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
                                         }
@@ -207,13 +217,13 @@ struct RegisterTournamentView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(selectedTeamId == nil ? ModernColorScheme.accentMinimal.opacity(0.4) : ModernColorScheme.accentMinimal)
+                    .background(canRegister ? ModernColorScheme.accentMinimal : ModernColorScheme.accentMinimal.opacity(0.4))
                     .shadow(color: ModernColorScheme.primary.opacity(0.1), radius: 5, x: 0, y: 2)
                     .foregroundColor(.white)
                     .cornerRadius(14)
                 }
-                .disabled(selectedTeamId == nil || !agreeRefundPolicy || !acknowledgeNoShow)
-                .animation(.easeInOut(duration: 0.2), value: selectedTeamId)
+                .disabled(!canRegister)
+                .animation(.easeInOut(duration: 0.2), value: canRegister)
             }
             .padding()
             .background(ModernColorScheme.background.opacity(0.95))
@@ -298,7 +308,8 @@ struct RegisterTournamentView: View {
     private func register() {
         guard let teamId = selectedTeamId else { return }
         let userId = UserDefaults.standard.integer(forKey: "loggedInUserId")
-        network.registerTeamForTournament(tournamentId: tournament.id, teamId: teamId, requestingUserId: userId) { result in
+        let accepted = agreeRefundPolicy && acknowledgeNoShow
+        network.registerTeamForTournament(tournamentId: tournament.id, teamId: teamId, requestingUserId: userId, agreementsAccepted: accepted) { result in
             DispatchQueue.main.async {
                 switch result {
                 case .success:

@@ -1095,6 +1095,16 @@ extension NetworkManager {
                     df.locale = Locale(identifier: "en_US_POSIX")
                     df.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
                     if let d = df.date(from: dateString) { return d }
+                    // Try space-separated datetime (no 'T')
+                    let dfSpace = DateFormatter()
+                    dfSpace.locale = Locale(identifier: "en_US_POSIX")
+                    dfSpace.dateFormat = "yyyy-MM-dd HH:mm:ss"
+                    if let d = dfSpace.date(from: dateString) { return d }
+                    // Try date-only
+                    let dfDateOnly = DateFormatter()
+                    dfDateOnly.locale = Locale(identifier: "en_US_POSIX")
+                    dfDateOnly.dateFormat = "yyyy-MM-dd"
+                    if let d = dfDateOnly.date(from: dateString) { return d }
                     throw DecodingError.dataCorrupted(DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid date: \(dateString)"))
                 }
                 // Debug: print raw body
@@ -1148,8 +1158,12 @@ extension NetworkManager {
                     if let d = isoWithFraction.date(from: dateString) { return d }
                     let iso = ISO8601DateFormatter(); iso.formatOptions = [.withInternetDateTime]
                     if let d = iso.date(from: dateString) { return d }
-                    let df = DateFormatter(); df.locale = Locale(identifier: "en_US_POSIX"); df.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
-                    if let d = df.date(from: dateString) { return d }
+                    let df = DateFormatter(); df.locale = Locale(identifier: "en_US_POSIX"); df.timeZone = TimeZone(secondsFromGMT: 0)
+                    let formats = ["yyyy-MM-dd'T'HH:mm:ss.SSSZ","yyyy-MM-dd'T'HH:mm:ss.SSS","yyyy-MM-dd HH:mm:ss.SSS","yyyy-MM-dd'T'HH:mm:ss","yyyy-MM-dd HH:mm:ss","yyyy-MM-dd"]
+                    for f in formats {
+                        df.dateFormat = f
+                        if let d = df.date(from: dateString) { return d }
+                    }
                     throw DecodingError.dataCorrupted(DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid date: \(dateString)"))
                 }
                 if let pageResponse = try? decoder.decode(PaginatedResponse<Tournament>.self, from: data) {
@@ -1192,8 +1206,12 @@ extension NetworkManager {
                     if let d = isoWithFraction.date(from: dateString) { return d }
                     let iso = ISO8601DateFormatter(); iso.formatOptions = [.withInternetDateTime]
                     if let d = iso.date(from: dateString) { return d }
-                    let df = DateFormatter(); df.locale = Locale(identifier: "en_US_POSIX"); df.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
-                    if let d = df.date(from: dateString) { return d }
+                    let df = DateFormatter(); df.locale = Locale(identifier: "en_US_POSIX"); df.timeZone = TimeZone(secondsFromGMT: 0)
+                    let formats = ["yyyy-MM-dd'T'HH:mm:ss.SSSZ","yyyy-MM-dd'T'HH:mm:ss.SSS","yyyy-MM-dd HH:mm:ss.SSS","yyyy-MM-dd'T'HH:mm:ss","yyyy-MM-dd HH:mm:ss","yyyy-MM-dd"]
+                    for f in formats {
+                        df.dateFormat = f
+                        if let d = df.date(from: dateString) { return d }
+                    }
                     throw DecodingError.dataCorrupted(DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid date: \(dateString)"))
                 }
                 if let pageResponse = try? decoder.decode(PaginatedResponse<Tournament>.self, from: data) {
@@ -1357,11 +1375,12 @@ extension NetworkManager {
 
 extension NetworkManager {
     // MARK: - Tournament Registrations
-    func registerTeamForTournament(tournamentId: Int, teamId: Int, requestingUserId: Int, completion: @escaping (Result<TournamentRegistrationModel, Error>) -> Void) {
+    func registerTeamForTournament(tournamentId: Int, teamId: Int, requestingUserId: Int, agreementsAccepted: Bool, completion: @escaping (Result<TournamentRegistrationModel, Error>) -> Void) {
         let endpoint = APIConfig.tournamentRegistrationsEndpoint(tournamentId: tournamentId)
         let params: [String: Any] = [
             "team_id": teamId,
-            "requesting_user_id": requestingUserId
+            "requesting_user_id": requestingUserId,
+            "agreements_accepted": agreementsAccepted
         ]
         post(endpoint, parameters: params, completion: completion)
     }

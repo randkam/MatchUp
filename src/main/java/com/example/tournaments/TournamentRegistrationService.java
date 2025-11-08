@@ -57,8 +57,29 @@ public class TournamentRegistrationService {
         }
 
         // Prevent duplicate team registration
-        if (registrationRepository.existsByTournamentIdAndTeamId(tournamentId, teamId)) {
-            throw new IllegalStateException("This team is already registered for the tournament");
+        java.util.Optional<TournamentRegistration> existingOpt = registrationRepository.findByTournamentIdAndTeamId(tournamentId, teamId);
+        if (existingOpt.isPresent()) {
+            TournamentRegistration existing = existingOpt.get();
+            if ("REGISTERED".equals(existing.getStatus())) {
+                throw new IllegalStateException("This team is already registered for the tournament");
+            }
+            // If a cancelled (or other non-active) registration exists, reactivate it instead of inserting a new row.
+            existing.setStatus("REGISTERED");
+            existing.setCheckedIn(false);
+            TournamentRegistration saved = registrationRepository.save(existing);
+
+            // If we hit capacity after this registration, mark tournament as FULL
+            long newCount = registrationRepository.countRegisteredByTournamentId(tournamentId);
+            if (newCount == tournament.getMaxTeams() && tournament.getStatus() != TournamentStatus.FULL) {
+                tournament.setStatus(TournamentStatus.FULL);
+                tournamentRepository.save(tournament);
+            }
+
+            // Create activity (single row) with snapshot and payload message
+            String teamName = teamRepository.findById(teamId).map(t -> t.getName()).orElse(null);
+            String dedupeKey = "TEAM_REGISTERED_TOURNAMENT:" + tournamentId + ":" + teamId;
+            activityService.createTeamEvent("TEAM_REGISTERED_TOURNAMENT", teamId, requestingUserId, teamName, tournamentId, dedupeKey);
+            return saved;
         }
 
         // Prevent a player from registering twice across teams
