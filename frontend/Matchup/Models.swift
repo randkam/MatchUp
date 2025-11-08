@@ -30,9 +30,9 @@ struct Tournament: Identifiable, Codable {
     let depositHoldCents: Int?
     let currency: String?
     let prizeCents: Int?
-    let signupDeadline: Date
-    let startsAt: Date
-    let endsAt: Date?
+	let signupDeadline: Date
+	let startsAt: Date
+	let endsAt: Date?
     let location: String?
     let status: TournamentStatus
     let createdBy: Int
@@ -53,6 +53,132 @@ struct Tournament: Identifiable, Codable {
         case status
         case createdBy = "created_by"
     }
+	
+	// Custom decoder to robustly handle date formats and empty strings for ends_at
+	init(from decoder: Decoder) throws {
+		let container = try decoder.container(keyedBy: CodingKeys.self)
+		id = try container.decode(Int.self, forKey: .id)
+		name = try container.decode(String.self, forKey: .name)
+		formatSize = try container.decode(Int.self, forKey: .formatSize)
+		maxTeams = try container.decode(Int.self, forKey: .maxTeams)
+		entryFeeCents = try container.decodeIfPresent(Int.self, forKey: .entryFeeCents)
+		depositHoldCents = try container.decodeIfPresent(Int.self, forKey: .depositHoldCents)
+		currency = try container.decodeIfPresent(String.self, forKey: .currency)
+		prizeCents = try container.decodeIfPresent(Int.self, forKey: .prizeCents)
+		location = try container.decodeIfPresent(String.self, forKey: .location)
+		status = try container.decode(TournamentStatus.self, forKey: .status)
+		createdBy = try container.decode(Int.self, forKey: .createdBy)
+		
+		// Parse signupDeadline
+		if let str = try? container.decode(String.self, forKey: .signupDeadline) {
+			guard let d = Tournament.parseFlexibleDate(str) else {
+				throw DecodingError.dataCorruptedError(forKey: .signupDeadline, in: container, debugDescription: "Invalid date '\(str)'")
+			}
+			signupDeadline = d
+		} else if let ts = try? container.decode(Double.self, forKey: .signupDeadline) {
+			signupDeadline = Date(timeIntervalSince1970: ts)
+		} else if let ts = try? container.decode(Int.self, forKey: .signupDeadline) {
+			// Assume seconds
+			signupDeadline = Date(timeIntervalSince1970: TimeInterval(ts))
+		} else {
+			throw DecodingError.dataCorruptedError(forKey: .signupDeadline, in: container, debugDescription: "Missing or invalid signup_deadline")
+		}
+		
+		// Parse startsAt
+		if let str = try? container.decode(String.self, forKey: .startsAt) {
+			guard let d = Tournament.parseFlexibleDate(str) else {
+				throw DecodingError.dataCorruptedError(forKey: .startsAt, in: container, debugDescription: "Invalid date '\(str)'")
+			}
+			startsAt = d
+		} else if let ts = try? container.decode(Double.self, forKey: .startsAt) {
+			startsAt = Date(timeIntervalSince1970: ts)
+		} else if let ts = try? container.decode(Int.self, forKey: .startsAt) {
+			startsAt = Date(timeIntervalSince1970: TimeInterval(ts))
+		} else {
+			throw DecodingError.dataCorruptedError(forKey: .startsAt, in: container, debugDescription: "Missing or invalid starts_at")
+		}
+		
+		// Parse endsAt (empty string or null => nil)
+		if let s = ((try? container.decodeIfPresent(String.self, forKey: .endsAt)) ?? nil)?
+			.trimmingCharacters(in: .whitespacesAndNewlines), !s.isEmpty {
+			endsAt = Tournament.parseFlexibleDate(s)
+		} else if let d = ((try? container.decodeIfPresent(Double.self, forKey: .endsAt)) ?? nil) {
+			endsAt = Date(timeIntervalSince1970: d)
+		} else if let i = ((try? container.decodeIfPresent(Int.self, forKey: .endsAt)) ?? nil) {
+			endsAt = Date(timeIntervalSince1970: TimeInterval(i))
+		} else {
+			endsAt = nil
+		}
+	}
+	
+	private static func parseFlexibleDate(_ s: String) -> Date? {
+		let trimmed = s.trimmingCharacters(in: .whitespacesAndNewlines)
+		if trimmed.isEmpty { return nil }
+		// ISO8601 with fractional seconds
+		let isoFrac = ISO8601DateFormatter()
+		isoFrac.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+		if let d = isoFrac.date(from: trimmed) { return d }
+		// ISO8601
+		let iso = ISO8601DateFormatter()
+		iso.formatOptions = [.withInternetDateTime]
+		if let d = iso.date(from: trimmed) { return d }
+		// Common explicit formats (assume UTC if tz missing)
+		let formats = [
+			"yyyy-MM-dd'T'HH:mm:ss.SSSZ",
+			"yyyy-MM-dd'T'HH:mm:ss.SSS",
+			"yyyy-MM-dd HH:mm:ss.SSS",
+			"yyyy-MM-dd'T'HH:mm:ss",
+			"yyyy-MM-dd HH:mm:ss",
+			"yyyy-MM-dd"
+		]
+		let df = DateFormatter()
+		df.locale = Locale(identifier: "en_US_POSIX")
+		df.timeZone = TimeZone(secondsFromGMT: 0)
+		for f in formats {
+			df.dateFormat = f
+			if let d = df.date(from: trimmed) { return d }
+		}
+		// Epoch milliseconds in string
+		if let ms = Double(trimmed), ms > 100000000000 {
+			return Date(timeIntervalSince1970: ms / 1000.0)
+		}
+		// Epoch seconds in string
+		if let sec = Double(trimmed), sec > 1000000000 {
+			return Date(timeIntervalSince1970: sec)
+		}
+		return nil
+	}
+	
+	// Explicit memberwise initializer for call sites (e.g., previews)
+	init(id: Int,
+	     name: String,
+	     formatSize: Int,
+	     maxTeams: Int,
+	     entryFeeCents: Int?,
+	     depositHoldCents: Int?,
+	     currency: String?,
+	     prizeCents: Int?,
+	     signupDeadline: Date,
+	     startsAt: Date,
+	     endsAt: Date?,
+	     location: String?,
+	     status: TournamentStatus,
+	     createdBy: Int) {
+		self.id = id
+		self.name = name
+		self.formatSize = formatSize
+		self.maxTeams = maxTeams
+		self.entryFeeCents = entryFeeCents
+		self.depositHoldCents = depositHoldCents
+		self.currency = currency
+		self.prizeCents = prizeCents
+		self.signupDeadline = signupDeadline
+		self.startsAt = startsAt
+		self.endsAt = endsAt
+		self.location = location
+		self.status = status
+		self.createdBy = createdBy
+	}
 }
 
 // Tournament match models

@@ -13,15 +13,15 @@ public interface TournamentRegistrationRepository extends JpaRepository<Tourname
     Optional<TournamentRegistration> findByTournamentIdAndTeamId(Long tournamentId, Long teamId);
     List<TournamentRegistration> findByTeamId(Long teamId);
 
-    @Query("SELECT COUNT(tr) > 0 FROM TournamentRegistration tr WHERE tr.tournamentId = :tournamentId AND tr.teamId = :teamId")
+    @Query("SELECT COUNT(tr) > 0 FROM TournamentRegistration tr WHERE tr.tournamentId = :tournamentId AND tr.teamId = :teamId AND tr.status = 'REGISTERED'")
     boolean existsByTournamentIdAndTeamId(Long tournamentId, Long teamId);
 
     // Returns list of userIds that are on any team already registered for the tournament
-    @Query("SELECT DISTINCT tm.userId FROM com.example.teams.TeamMember tm WHERE tm.teamId IN (SELECT tr.teamId FROM TournamentRegistration tr WHERE tr.tournamentId = :tournamentId)")
+    @Query("SELECT DISTINCT tm.userId FROM com.example.teams.TeamMember tm WHERE tm.teamId IN (SELECT tr.teamId FROM TournamentRegistration tr WHERE tr.tournamentId = :tournamentId AND tr.status = 'REGISTERED')")
     List<Long> findAllUserIdsAlreadyInTournament(Long tournamentId);
 
     // Returns list of teamIds registered for the tournament
-    @Query("SELECT tr.teamId FROM TournamentRegistration tr WHERE tr.tournamentId = :tournamentId")
+    @Query("SELECT tr.teamId FROM TournamentRegistration tr WHERE tr.tournamentId = :tournamentId AND tr.status = 'REGISTERED'")
     List<Long> findRegisteredTeamIds(Long tournamentId);
 
     @Query("SELECT COUNT(tr) FROM TournamentRegistration tr WHERE tr.tournamentId = :tournamentId AND tr.status = 'REGISTERED'")
