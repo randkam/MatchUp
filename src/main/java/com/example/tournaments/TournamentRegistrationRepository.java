@@ -34,9 +34,17 @@ public interface TournamentRegistrationRepository extends JpaRepository<Tourname
     @Query("SELECT t FROM TournamentRegistration tr JOIN Tournament t ON t.id = tr.tournamentId WHERE tr.teamId = :teamId AND t.startsAt >= CURRENT_TIMESTAMP ORDER BY t.startsAt ASC")
     List<Tournament> findUpcomingTournamentsForTeam(Long teamId);
 
+    // Live tournaments for a team
+    @Query("SELECT t FROM TournamentRegistration tr JOIN Tournament t ON t.id = tr.tournamentId WHERE tr.teamId = :teamId AND t.startsAt <= CURRENT_TIMESTAMP AND (t.endsAt IS NULL OR t.endsAt >= CURRENT_TIMESTAMP) ORDER BY t.startsAt ASC")
+    List<Tournament> findLiveTournamentsForTeam(Long teamId);
+
     // Past tournaments for a team (ended already: endsAt < now OR endsAt is null and startsAt < now)
     @Query("SELECT t FROM TournamentRegistration tr JOIN Tournament t ON t.id = tr.tournamentId WHERE tr.teamId = :teamId AND ((t.endsAt IS NOT NULL AND t.endsAt < CURRENT_TIMESTAMP) OR (t.endsAt IS NULL AND t.startsAt < CURRENT_TIMESTAMP)) ORDER BY COALESCE(t.endsAt, t.startsAt) DESC")
     List<Tournament> findPastTournamentsForTeam(Long teamId);
+
+    // Check if a team is currently in a live tournament window (startsAt <= now AND (endsAt is null OR endsAt >= now))
+    @Query("SELECT COUNT(tr) > 0 FROM TournamentRegistration tr JOIN Tournament t ON t.id = tr.tournamentId WHERE tr.teamId = :teamId AND tr.status = 'REGISTERED' AND t.startsAt <= CURRENT_TIMESTAMP AND (t.endsAt IS NULL OR t.endsAt >= CURRENT_TIMESTAMP)")
+    boolean teamHasLiveTournament(Long teamId);
 }
 
 

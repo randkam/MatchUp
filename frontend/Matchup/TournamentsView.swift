@@ -11,7 +11,6 @@ struct TournamentsView: View {
     @State private var hasMoreUpcoming: Bool = true
     @State private var hasMorePast: Bool = true
     @State private var query: String = ""
-    @State private var selectedFilter: TournamentFilter = .all
     @State private var sortOption: TournamentSortOption = .soonest
     @State private var isAdmin: Bool = false
     private let pageSize: Int = 20
@@ -27,8 +26,6 @@ struct TournamentsView: View {
 				ScrollView {
 					VStack(spacing: 16) {
 						segmentBar
-						filterBar
-							.padding(.horizontal)
 						Group {
 							if let errorMessage = errorMessage {
 								errorState(errorMessage)
@@ -75,7 +72,6 @@ struct TournamentsView: View {
             isAdmin = (UserDefaults.standard.string(forKey: "userRole") ?? "USER").uppercased() == "ADMIN"
         }
         .animation(.easeInOut(duration: 0.25), value: displayedTournaments.map { $0.id })
-        .animation(.easeInOut(duration: 0.25), value: selectedFilter)
         .animation(.easeInOut(duration: 0.25), value: sortOption)
     }
 
@@ -110,17 +106,6 @@ struct TournamentsView: View {
             list = list.filter { t in
                 t.name.lowercased().contains(q) || (t.location ?? "").lowercased().contains(q)
             }
-        }
-        switch selectedFilter {
-        case .all: break
-        case .open:
-            list = list.filter { $0.status == .signupsOpen }
-        case .free:
-            list = list.filter { ($0.entryFeeCents ?? 0) <= 0 }
-        case .live:
-			list = list.filter { isLiveTournament($0) }
-        case .complete:
-            list = list.filter { $0.status == .complete }
         }
         switch sortOption {
         case .soonest:
@@ -259,38 +244,6 @@ struct TournamentsView: View {
 		return t.status == .complete
 	}
 
-    private var filterBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                filterChip(title: "All", filter: .all)
-                filterChip(title: "Open", filter: .open)
-                filterChip(title: "Free", filter: .free)
-                filterChip(title: "Live", filter: .live)
-                filterChip(title: "Complete", filter: .complete)
-            }
-            .padding(.vertical, 4)
-        }
-    }
-
-    private func filterChip(title: String, filter: TournamentFilter) -> some View {
-        Button(action: { selectedFilter = filter }) {
-            Text(title)
-                .font(ModernFontScheme.caption)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(
-                    (selectedFilter == filter ? ModernColorScheme.accentMinimal.opacity(0.9) : ModernColorScheme.surface)
-                )
-                .foregroundColor(selectedFilter == filter ? .white : ModernColorScheme.text)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(selectedFilter == filter ? Color.white.opacity(0.18) : Color.black.opacity(0.08), lineWidth: 1)
-                )
-                .cornerRadius(10)
-        }
-        .buttonStyle(.plain)
-    }
-
     private var sortMenu: some View {
         Menu {
             Picker("Sort by", selection: $sortOption) {
@@ -346,8 +299,6 @@ struct TournamentsView: View {
         .padding()
     }
 }
-
-private enum TournamentFilter { case all, open, free, live, complete }
 
 private enum TournamentSortOption: CaseIterable { case soonest, prize, entryFee, teamSlots
     var title: String {

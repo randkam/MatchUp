@@ -250,7 +250,36 @@ struct TeamDetailedView: View {
                     throw DecodingError.dataCorrupted(DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid date: \(dateString)"))
                 }
                 if let list = try? decoder.decode([Tournament].self, from: data) {
-                    self.upcomingTournaments = list
+                    // Exclude past/completed; include live
+                    var upcoming = list.filter { !isPastOrCompleted($0) }
+                    // Also merge live tournaments that this team is registered in
+                    network.getLiveTournaments(page: 0, size: 50) { result in
+                        switch result {
+                        case .failure(_):
+                            self.upcomingTournaments = upcoming
+                        case .success(let page):
+                            let lives = page.content
+                            let dg = DispatchGroup()
+                            var extra: [Tournament] = []
+                            let q = DispatchQueue(label: "team.live.filter")
+                            for t in lives {
+                                dg.enter()
+                                network.getTournamentRegistrationsExpanded(tournamentId: t.id) { resp in
+                                    if case .success(let regs) = resp, regs.contains(where: { $0.teamId == team.id }) {
+                                        q.async { extra.append(t) }
+                                    }
+                                    dg.leave()
+                                }
+                            }
+                            dg.notify(queue: .main) {
+                                let existingIds = Set(upcoming.map { $0.id })
+                                let toAdd = extra.filter { !existingIds.contains($0.id) }
+                                self.upcomingTournaments = upcoming + toAdd
+                            }
+                        }
+                    }
+                } else {
+                    self.upcomingTournaments = []
                 }
             }
         }.resume()
@@ -277,7 +306,8 @@ struct TeamDetailedView: View {
                     throw DecodingError.dataCorrupted(DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid date: \(dateString)"))
                 }
                 if let list = try? decoder.decode([Tournament].self, from: data) {
-                    self.pastTournaments = list
+                    // Ended or complete only
+                    self.pastTournaments = list.filter { isPastOrCompleted($0) }
                 }
             }
         }.resume()
@@ -366,6 +396,20 @@ struct TeamDetailedView: View {
         }
         return "\(startDate), \(startTime)"
     }
+    
+    // MARK: - Status helpers (match TournamentsView)
+    private func isLiveTournament(_ t: Tournament) -> Bool {
+        return t.startsAt <= Date() && t.endsAt == nil
+    }
+    private func isPastTournament(_ t: Tournament) -> Bool {
+        guard let end = t.endsAt else { return false }
+        return end <= Date()
+    }
+    private func isPastOrCompleted(_ t: Tournament) -> Bool {
+        if isLiveTournament(t) { return false }
+        if isPastTournament(t) { return true }
+        return t.status == .complete
+    }
 }
 
 // MARK: - Team tournaments row (used in TeamDetailedView)
@@ -418,6 +462,19 @@ private struct TeamTournamentRow: View {
                 }
             }
             Spacer()
+        }
+        .overlay(alignment: .topTrailing) {
+            if !isPast && tournament.startsAt <= Date() && tournament.endsAt == nil {
+                Text("LIVE")
+                    .font(.system(size: 10, weight: .bold))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Color.red.opacity(0.95))
+                    .foregroundColor(.white)
+                    .clipShape(Capsule())
+                    .padding(.top, 6)
+                    .padding(.trailing, 6)
+            }
         }
         .padding(10)
         .background(ModernColorScheme.surface)
