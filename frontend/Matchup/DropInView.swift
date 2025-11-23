@@ -2,182 +2,213 @@ import SwiftUI
 
 struct DropInView: View {
     @StateObject private var authCoordinator = AuthenticationCoordinator.shared
-    @State private var logoOpacity: Double = 0
-    @State private var logoScale: CGFloat = 0.7
-    @State private var showContent: Bool = false
-    @State private var taglineOpacity: Double = 0
-    @State private var logoPulse: CGFloat = 1.0
-    @State private var logoPosition: LogoPosition = .center
-    @State private var logoSize: CGFloat = 200
-    
-    enum LogoPosition {
-        case center
-        case top
-    }
+    @State private var isAnimating = false
+
+
+
+
+
+
+
+
+
+
+
 
     var body: some View {
-        ZStack {
-            ModernColorScheme.background
-                .ignoresSafeArea()
-            
-            // Logo - single view that transitions from center to top
-            GeometryReader { geometry in
-                Image("logo")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: logoSize, height: logoSize)
-                    .opacity(logoOpacity)
-                    .scaleEffect(logoScale * logoPulse)
-                    .animation(.easeOut(duration: 0.8), value: logoOpacity)
-                    .animation(.easeInOut(duration: 0.8), value: logoScale)
-                    .animation(.easeInOut(duration: 1.2), value: logoPulse)
-                    .animation(.easeInOut(duration: 0.8), value: logoSize)
-                    .position(
-                        x: geometry.size.width / 2,
-                        y: logoPosition == .top ? 100 : geometry.size.height / 2
-                    )
-                    .animation(.easeInOut(duration: 0.8), value: logoPosition)
-            }
-            
-            VStack(alignment: .leading, spacing: 0) {
-                // Spacer for logo at top
-                if logoPosition == .top {
-                    Spacer()
-                        .frame(height: 180)
-                }
-                
-                // Large left-aligned text - centered vertically, takes most of screen
-                if showContent {
-                    Spacer()
-                        .frame(height: 40)
-                    
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text("Drop In")
-                            .font(.system(size: 95, weight: .bold, design: .default))
-                            .foregroundColor(ModernColorScheme.text)
-                            .opacity(taglineOpacity)
-                            .offset(x: taglineOpacity == 1 ? 0 : -20)
-                            .animation(.easeOut(duration: 0.6), value: taglineOpacity)
-                        
-                        Text("The 6ix")
-                            .font(.system(size: 95, weight: .bold, design: .default))
-                            .foregroundColor(ModernColorScheme.text)
-                            .padding(.top, 4)
-                            .opacity(taglineOpacity)
-                            .offset(x: taglineOpacity == 1 ? 0 : -20)
-                            .animation(.easeOut(duration: 0.6).delay(0.1), value: taglineOpacity)
-                        
-                        Text("Find Your Next Game")
-                            .font(.system(size: 24, weight: .regular))
-                            .foregroundColor(ModernColorScheme.textSecondary.opacity(0.8))
-                            .padding(.top, 28)
-                            .padding(.leading, 8)
-                            .opacity(taglineOpacity)
-                            .offset(x: taglineOpacity == 1 ? 0 : -20)
-                            .animation(.easeOut(duration: 0.6).delay(0.2), value: taglineOpacity)
+        VStack(spacing: 30) {
+            // Logo placeholder
+            Image("logo")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 300, height: 400)
+                .padding(.top, 50)
+                .opacity(isAnimating ? 1 : 0)
+                .scaleEffect(isAnimating ? 1 : 0.5)
+                .animation(.spring(response: 0.6, dampingFraction: 0.8), value: isAnimating)
+
+
+//            Spacer()
+
+            // Welcome text with modern styling and animation
+//            VStack(alignment: .leading, spacing: 5) {
+//                Text("Need runs?")
+//                    .font(.system(size: 45, weight: .bold))
+//                    .foregroundColor(ModernColorScheme.text)
+//                    .opacity(isAnimating ? 1 : 0)
+//                    .offset(x: isAnimating ? 0 : -50)
+//                    .animation(.easeOut(duration: 0.8), value: isAnimating)
+//
+//                Text("MatchUp.")
+//                    .font(.system(size: 45, weight: .bold))
+//                    .foregroundColor(ModernColorScheme.primary)
+//                    .opacity(isAnimating ? 1 : 0)
+//                    .offset(x: isAnimating ? 0 : -50)
+//                    .animation(.easeOut(duration: 0.8).delay(0.2), value: isAnimating)
+//            }
+//            .padding(.bottom, 30)
+//            .frame(maxWidth: .infinity, alignment: .leading)
+
+//            Spacer()
+
+            // Modern styled buttons
+            VStack(spacing: 20) {
+                Button(action: {
+                    withAnimation {
+                        print("Sign in via Email button pressed")
+                        authCoordinator.showLogin()
                     }
-                    .padding(.leading, 24)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                
-                Spacer()
-                
-                // Uber-style buttons - appear after animation
-                if showContent {
-                    VStack(spacing: 0) {
-                        // Primary button - large and bold
-                        Button(action: {
-                            authCoordinator.showCreateAccount()
-                        }) {
-                            Text("Get started")
-                                .font(.system(size: 18, weight: .semibold))
-                                .foregroundColor(ModernColorScheme.text)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 56)
-                                .background(ModernColorScheme.primary)
-                                .cornerRadius(8)
-                        }
-                        .padding(.horizontal, 24)
-                        .padding(.bottom, 16)
-                        .opacity(showContent ? 1 : 0)
-                        .offset(y: showContent ? 0 : 20)
-                        .animation(.easeOut(duration: 0.6).delay(0.3), value: showContent)
-                        
-                        // Secondary button - clean and minimal
-                        Button(action: {
-                            authCoordinator.showLogin()
-                        }) {
-                            Text("Sign in")
-                                .font(.system(size: 18, weight: .regular))
-                                .foregroundColor(ModernColorScheme.text)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 56)
-                                .background(Color.clear)
-                        }
-                        .padding(.horizontal, 24)
-                        .opacity(showContent ? 1 : 0)
-                        .offset(y: showContent ? 0 : 20)
-                        .animation(.easeOut(duration: 0.6).delay(0.4), value: showContent)
+                }) {
+                    HStack {
+                        Image(systemName: "envelope.fill")
+                            .foregroundColor(ModernColorScheme.text)
+                        Text("Sign in")
+                            .font(ModernFontScheme.body)
+
+
+
+
+                            .foregroundColor(ModernColorScheme.text)
+
+
+
+
+
+
+
+
+
+
+
+
+
                     }
-                    .padding(.bottom, 50)
-                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(ModernColorScheme.primary)
+                    .cornerRadius(15)
+                    .shadow(color: ModernColorScheme.primary.opacity(0.3), radius: 10, x: 0, y: 5)
+                }
+
+                Text("OR")
+                    .font(ModernFontScheme.body)
+                    .foregroundColor(ModernColorScheme.textSecondary)
+                    .padding(.vertical, 5)
+
+                Button(action: {
+                    withAnimation {
+                        print("Create an Account button pressed")
+                        authCoordinator.showCreateAccount()
+                    }
+                }) {
+                    HStack {
+                        Image(systemName: "person.fill.badge.plus")
+                            .foregroundColor(ModernColorScheme.text)
+                        Text("Create an Account")
+                            .font(ModernFontScheme.body)
+                            .foregroundColor(ModernColorScheme.text)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(ModernColorScheme.accentMinimal)
+                    .cornerRadius(15)
+                    .shadow(color: ModernColorScheme.accentMinimal.opacity(0.3), radius: 10, x: 0, y: 5)
                 }
             }
+            .padding(.horizontal)
+            .padding(.bottom)
+            .opacity(isAnimating ? 1 : 0)
+            .offset(y: isAnimating ? 0 : 50)
+            .animation(.easeOut(duration: 0.8).delay(0.6), value: isAnimating)
+
+            // Footer with modern styling
+//            Text("By continuing, you agree to the Terms and Conditions")
+//                .font(ModernFontScheme.caption)
+//                .foregroundColor(ModernColorScheme.textSecondary)
+//                .padding(.bottom, 20)
+//                .frame(maxWidth: .infinity, alignment: .center)
+//                .opacity(isAnimating ? 1 : 0)
+//                .offset(y: isAnimating ? 0 : 20)
+//                .animation(.easeOut(duration: 0.8).delay(0.8), value: isAnimating)
         }
+        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(ModernColorScheme.background.ignoresSafeArea())
         .onAppear {
-            // Phase 1: Logo fades in and scales up in center (0.6s)
-            withAnimation(.easeOut(duration: 0.6)) {
-                logoOpacity = 1.0
-                logoScale = 1.0
-            }
-            
-            // Phase 2: Obvious fade in/out animation (starts at 0.8s, runs for ~1.5s)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-                // Fade out
-                withAnimation(.easeInOut(duration: 0.5)) {
-                    logoOpacity = 0.3
-                }
-                // Fade in
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    withAnimation(.easeInOut(duration: 0.5)) {
-                        logoOpacity = 1.0
-                    }
-                }
-                // Fade out again
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                    withAnimation(.easeInOut(duration: 0.5)) {
-                        logoOpacity = 0.3
-                    }
-                }
-                // Fade in again
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                    withAnimation(.easeInOut(duration: 0.5)) {
-                        logoOpacity = 1.0
-                    }
-                }
-            }
-            
-            // Phase 3: After ~2.5 seconds, transition logo to top and show content
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-                // Animate logo to top center (bigger size at top)
-                withAnimation(.easeInOut(duration: 0.8)) {
-                    logoPulse = 1.0
-                    logoScale = 0.6  // Scale down to 120px (200 * 0.6)
-                    logoSize = 120
-                    logoPosition = .top
-                    logoOpacity = 1.0
-                }
-                
-                // Show content after logo transition
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    showContent = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        withAnimation(.easeOut(duration: 0.6)) {
-                            taglineOpacity = 1.0
-                        }
-                    }
-                }
-            }
+            isAnimating = true
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         }
     }
 }
