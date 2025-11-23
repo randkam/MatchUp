@@ -5,22 +5,50 @@ struct LoadingScreenView: View {
     @StateObject private var authCoordinator = AuthenticationCoordinator.shared
     @State private var player: AVPlayer?
     @State private var isLoadingComplete = false
+    @State private var logoOpacity: Double = 0
     
     var body: some View {
-        VStack {
-            if let player = player {
-                VideoPlayerView(player: player)
-                    .frame(width: 250, height: 250) // Adjust the size as needed
-                    .background(Color.clear)
-                    .onAppear {
-                        player.play()
-                    }
-            }
+        ZStack {
+            ModernColorScheme.background
+                .ignoresSafeArea()
             
-            ProgressView()
-                .progressViewStyle(CircularProgressViewStyle(tint: .blue))
-                .scaleEffect(2) // Adjust the size of the loading circle
-                .padding(.top, 50)
+            VStack(spacing: 0) {
+                Spacer()
+                
+                // Logo/Video - minimal and clean
+                if let player = player {
+                    VideoPlayerView(player: player)
+                        .frame(width: 160, height: 160)
+                        .clipShape(RoundedRectangle(cornerRadius: 20))
+                        .opacity(logoOpacity)
+                        .onAppear {
+                            player.play()
+                            withAnimation(.easeIn(duration: 0.6)) {
+                                logoOpacity = 1.0
+                            }
+                        }
+                } else {
+                    Image("logo")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 160, height: 160)
+                        .clipShape(RoundedRectangle(cornerRadius: 20))
+                        .opacity(logoOpacity)
+                        .onAppear {
+                            withAnimation(.easeIn(duration: 0.6)) {
+                                logoOpacity = 1.0
+                            }
+                        }
+                }
+                
+                // Minimal loading indicator
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle(tint: ModernColorScheme.primary))
+                    .scaleEffect(1.0)
+                    .padding(.top, 60)
+                
+                Spacer()
+            }
             
             if isLoadingComplete {
                 NavigationLink(destination: CustomTabView()) {
@@ -31,7 +59,6 @@ struct LoadingScreenView: View {
                 .disabled(!isLoadingComplete)
             }
         }
-        .padding()
         .onAppear {
             setupPlayer()
         }
@@ -40,7 +67,7 @@ struct LoadingScreenView: View {
     private func setupPlayer() {
         if let url = Bundle.main.url(forResource: "logo", withExtension: "mp4") {
             player = AVPlayer(url: url)
-            player?.isMuted = true // Mute the video if needed
+            player?.isMuted = true
             player?.actionAtItemEnd = .none
             NotificationCenter.default.addObserver(
                 forName: .AVPlayerItemDidPlayToEndTime,
@@ -50,13 +77,16 @@ struct LoadingScreenView: View {
                 player?.seek(to: .zero)
                 player?.play()
             }
-            // Start playing the video and set the timer for 5 seconds
             player?.play()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 20) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
                 isLoadingComplete = true
             }
         } else {
             print("Error: Video file not found")
+            // Still allow navigation after delay even if video fails
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                isLoadingComplete = true
+            }
         }
     }
 }

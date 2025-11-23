@@ -11,203 +11,171 @@ struct LoginView: View {
     @State private var showPassword = false
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 25) {
-                // Back button
-                Button(action: {
-                    authCoordinator.showDropIn()
-                }) {
-                    // add vertical spacing before top of scereen
-                    Image(systemName: "arrow.left")
-                        .font(.title2)
-                        .foregroundColor(ModernColorScheme.text)
-                        .padding()
-                        .background(ModernColorScheme.surface)
-                        .clipShape(Circle())
-                }
-                .padding(.top, 30) // 👈 add vertical padding from the top
-
-                .opacity(isAnimating ? 1 : 0)
-                .offset(x: isAnimating ? 0 : -50)
-                .animation(.easeOut(duration: 0.8), value: isAnimating)
-
-                // Title
-                // VStack(alignment: .leading, spacing: 12) {
-                //     HStack {
-
-                //     Text("Sign in to continue")
-                //         .font(ModernFontScheme.body)
-                //         .foregroundColor(ModernColorScheme.textSecondary)
-                // }
-                // .opacity(isAnimating ? 1 : 0)
-                // .offset(x: isAnimating ? 0 : -50)
-                // .animation(.easeOut(duration: 0.8).delay(0.2), value: isAnimating)
-
-                // Input fields
-                VStack(spacing: 20) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Email or Username")
-                            .font(ModernFontScheme.caption)
-                            .foregroundColor(ModernColorScheme.textSecondary)
-
-                        TextField("", text: $emailOrUsername)
-                            .font(ModernFontScheme.body)
-                            .padding()
-                            .background(ModernColorScheme.surface)
+        ZStack {
+            ModernColorScheme.background
+                .ignoresSafeArea()
+            
+            VStack(spacing: 0) {
+                // Uber-style back button - shifted down
+                HStack {
+                    Button(action: {
+                        authCoordinator.showDropIn()
+                    }) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 18, weight: .medium))
                             .foregroundColor(ModernColorScheme.text)
-                            .tint(.white)
-                            .cornerRadius(12)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(ModernColorScheme.brandBlue.opacity(0.3), lineWidth: 1)
-                            )
+                            .frame(width: 44, height: 44)
                     }
+                    .padding(.leading, 20)
+                    .padding(.top, 60)
+                    Spacer()
+                }
+                .opacity(isAnimating ? 1 : 0)
+                .animation(.easeOut(duration: 0.3), value: isAnimating)
+                
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        // Uber-style large title - shifted down
+                        Text("Sign in")
+                            .font(.system(size: 48, weight: .bold, design: .default))
+                            .foregroundColor(ModernColorScheme.text)
+                            .padding(.top, 20)
+                            .opacity(isAnimating ? 1 : 0)
+                            .offset(x: isAnimating ? 0 : -20)
+                            .animation(.easeOut(duration: 0.5).delay(0.1), value: isAnimating)
 
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Text("Password")
-                                .font(ModernFontScheme.caption)
-                                .foregroundColor(ModernColorScheme.textSecondary)
-                            Spacer()
-                            Button("Forgot Password?") {
-                                // Implement forgot password
-                            }
-                            .font(ModernFontScheme.caption)
-                            .foregroundColor(ModernColorScheme.accentMinimal)
-                        }
-
-                        HStack {
-                            if showPassword {
-                                TextField("", text: $password)
-                                    .font(ModernFontScheme.body)
-                                    .foregroundColor(ModernColorScheme.text)
-                                    .tint(.white)
-                            } else {
-                                SecureField("", text: $password)
-                                    .font(ModernFontScheme.body)
-                                    .foregroundColor(ModernColorScheme.text)
-                                    .tint(.white)
-                            }
-
-                            Button(action: { showPassword.toggle() }) {
-                                Image(systemName: showPassword ? "eye.slash.fill" : "eye.fill")
+                        // Uber-style input fields - clean with borders
+                        VStack(spacing: 24) {
+                            // Email field
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Email or username")
+                                    .font(.system(size: 14, weight: .regular))
                                     .foregroundColor(ModernColorScheme.textSecondary)
+                                
+                                TextField("", text: $emailOrUsername)
+                                    .font(.system(size: 18, weight: .regular))
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 16)
+                                    .foregroundColor(ModernColorScheme.text)
+                                    .tint(ModernColorScheme.primary)
+                                    .background(ModernColorScheme.surface)
+                                    .cornerRadius(8)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .stroke(ModernColorScheme.textSecondary.opacity(0.2), lineWidth: 1)
+                                    )
+                            }
+                            .padding(.top, 20)
+
+                            // Password field
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack {
+                                    Text("Password")
+                                        .font(.system(size: 14, weight: .regular))
+                                        .foregroundColor(ModernColorScheme.textSecondary)
+                                    Spacer()
+                                    Button("Forgot?") {
+                                        // Implement forgot password
+                                    }
+                                    .font(.system(size: 14, weight: .regular))
+                                    .foregroundColor(ModernColorScheme.primary)
+                                }
+                                
+                                HStack {
+                                    Group {
+                                        if showPassword {
+                                            TextField("", text: $password)
+                                                .font(.system(size: 18, weight: .regular))
+                                                .foregroundColor(ModernColorScheme.text)
+                                                .tint(ModernColorScheme.primary)
+                                        } else {
+                                            SecureField("", text: $password)
+                                                .font(.system(size: 18, weight: .regular))
+                                                .foregroundColor(ModernColorScheme.text)
+                                                .tint(ModernColorScheme.primary)
+                                        }
+                                    }
+                                    
+                                    Button(action: { 
+                                        showPassword.toggle()
+                                    }) {
+                                        Image(systemName: showPassword ? "eye.slash" : "eye")
+                                            .font(.system(size: 16, weight: .regular))
+                                            .foregroundColor(ModernColorScheme.textSecondary)
+                                    }
+                                    .padding(.trailing, 8)
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 16)
+                                .background(ModernColorScheme.surface)
+                                .cornerRadius(8)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(ModernColorScheme.textSecondary.opacity(0.2), lineWidth: 1)
+                                )
                             }
                         }
-                        .padding()
-                        .background(ModernColorScheme.surface)
-                        .cornerRadius(12)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(ModernColorScheme.brandBlue.opacity(0.3), lineWidth: 1)
-                        )
-                    }
-                }
-                .opacity(isAnimating ? 1 : 0)
-                .offset(y: isAnimating ? 0 : 50)
-                .animation(.easeOut(duration: 0.8).delay(0.4), value: isAnimating)
+                        .opacity(isAnimating ? 1 : 0)
+                        .offset(y: isAnimating ? 0 : 20)
+                        .animation(.easeOut(duration: 0.5).delay(0.2), value: isAnimating)
 
-                // Login button
-                if isLoading {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: ModernColorScheme.brandBlue))
-                        .scaleEffect(1.5)
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 20)
-                } else {
-                    Button(action: login) {
-                        Text("Sign In")
-                            .font(ModernFontScheme.body)
-                            .foregroundColor(ModernColorScheme.text)
+                        // Uber-style large button
+                        if isLoading {
+                            HStack {
+                                Spacer()
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle(tint: ModernColorScheme.text))
+                                Spacer()
+                            }
                             .frame(maxWidth: .infinity)
-                            .padding()
+                            .frame(height: 56)
                             .background(ModernColorScheme.primary)
-                            .cornerRadius(12)
-                            .shadow(color: ModernColorScheme.primary.opacity(0.3), radius: 10, x: 0, y: 5)
-                    }
-                    .padding(.top, 20)
-                    .opacity(isAnimating ? 1 : 0)
-                    .offset(y: isAnimating ? 0 : 50)
-                    .animation(.easeOut(duration: 0.8).delay(0.6), value: isAnimating)
-                }
-
-                // Create account
-                Button(action: {
-                    authCoordinator.showCreateAccount()
-                }) {
-                    HStack {
-                        Text("Don't have an account?")
-                            .font(ModernFontScheme.body)
-                            .foregroundColor(ModernColorScheme.textSecondary)
-                        Text("Sign Up")
-                            .font(ModernFontScheme.body)
-                            .foregroundColor(ModernColorScheme.accentMinimal)
-                            .bold()
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(ModernColorScheme.surface)
-                    .cornerRadius(12)
-                }
-                .padding(.top, 10)
-                .opacity(isAnimating ? 1 : 0)
-                .offset(y: isAnimating ? 0 : 50)
-                .animation(.easeOut(duration: 0.8).delay(0.8), value: isAnimating)
-
-                // Social login buttons moved to bottom
-                VStack(spacing: 15) {
-                    HStack {
-                        Rectangle()
-                            .frame(height: 1)
-                            .foregroundColor(ModernColorScheme.textSecondary.opacity(0.3))
-                        Text("or")
-                            .font(ModernFontScheme.caption)
-                            .foregroundColor(ModernColorScheme.textSecondary)
-                        Rectangle()
-                            .frame(height: 1)
-                            .foregroundColor(ModernColorScheme.textSecondary.opacity(0.3))
-                    }
-
-                    Button(action: { /* Implement Google Sign In */ }) {
-                        HStack {
-                            Image("google_logo")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 24, height: 24)
-                            Text("Continue with Google")
-                                .font(ModernFontScheme.body)
+                            .cornerRadius(8)
+                            .padding(.top, 32)
+                        } else {
+                            Button(action: login) {
+                                Text("Continue")
+                                    .font(.system(size: 18, weight: .semibold))
+                                    .foregroundColor(ModernColorScheme.text)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 56)
+                                    .background(ModernColorScheme.primary)
+                                    .cornerRadius(8)
+                            }
+                            .padding(.top, 32)
+                            .opacity(isAnimating ? 1 : 0)
+                            .offset(y: isAnimating ? 0 : 20)
+                            .animation(.easeOut(duration: 0.5).delay(0.3), value: isAnimating)
                         }
-                        .foregroundColor(ModernColorScheme.text)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(ModernColorScheme.surface)
-                        .cornerRadius(12)
-                    }
 
-                    Button(action: { /* Implement Apple Sign In */ }) {
+                        // Simple sign up link - Uber style
                         HStack {
-                            Image(systemName: "apple.logo")
-                                .font(.title3)
-                            Text("Continue with Apple")
-                                .font(ModernFontScheme.body)
+                            Spacer()
+                            HStack(spacing: 4) {
+                                Text("Don't have an account?")
+                                    .font(.system(size: 15, weight: .regular))
+                                    .foregroundColor(ModernColorScheme.textSecondary)
+                                Text("Sign up")
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundColor(ModernColorScheme.primary)
+                            }
+                            Spacer()
                         }
-                        .foregroundColor(ModernColorScheme.text)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(ModernColorScheme.surface)
-                        .cornerRadius(12)
-                    }
-                }
-                .padding(.top, 20)
-                .opacity(isAnimating ? 1 : 0)
-                .offset(y: isAnimating ? 0 : 50)
-                .animation(.easeOut(duration: 0.8).delay(1.0), value: isAnimating)
+                        .padding(.top, 24)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            authCoordinator.showCreateAccount()
+                        }
+                        .opacity(isAnimating ? 1 : 0)
+                        .offset(y: isAnimating ? 0 : 20)
+                        .animation(.easeOut(duration: 0.5).delay(0.4), value: isAnimating)
 
-                Spacer(minLength: 20)
+                        Spacer(minLength: 40)
+                    }
+                    .padding(.horizontal, 24)
+                }
             }
-            .padding()
         }
-        .background(ModernColorScheme.background.edgesIgnoringSafeArea(.all))
         .alert(isPresented: $showAlert) {
             Alert(
                 title: Text("Error")
