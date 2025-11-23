@@ -9,7 +9,6 @@ import java.util.Map;
 import com.example.activities.ActivityService;
 import com.example.tournaments.Tournament;
 import com.example.tournaments.TournamentRepository;
-import com.example.tournaments.TournamentRegistration;
 import com.example.tournaments.TournamentRegistrationRepository;
 import com.example.tournaments.TournamentStatus;
 
@@ -133,6 +132,11 @@ public class TeamService {
         }
         // If accepting, ensure the user isn't already on another team registered in any same tournament(s)
         if (accept) {
+            // Block accepting invites while the team is in a live tournament
+            boolean teamInLiveTournament = tournamentRegistrationRepository.teamHasLiveTournament(invite.getTeamId());
+            if (teamInLiveTournament) {
+                throw new IllegalStateException("Cannot accept invite while this team is in a live tournament. Try again after it ends.");
+            }
             validateUserNotAlreadyInRegisteredTournament(invite.getTeamId(), invite.getInviteeUserId());
         }
         invite.setStatus(accept ? "ACCEPTED" : "DECLINED");
@@ -221,11 +225,17 @@ public class TeamService {
     }
 
     private void validateUserNotAlreadyInRegisteredTournament(Long teamId, Long userId) {
-        java.util.List<TournamentRegistration> registrationsForTeam = tournamentRegistrationRepository.findByTeamId(teamId);
-        for (TournamentRegistration registration : registrationsForTeam) {
-            java.util.List<Long> userIdsAlreadyInTournament = tournamentRegistrationRepository.findAllUserIdsAlreadyInTournament(registration.getTournamentId());
+        // Consider conflicts for both upcoming and live tournaments; past tournaments are allowed
+        java.util.List<com.example.tournaments.Tournament> upcoming = tournamentRegistrationRepository.findUpcomingTournamentsForTeam(teamId);
+        java.util.List<com.example.tournaments.Tournament> live = tournamentRegistrationRepository.findLiveTournamentsForTeam(teamId);
+        java.util.Map<Long, com.example.tournaments.Tournament> byId = new java.util.HashMap<>();
+        for (com.example.tournaments.Tournament t : upcoming) { byId.put(t.getId(), t); }
+        for (com.example.tournaments.Tournament t : live) { byId.put(t.getId(), t); }
+        for (com.example.tournaments.Tournament t : byId.values()) {
+            java.util.List<Long> userIdsAlreadyInTournament = tournamentRegistrationRepository.findAllUserIdsAlreadyInTournament(t.getId());
             if (userIdsAlreadyInTournament.contains(userId)) {
-                throw new IllegalStateException("User is already on another team registered for this tournament");
+                String msg = "User is already on another team registered for an upcoming or live tournament '" + t.getName() + "' (id: " + t.getId() + ")";
+                throw new InviteConflictException(t.getId(), t.getName(), msg);
             }
         }
     }

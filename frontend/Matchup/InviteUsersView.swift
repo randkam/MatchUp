@@ -6,6 +6,10 @@ struct InviteUsersView: View {
     @State private var results: [User] = []
     @State private var isSearching = false
     @State private var toast: String? = nil
+    @State private var showConflictAlert: Bool = false
+    @State private var conflictTournamentId: Int? = nil
+    @State private var conflictTournamentName: String? = nil
+    @State private var navigateToTournament: Bool = false
     private let network = NetworkManager()
     
     var body: some View {
@@ -85,6 +89,19 @@ struct InviteUsersView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toast(message: toast)
         .onDisappear { debounceWorkItem?.cancel() }
+        // Custom, app-styled conflict dialog
+        .overlay(alignment: .center) {
+            if showConflictAlert {
+                conflictDialog
+            }
+        }
+        .background(
+            NavigationLink(
+                destination: TournamentQuickRouterView(tournamentId: conflictTournamentId ?? -1),
+                isActive: $navigateToTournament
+            ) { EmptyView() }
+            .hidden()
+        )
     }
     
     // MARK: - Search
@@ -119,11 +136,29 @@ struct InviteUsersView: View {
             DispatchQueue.main.async {
                 switch res {
                 case .success: toast = "Invite sent"; performSearch()
-                case .failure(let err): toast = err.localizedDescription
+                case .failure(let err):
+                    let nsErr = err as NSError
+                    if let tid = nsErr.userInfo["tournament_id"] as? Int {
+                        conflictTournamentId = tid
+                        conflictTournamentName = nsErr.userInfo["tournament_name"] as? String
+                        showConflictAlert = true
+                    } else {
+                        toast = err.localizedDescription
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) { toast = nil }
+                    }
                 }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) { toast = nil }
+                if toast != nil {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) { toast = nil }
+                }
             }
         }
+    }
+    
+    private func conflictAlertMessage() -> String {
+        if let name = conflictTournamentName, let tid = conflictTournamentId {
+            return "This user is already registered for tournament '\(name)' which you are registered for."
+        }
+        return "This user is already registered for a tournament which you are registered for."
     }
 
     // MARK: - Subviews
@@ -170,6 +205,78 @@ struct InviteUsersView: View {
 }
 
 // Simple toast view modifier
+private extension InviteUsersView {
+    // App-styled modal dialog matching design language
+    @ViewBuilder
+    var conflictDialog: some View {
+        ZStack {
+            Color.black.opacity(0.35).ignoresSafeArea()
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(spacing: 12) {
+                    ZStack {
+                        Circle()
+                            .fill(ModernColorScheme.accentMinimal.opacity(0.18))
+                            .frame(width: 36, height: 36)
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(ModernColorScheme.accentMinimal)
+                    }
+                    Text("Invite Blocked")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(ModernColorScheme.text)
+                    Spacer(minLength: 0)
+                }
+                
+                // Message
+                Text("This user is already registered for a tournament you’re registered for.")
+                    .foregroundColor(ModernColorScheme.text)
+                    .multilineTextAlignment(.leading)
+                
+                // Highlighted tournament name as a pill button
+                if let name = conflictTournamentName, conflictTournamentId != nil {
+                    Button(action: {
+                        showConflictAlert = false
+                        navigateToTournament = true
+                    }) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "trophy")
+                            Text(name)
+                        }
+                        .font(ModernFontScheme.caption)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(ModernColorScheme.accentMinimal.opacity(0.15))
+                        .foregroundColor(ModernColorScheme.accentMinimal)
+                        .cornerRadius(10)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+                
+                // Actions
+                HStack(spacing: 10) {
+                    Spacer(minLength: 0)
+                    Button("Dismiss") {
+                        showConflictAlert = false
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(ModernColorScheme.surface)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(ModernColorScheme.accentMinimal.opacity(0.06), lineWidth: 1)
+                    )
+                    .shadow(color: Color.black.opacity(0.25), radius: 24, x: 0, y: 10)
+            )
+            .padding(.horizontal, 28)
+        }
+        .transition(.opacity.combined(with: .scale))
+        .animation(.easeInOut(duration: 0.18), value: showConflictAlert)
+    }
+}
+
 private struct ToastModifier: ViewModifier {
     let message: String?
     func body(content: Content) -> some View {
@@ -191,6 +298,47 @@ private struct ToastModifier: ViewModifier {
 
 private extension View {
     func toast(message: String?) -> some View { self.modifier(ToastModifier(message: message)) }
+}
+
+// Lightweight router to present a tournament by id for navigation
+private struct TournamentQuickRouterView: View {
+    let tournamentId: Int
+    @State private var tournament: Tournament? = nil
+    @State private var isLoading = true
+    private let network = NetworkManager()
+    
+    var body: some View {
+        Group {
+            if isLoading {
+                ProgressView().tint(ModernColorScheme.accentMinimal)
+            } else if let t = tournament {
+                TournamentDetailView(tournament: t)
+            } else {
+                VStack(spacing: 12) {
+                    Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.orange)
+                    Text("Tournament not found")
+                        .foregroundColor(ModernColorScheme.text)
+                    Text("Tournament #\(tournamentId)")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+            }
+        }
+        .onAppear(perform: load)
+        .navigationTitle("Tournament")
+    }
+    
+    private func load() {
+        network.getTournamentById(tournamentId: tournamentId) { result in
+            DispatchQueue.main.async {
+                isLoading = false
+                switch result {
+                case .success(let t): tournament = t
+                case .failure: tournament = nil
+                }
+            }
+        }
+    }
 }
 
 

@@ -510,10 +510,23 @@ class NetworkManager {
                 // Try to decode error response
                 if let errorDict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
                     let message = errorDict["message"] as? String ?? "Unknown error"
-                    let error = NSError(domain: "", code: httpResponse.statusCode, userInfo: [
+                    var userInfo: [String: Any] = [
                         NSLocalizedDescriptionKey: message,
                         "statusCode": httpResponse.statusCode
-                    ])
+                    ]
+                    // Pass through structured conflict details if present
+                    if let tid = errorDict["tournament_id"] as? Int {
+                        userInfo["tournament_id"] = tid
+                    } else if let tidNum = errorDict["tournament_id"] as? NSNumber {
+                        userInfo["tournament_id"] = tidNum.intValue
+                    }
+                    if let tname = errorDict["tournament_name"] as? String {
+                        userInfo["tournament_name"] = tname
+                    }
+                    if let code = errorDict["code"] as? String {
+                        userInfo["code"] = code
+                    }
+                    let error = NSError(domain: "", code: httpResponse.statusCode, userInfo: userInfo)
                     completion(.failure(error))
                 } else {
                     completion(.failure(NSError(domain: "", code: httpResponse.statusCode, userInfo: [

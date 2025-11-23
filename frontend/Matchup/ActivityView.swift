@@ -256,9 +256,9 @@ struct ActivityView: View {
                 switch res {
                 case .success:
                     loadInvites()
-                case .failure:
-                    // Show a popup alert for tournament conflict instead of inline error
-                    inviteErrorMessage = "You cannot join this team since they are already registered for a tournament you're already in."
+                case .failure(let err):
+                    // Show the server-provided error (e.g., team in live tournament or conflict)
+                    inviteErrorMessage = err.localizedDescription
                     showInviteErrorAlert = true
                 }
             }

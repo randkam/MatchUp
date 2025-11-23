@@ -310,7 +310,19 @@ struct UserProfileView: View {
                 let queue = DispatchQueue(label: "user.tournaments.merge")
                 for team in teams {
                     group.enter()
+                    // Fetch team upcoming
                     fetchTeamUpcoming(teamId: team.id) { tournaments in
+                        queue.async {
+                            let mapped = tournaments.map { t in
+                                UserTournamentItem(id: t.id, tournament: t, teamId: team.id, teamName: team.name, teamLogoUrl: team.logoUrl)
+                            }
+                            aggregated.append(contentsOf: mapped)
+                            group.leave()
+                        }
+                    }
+                    // Also fetch live tournaments and keep ones this team is registered in
+                    group.enter()
+                    fetchTeamLive(teamId: team.id) { tournaments in
                         queue.async {
                             let mapped = tournaments.map { t in
                                 UserTournamentItem(id: t.id, tournament: t, teamId: team.id, teamName: team.name, teamLogoUrl: team.logoUrl)
@@ -323,7 +335,9 @@ struct UserProfileView: View {
                 group.notify(queue: .main) {
                     // Deduplicate by tournament id and sort by start date
                     let unique = Dictionary(grouping: aggregated, by: { $0.id }).compactMap { $0.value.first }
-                    self.upcomingItems = unique.sorted { $0.tournament.startsAt < $1.tournament.startsAt }
+                    // Apply same logic as tournaments page: upcoming = not past/completed; includes live
+                    let filtered = unique.filter { !isPastOrCompleted($0.tournament) }
+                    self.upcomingItems = filtered.sorted { $0.tournament.startsAt < $1.tournament.startsAt }
                 }
             }
         }
@@ -352,8 +366,40 @@ struct UserProfileView: View {
                 }
                 group.notify(queue: .main) {
                     let unique = Dictionary(grouping: aggregated, by: { $0.id }).compactMap { $0.value.first }
-                    self.pastItems = unique.sorted { $0.tournament.startsAt > $1.tournament.startsAt }
+                    // Past = ended or status complete (exclude live)
+                    let filtered = unique.filter { isPastOrCompleted($0.tournament) }
+                    self.pastItems = filtered.sorted { $0.tournament.startsAt > $1.tournament.startsAt }
                 }
+            }
+        }
+    }
+
+    // Fetch live tournaments that the given team is registered in
+    private func fetchTeamLive(teamId: Int, completion: @escaping ([Tournament]) -> Void) {
+        networkManager.getLiveTournaments(page: 0, size: 50) { result in
+            switch result {
+            case .failure(_):
+                DispatchQueue.main.async { completion([]) }
+            case .success(let page):
+                let liveList = page.content
+                let dg = DispatchGroup()
+                var matches: [Tournament] = []
+                let q = DispatchQueue(label: "user.live.filter")
+                for t in liveList {
+                    dg.enter()
+                    networkManager.getTournamentRegistrationsExpanded(tournamentId: t.id) { resp in
+                        switch resp {
+                        case .failure(_):
+                            break
+                        case .success(let regs):
+                            if regs.contains(where: { $0.teamId == teamId }) {
+                                q.async { matches.append(t) }
+                            }
+                        }
+                        dg.leave()
+                    }
+                }
+                dg.notify(queue: .main) { completion(matches) }
             }
         }
     }
@@ -469,6 +515,20 @@ struct UserProfileView: View {
         }
         return "\(startDate), \(startTime)"
     }
+    
+    // MARK: - Status helpers (match TournamentsView)
+    private func isLiveTournament(_ t: Tournament) -> Bool {
+        return t.startsAt <= Date() && t.endsAt == nil
+    }
+    private func isPastTournament(_ t: Tournament) -> Bool {
+        guard let end = t.endsAt else { return false }
+        return end <= Date()
+    }
+    private func isPastOrCompleted(_ t: Tournament) -> Bool {
+        if isLiveTournament(t) { return false }
+        if isPastTournament(t) { return true }
+        return t.status == .complete
+    }
 }
 
 private struct TournamentCard: View {
@@ -504,10 +564,19 @@ private struct TournamentCard: View {
 
             Spacer()
 
-            NavigationLink(destination: TeamDetailedView(team: TeamModel(id: item.teamId, name: item.teamName, sport: "basketball", ownerUserId: -1, logoUrl: item.teamLogoUrl, createdAt: nil), readonly: true)) {
-                TeamAvatarCircle(name: item.teamName, logoUrl: item.teamLogoUrl)
+        }
+        .overlay(alignment: .topTrailing) {
+            if item.tournament.startsAt <= Date() && item.tournament.endsAt == nil {
+                Text("LIVE")
+                    .font(.system(size: 10, weight: .bold))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Color.red.opacity(0.95))
+                    .foregroundColor(.white)
+                    .clipShape(Capsule())
+                    .padding(.top, 6)
+                    .padding(.trailing, 6)
             }
-            .buttonStyle(.plain)
         }
         .padding(12)
         .background(ModernColorScheme.surface)

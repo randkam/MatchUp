@@ -62,6 +62,13 @@ public class TeamController {
         try {
             TeamInvite invite = teamService.inviteUserToTeam(teamId, inviteeNum.longValue());
             return ResponseEntity.ok(invite);
+        } catch (InviteConflictException ice) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("message", ice.getMessage());
+            error.put("tournament_id", ice.getTournamentId());
+            error.put("tournament_name", ice.getTournamentName());
+            error.put("code", "INVITE_CONFLICT");
+            return ResponseEntity.badRequest().body(error);
         } catch (IllegalStateException e) {
             Map<String, String> error = new HashMap<>();
             error.put("message", e.getMessage());
