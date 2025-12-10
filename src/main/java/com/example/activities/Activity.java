@@ -38,7 +38,7 @@ public class Activity {
     private String dedupeKey;
 
     @PrePersist
-    protected void onCreate() { this.createdAt = LocalDateTime.now(); }
+    protected void onCreate() { this.createdAt = java.time.LocalDateTime.now(java.time.Clock.systemUTC()); }
 
     @JsonProperty("id")
     public Long getId() { return id; }

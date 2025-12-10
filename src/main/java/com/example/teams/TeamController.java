@@ -15,10 +15,25 @@ public class TeamController {
 
     @Autowired
     private TeamService teamService;
+    @Autowired
+    private com.example.users.UserRepository userRepository;
 
     @GetMapping("/user/{userId}")
     public ResponseEntity<List<Team>> getUserTeams(@PathVariable Long userId) {
         return ResponseEntity.ok(teamService.getTeamsForUser(userId));
+    }
+
+    @GetMapping
+    public ResponseEntity<List<Team>> listAll(@RequestParam(name = "requesting_user_id", required = false) Long requestingUserId) {
+        // Only admins can list all teams
+        if (requestingUserId == null) {
+            return ResponseEntity.status(403).build();
+        }
+        String role = userRepository.findById(requestingUserId).map(com.example.users.User::getRole).orElse("USER");
+        if (!"ADMIN".equalsIgnoreCase(role)) {
+            return ResponseEntity.status(403).build();
+        }
+        return ResponseEntity.ok(teamService.listAllTeams());
     }
 
     @GetMapping("/{teamId}")

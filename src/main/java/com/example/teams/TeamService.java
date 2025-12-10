@@ -170,6 +170,10 @@ public class TeamService {
         activityService.createTeamEvent("TEAM_MEMBER_LEFT", teamId, userId, teamName, null, null);
     }
 
+    public List<Team> listAllTeams() {
+        return teamRepository.findAll();
+    }
+
     @Transactional
     public void deleteTeam(Long teamId, Long requestingUserId) {
         Team team = teamRepository.findById(teamId).orElseThrow(() -> new IllegalStateException("Team not found"));

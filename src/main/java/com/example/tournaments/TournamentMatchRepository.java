@@ -12,6 +12,7 @@ public interface TournamentMatchRepository extends JpaRepository<TournamentMatch
     List<TournamentMatch> findByTournamentIdAndRoundNumberOrderByMatchNumberAsc(Long tournamentId, Integer roundNumber);
     boolean existsByTournamentId(Long tournamentId);
     java.util.Optional<TournamentMatch> findByTournamentIdAndRoundNumberAndMatchNumber(Long tournamentId, Integer roundNumber, Integer matchNumber);
+    void deleteByTournamentId(Long tournamentId);
 
     long countByWinnerTeamId(Long teamId);
 

@@ -23,11 +23,25 @@ public class TournamentRegistrationService {
     private TeamMemberRepository teamMemberRepository;
     @Autowired
     private ActivityService activityService;
+    @Autowired
+    private com.example.users.UserRepository userRepository;
 
     public TournamentRegistration registerTeam(Long tournamentId, Long teamId, Long requestingUserId) {
         // Validate tournament exists
         Tournament tournament = tournamentRepository.findById(tournamentId)
                 .orElseThrow(() -> new IllegalStateException("Tournament not found"));
+
+        // Determine admin early for overrides
+        boolean isAdmin = userRepository.findById(requestingUserId)
+                .map(com.example.users.User::getRole)
+                .map(r -> "ADMIN".equalsIgnoreCase(r))
+                .orElse(false);
+        // Treat tournament creator as admin-equivalent for registration purposes
+        if (!isAdmin && tournament.getCreatedBy() != null && requestingUserId != null) {
+            if (java.util.Objects.equals(tournament.getCreatedBy(), requestingUserId)) {
+                isAdmin = true;
+            }
+        }
 
         // Capacity check first, treat FULL as a derived state
         long registeredCount = registrationRepository.countRegisteredByTournamentId(tournamentId);
@@ -39,20 +53,36 @@ public class TournamentRegistrationService {
             throw new IllegalStateException("Tournament is at capacity");
         }
 
-        // Gate signups by status but allow if status was incorrectly FULL while capacity remains
-        boolean signupsAllowedStatus = (tournament.getStatus() == TournamentStatus.SIGNUPS_OPEN
-                || tournament.getStatus() == TournamentStatus.LOCKED
-                || tournament.getStatus() == TournamentStatus.FULL);
+        // Time-based gate: close signups at signup_deadline or 12h before starts_at, whichever comes first
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        boolean pastDeadline = tournament.getSignupDeadline() != null && !now.isBefore(tournament.getSignupDeadline());
+        boolean within12hOfStart = tournament.getStartsAt() != null && !now.isBefore(tournament.getStartsAt().minusHours(12));
+        if ((pastDeadline || within12hOfStart)) {
+            // Lock state; allow ADMIN to continue regardless of start time (capacity still enforced)
+            if (tournament.getStatus() != TournamentStatus.FULL) {
+                tournament.setStatus(TournamentStatus.LOCKED);
+                tournamentRepository.save(tournament);
+            }
+            if (!isAdmin) {
+                throw new IllegalStateException("Tournament signups are closed");
+            }
+        }
+        // Gate by status strictly: only SIGNUPS_OPEN normally, but allow ADMIN while LOCKED (not FULL).
+        boolean signupsAllowedStatus = (tournament.getStatus() == TournamentStatus.SIGNUPS_OPEN);
         if (!signupsAllowedStatus) {
-            throw new IllegalStateException("Tournament signups are not open");
+            boolean allowAdminWhileLocked = isAdmin
+                    && tournament.getStatus() == TournamentStatus.LOCKED;
+            if (!allowAdminWhileLocked) {
+                throw new IllegalStateException("Tournament signups are not open");
+            }
         }
 
         // Validate team exists
         teamRepository.findById(teamId).orElseThrow(() -> new IllegalStateException("Team not found"));
 
-        // Only captain can register
+        // Only captain can register, unless ADMIN overrides
         boolean isCaptain = teamMemberRepository.isCaptain(teamId, requestingUserId);
-        if (!isCaptain) {
+        if (!isCaptain && !isAdmin) {
             throw new IllegalStateException("Only team captains can register teams");
         }
 
@@ -156,19 +186,30 @@ public class TournamentRegistrationService {
         Tournament tournament = tournamentRepository.findById(tournamentId)
                 .orElseThrow(() -> new IllegalStateException("Tournament not found"));
 
-        // Enforce 24-hour lockout before start time
+        // Admin or tournament creator can override time/captain restrictions
+        boolean isAdmin = userRepository.findById(requestingUserId)
+                .map(com.example.users.User::getRole)
+                .map(r -> "ADMIN".equalsIgnoreCase(r))
+                .orElse(false);
+        boolean isOwner = tournament.getCreatedBy() != null && java.util.Objects.equals(tournament.getCreatedBy(), requestingUserId);
+
+        // Enforce 24-hour lockout before start time for non-admins
         java.time.LocalDateTime now = java.time.LocalDateTime.now();
-        if (tournament.getStartsAt() != null && !now.isBefore(tournament.getStartsAt().minusHours(24))) {
-            throw new IllegalStateException("Unregistration window has closed (24 hours before start)");
+        if (!isAdmin && !isOwner) {
+            if (tournament.getStartsAt() != null && !now.isBefore(tournament.getStartsAt().minusHours(24))) {
+                throw new IllegalStateException("Unregistration window has closed (24 hours before start)");
+            }
         }
 
         // Validate team exists
         teamRepository.findById(teamId).orElseThrow(() -> new IllegalStateException("Team not found"));
 
-        // Only captain can unregister the team
-        boolean isCaptain = teamMemberRepository.isCaptain(teamId, requestingUserId);
-        if (!isCaptain) {
-            throw new IllegalStateException("Only team captains can unregister teams");
+        // Only captain can unregister the team, unless admin/owner
+        if (!isAdmin && !isOwner) {
+            boolean isCaptain = teamMemberRepository.isCaptain(teamId, requestingUserId);
+            if (!isCaptain) {
+                throw new IllegalStateException("Only team captains can unregister teams");
+            }
         }
 
         TournamentRegistration reg = registrationRepository

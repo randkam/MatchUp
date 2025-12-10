@@ -15,6 +15,7 @@ struct RegisterTournamentView: View {
     @State private var teamForDetail: TeamModel? = nil
     @State private var agreeRefundPolicy: Bool = false
     @State private var acknowledgeNoShow: Bool = false
+    @State private var isAdmin: Bool = false
     
     private var captainTeams: [TeamModel] {
         let userId = UserDefaults.standard.integer(forKey: "loggedInUserId")
@@ -27,8 +28,9 @@ struct RegisterTournamentView: View {
 
     private var filteredTeams: [TeamModel] {
         let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return captainTeams }
-        return captainTeams.filter { $0.name.localizedCaseInsensitiveContains(trimmed) }
+        let base = isAdmin ? teams : captainTeams
+        guard !trimmed.isEmpty else { return base }
+        return base.filter { $0.name.localizedCaseInsensitiveContains(trimmed) }
     }
     
     var body: some View {
@@ -70,7 +72,7 @@ struct RegisterTournamentView: View {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
                     .foregroundColor(ModernColorScheme.textSecondary)
-                TextField("Search your teams", text: $searchText)
+                TextField(isAdmin ? "Search all teams" : "Search your teams", text: $searchText)
                     .font(ModernFontScheme.body)
                     .foregroundColor(ModernColorScheme.text)
                 if !searchText.isEmpty {
@@ -88,9 +90,24 @@ struct RegisterTournamentView: View {
             .padding(.top, 8)
 
             List {
-                Section(header: Text("Your Teams")) {
-                    if captainTeams.isEmpty {
+                Section(header: Text(isAdmin ? "All Teams" : "Your Teams")) {
+                    let baseList = isAdmin ? teams : captainTeams
+                    if baseList.isEmpty {
                         VStack(spacing: 10) {
+                            if isAdmin {
+                                Image(systemName: "person.3.fill")
+                                    .font(.system(size: 28))
+                                    .foregroundColor(ModernColorScheme.accentMinimal)
+                                    .padding(8)
+                                    .background(ModernColorScheme.primary.opacity(0.12))
+                                    .clipShape(Circle())
+                                Text("No teams found")
+                                    .font(ModernFontScheme.body)
+                                    .foregroundColor(ModernColorScheme.text)
+                                Text("Create a team first, then register it here.")
+                                    .font(ModernFontScheme.caption)
+                                    .foregroundColor(ModernColorScheme.textSecondary)
+                            } else {
                             Image(systemName: "crown.fill")
                                 .font(.system(size: 28))
                                 .foregroundColor(ModernColorScheme.accentMinimal)
@@ -103,6 +120,7 @@ struct RegisterTournamentView: View {
                             Text("Create a team to register for this tournament")
                                 .font(ModernFontScheme.caption)
                                 .foregroundColor(ModernColorScheme.textSecondary)
+                            }
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
@@ -282,7 +300,15 @@ struct RegisterTournamentView: View {
 
     private func loadData() {
         let userId = UserDefaults.standard.integer(forKey: "loggedInUserId")
-        NetworkManager().getTeamsForUser(userId: userId) { result in
+        isAdmin = (UserDefaults.standard.string(forKey: "userRole") ?? "USER").uppercased() == "ADMIN"
+        let loadTeams: (@escaping (Result<[TeamModel], Error>) -> Void) -> Void = { completion in
+            if isAdmin {
+                NetworkManager().getAllTeamsAdmin(requestingUserId: userId, completion: completion)
+            } else {
+                NetworkManager().getTeamsForUser(userId: userId, completion: completion)
+            }
+        }
+        loadTeams { result in
             DispatchQueue.main.async {
                 switch result {
                 case .success(let allTeams):
