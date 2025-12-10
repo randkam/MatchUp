@@ -1,8 +1,8 @@
 import Foundation
 
 struct APIConfig {
-     static let baseAPI = "https://matchup-api.xyz"
-//    static let baseAPI = "http://localhost:9095"
+    //  static let baseAPI = "https://matchup-api.xyz"
+   static let baseAPI = "http://localhost:9095"
     
     // Determine if we're using local or remot  e environment
     private static var isLocal: Bool {
@@ -31,10 +31,25 @@ struct APIConfig {
     static func tournamentMatchScoreEndpoint(tournamentId: Int, matchId: Int, requestingUserId: Int) -> String {
         "\(tournamentsEndpoint)/\(tournamentId)/matches/\(matchId)/score?requesting_user_id=\(requestingUserId)"
     }
+    static func tournamentRegenerateBracketEndpoint(tournamentId: Int, requestingUserId: Int) -> String {
+        "\(tournamentsEndpoint)/\(tournamentId)/bracket/regenerate?requesting_user_id=\(requestingUserId)"
+    }
+    static func tournamentFinalizeEndpoint(tournamentId: Int, requestingUserId: Int) -> String {
+        "\(tournamentsEndpoint)/\(tournamentId)/finalize?requesting_user_id=\(requestingUserId)"
+    }
+    // Attendance endpoints
+    static func tournamentAttendanceListEndpoint(tournamentId: Int) -> String { "\(tournamentsEndpoint)/\(tournamentId)/attendance" }
+    static func tournamentAttendanceUpdateEndpoint(tournamentId: Int, teamId: Int, requestingUserId: Int) -> String {
+        "\(tournamentsEndpoint)/\(tournamentId)/attendance/by-team/\(teamId)?requesting_user_id=\(requestingUserId)"
+    }
+    static func tournamentAttendanceEnforceEndpoint(tournamentId: Int, requestingUserId: Int) -> String {
+        "\(tournamentsEndpoint)/\(tournamentId)/attendance/enforce?requesting_user_id=\(requestingUserId)"
+    }
     static func activitiesEndpoint(userId: Int) -> String { "\(baseAPI)/api/v1/activities/user/\(userId)" }
     static func teamUpcomingTournamentsEndpoint(teamId: Int) -> String { "\(tournamentsEndpoint)/teams/\(teamId)/upcoming" }
     static func teamPastTournamentsEndpoint(teamId: Int) -> String { "\(tournamentsEndpoint)/teams/\(teamId)/past" }
     static func teamTournamentStatsEndpoint(teamId: Int) -> String { "\(teamsEndpoint)/\(teamId)/tournament-stats" }
+    static func allTeamsAdminEndpoint(requestingUserId: Int) -> String { "\(teamsEndpoint)?requesting_user_id=\(requestingUserId)" }
     
     
     // WebSocket configuration

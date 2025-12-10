@@ -10,18 +10,18 @@ public class ActivityTypeInitializer {
     @Bean
     CommandLineRunner seedActivityTypes(ActivityTypeRepository repo) {
         return args -> {
-            upsert(repo, "TEAM_REGISTERED_TOURNAMENT", "registered for a tournament");
-            upsert(repo, "TEAM_MEMBER_ADDED", "joined the team");
-            upsert(repo, "TEAM_DELETED", "team was deleted");
-            upsert(repo, "TEAM_MEMBER_LEFT", "left the team");
-            upsert(repo, "TEAM_INVITE_RECEIVED", "invited you to a team");
+            upsert(repo, "TEAM_REGISTERED_TOURNAMENT", "Registered for a tournament");
+            upsert(repo, "TEAM_MEMBER_ADDED", "Joined the team");
+            upsert(repo, "TEAM_DELETED", "Team was deleted");
+            upsert(repo, "TEAM_MEMBER_LEFT", "Left the team");
+            upsert(repo, "TEAM_INVITE_RECEIVED", "Invited you to a team");
             // Tournament lifecycle & match results
-            upsert(repo, "TOURNAMENT_BRACKET_AVAILABLE", "tournament bracket is available");
-            upsert(repo, "TOURNAMENT_STARTS_SOON", "tournament starts in 12 hours");
-            upsert(repo, "MATCH_RESULT_WIN", "won a match");
-            upsert(repo, "MATCH_RESULT_LOSS", "lost a match");
-            upsert(repo, "TOURNAMENT_COMPLETED", "tournament is complete");
-            upsert(repo, "TOURNAMENT_WINNER", "won the tournament");
+            upsert(repo, "TOURNAMENT_BRACKET_AVAILABLE", "Tournament bracket is available");
+            upsert(repo, "TOURNAMENT_STARTS_SOON", "Tournament starts in 12 hours");
+            upsert(repo, "MATCH_RESULT_WIN", "Won a match");
+            upsert(repo, "MATCH_RESULT_LOSS", "Lost a match");
+            upsert(repo, "TOURNAMENT_COMPLETED", "Tournament is complete");
+            upsert(repo, "TOURNAMENT_WINNER", "Won the tournament");
         };
     }
 

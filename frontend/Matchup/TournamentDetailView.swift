@@ -14,6 +14,7 @@ struct TournamentDetailView: View {
     @State private var latestStatus: TournamentStatus? = nil
     @State private var teamStatsById: [Int: NetworkManager.TeamTournamentStats] = [:]
     @State private var unregisterError: String? = nil
+    @State private var isAdmin: Bool = false
     
     init(tournament: Tournament, startOnRegistered: Bool = false) {
         self.tournament = tournament
@@ -80,10 +81,18 @@ struct TournamentDetailView: View {
             ToolbarItem(placement: .principal) {
                 EmptyView() // hide default title; we use our own large title
             }
+            ToolbarItem(placement: .navigationBarTrailing) {
+                if isAdmin {
+                    NavigationLink(destination: AttendanceView(tournament: tournament)) {
+                        Image(systemName: "checklist")
+                    }
+                }
+            }
         }
         .background(ModernColorScheme.background.edgesIgnoringSafeArea(.all))
         .onAppear {
             loadRegisteredTeams()
+            isAdmin = (UserDefaults.standard.string(forKey: "userRole") ?? "USER").uppercased() == "ADMIN"
         }
     }
     
@@ -108,9 +117,23 @@ struct TournamentDetailView: View {
                     .foregroundColor(ModernColorScheme.text)
                     .lineLimit(2)
                 Spacer(minLength: 8)
-                statusPill(status: latestStatus ?? tournament.status)
+                statusPill(status: effectiveStatus)
             }
         }
+    }
+
+    private var isSignupsClosed: Bool {
+        let now = Date()
+        let deadlinePassed = now >= tournament.signupDeadline
+        let within12h = now >= Calendar.current.date(byAdding: .hour, value: -12, to: tournament.startsAt)!
+        return deadlinePassed || within12h || (latestStatus ?? tournament.status) == .locked || (latestStatus ?? tournament.status) == .full || (latestStatus ?? tournament.status) == .complete
+    }
+    
+    private var effectiveStatus: TournamentStatus {
+        if isSignupsClosed && (latestStatus ?? tournament.status) == .signupsOpen {
+            return .locked
+        }
+        return latestStatus ?? tournament.status
     }
 
     // Overview-only detail content
@@ -132,6 +155,7 @@ struct TournamentDetailView: View {
                     }
                     summaryTile(icon: "calendar", title: "Schedule", value: shortDateRange)
                     summaryTile(icon: "mappin.and.ellipse", title: "Location", value: (tournament.location?.isEmpty == false ? tournament.location! : "TBA"))
+                    summaryTile(icon: "person.badge.clock", title: "Check-in Deadline", value: checkInDeadlineString)
                 }
                 Divider()
                 if let venue = tournament.location, !venue.isEmpty {
@@ -155,6 +179,22 @@ struct TournamentDetailView: View {
                     .fill(ModernColorScheme.surface)
                     .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.black.opacity(0.08), lineWidth: 1))
                     .shadow(color: ModernColorScheme.primary.opacity(0.06), radius: 5, x: 0, y: 2)
+            )
+
+            // Check-in policy message
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundColor(.orange)
+                Text("Teams who do not check in by the check-in deadline are automatically disqualified.")
+                    .font(ModernFontScheme.body)
+                    .foregroundColor(ModernColorScheme.text)
+            }
+            .padding()
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(ModernColorScheme.surface)
+                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.orange.opacity(0.25), lineWidth: 1))
+                    .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 2)
             )
 
             // Notes card
@@ -242,6 +282,17 @@ struct TournamentDetailView: View {
             }
         }
         return "\(startDate), \(startTime)"
+    }
+    
+    private var checkInDeadline: Date {
+        Calendar.current.date(byAdding: .minute, value: -30, to: tournament.startsAt) ?? tournament.startsAt
+    }
+    
+    private var checkInDeadlineString: String {
+        let df = DateFormatter()
+        df.dateStyle = .medium
+        df.timeStyle = .short
+        return df.string(from: checkInDeadline)
     }
 
     private var signupCountdownText: String {
@@ -346,7 +397,7 @@ struct TournamentDetailView: View {
                     .font(ModernFontScheme.caption)
                     .foregroundColor(ModernColorScheme.textSecondary)
                 Spacer()
-                if (latestStatus ?? tournament.status) == .signupsOpen && registeredTeams.count < tournament.maxTeams {
+                if !isSignupsClosed && (latestStatus ?? tournament.status) == .signupsOpen && registeredTeams.count < tournament.maxTeams {
                     if userAlreadyRegistered {
                         // Show message instead of sign up when already registered
                         Text("Already registered")
@@ -360,6 +411,21 @@ struct TournamentDetailView: View {
                     } else {
                         NavigationLink(destination: registerDestination()) {
                             Text("Sign up")
+                                .font(ModernFontScheme.caption)
+                                .fontWeight(.semibold)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(ModernColorScheme.accentMinimal)
+                                .foregroundColor(.white)
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                } else if isSignupsClosed && registeredTeams.count < tournament.maxTeams {
+                    // Allow admins to add teams while locked if there are open slots
+                    if (UserDefaults.standard.string(forKey: "userRole") ?? "USER").uppercased() == "ADMIN" {
+                        NavigationLink(destination: registerDestination()) {
+                            Text("Add team")
                                 .font(ModernFontScheme.caption)
                                 .fontWeight(.semibold)
                                 .padding(.horizontal, 12)
@@ -529,6 +595,7 @@ private struct RegisteredTeamsView: View {
     var onUnregister: (Int) -> Void = { _ in }
     
     @State private var confirmUnregisterTeamId: Int? = nil
+    private var isAdmin: Bool { (UserDefaults.standard.string(forKey: "userRole") ?? "USER").uppercased() == "ADMIN" }
 
     private var registeredCount: Int { min(teams.count, totalSlots) }
     private var display: [DisplayItem] {
@@ -598,7 +665,7 @@ private struct RegisteredTeamsView: View {
         let myTeam = userTeamsById[item.teamId]
         let isCaptain = (myTeam?.ownerUserId ?? -1) == UserDefaults.standard.integer(forKey: "loggedInUserId")
         let canUnregisterNow = Date() < signupDeadline
-        let showUnregister = isUserTeam && isCaptain && canUnregisterNow
+        let showUnregister = isAdmin || (isUserTeam && isCaptain && canUnregisterNow)
         
         ZStack(alignment: .topTrailing) {
             if let my = myTeam {
@@ -613,11 +680,11 @@ private struct RegisteredTeamsView: View {
                 .buttonStyle(.plain)
             }
             
-            if showUnregister {
+            if showUnregister && !item.isEmpty {
                 Button(action: { confirmUnregisterTeamId = item.teamId }) {
                     HStack(spacing: 6) {
                         Image(systemName: "xmark.circle.fill")
-                        Text("Unregister")
+                        Text(isAdmin ? "Remove" : "Unregister")
                     }
                     .font(ModernFontScheme.caption)
                     .padding(.horizontal, 10)
@@ -773,6 +840,8 @@ private struct TournamentBracketSection: View {
     @State private var isGenerating: Bool = false
     private let network = NetworkManager()
     @State private var teamNamesById: [Int: String] = [:]
+    private var isAdmin: Bool { (UserDefaults.standard.string(forKey: "userRole") ?? "USER").uppercased() == "ADMIN" }
+    @State private var isTournamentComplete: Bool = false
 
     private var isWithin24h: Bool {
         let now = Date()
@@ -792,6 +861,10 @@ private struct TournamentBracketSection: View {
         guard final.status == "COMPLETE", let winner = final.winnerTeamId else { return nil }
         return Int(truncatingIfNeeded: winner)
     }
+    
+    private var wasCancelledForInsufficientTeams: Bool {
+        return tournament.status == .complete && championTeamId == nil
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -799,14 +872,52 @@ private struct TournamentBracketSection: View {
                 BracketLockedView(startsAt: tournament.startsAt)
             } else {
                 if matches.isEmpty {
-                    Text("Bracket not generated yet")
-                        .font(ModernFontScheme.body)
-                        .foregroundColor(ModernColorScheme.textSecondary)
+                    if wasCancelledForInsufficientTeams {
+                        cancellationBanner
+                    } else {
+                        Text("Bracket not generated yet")
+                            .font(ModernFontScheme.body)
+                            .foregroundColor(ModernColorScheme.textSecondary)
+                    }
                 } else {
                     BracketCanvasView(rounds: rounds, teamNamesById: teamNamesById, onScoreUpdated: { reload() })
                         .padding(.vertical, 4)
-                    if let champId = championTeamId, let champName = teamNamesById[champId] {
+                    if wasCancelledForInsufficientTeams {
+                        cancellationBanner
+                    } else if let champId = championTeamId, let champName = teamNamesById[champId] {
                         ChampionBanner(teamId: champId, teamName: champName)
+                        if isAdmin {
+                            let announced = isTournamentComplete || tournament.status == .complete
+                            Button(action: announceWinner) {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "megaphone.fill")
+                                    Text(announced ? "Winner Announced" : "Announce Winner")
+                                }
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(announced ? Color.gray : Color.yellow)
+                            .disabled(announced)
+                            .padding(.top, 4)
+                            .confirmationDialog("Announce winner?", isPresented: $showAnnounceConfirm, titleVisibility: .visible) {
+                                Button("Confirm", role: .destructive) {
+                                    performFinalize()
+                                }
+                                Button("Cancel", role: .cancel) { }
+                            } message: {
+                                Text("This will complete the tournament and notify all teams.")
+                            }
+                        }
+                    }
+                    if isAdmin {
+                        Button(action: regenerate) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "arrow.clockwise.circle.fill")
+                                Text("Regenerate Bracket")
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(ModernColorScheme.accentMinimal)
+                        .padding(.top, 8)
                     }
                 }
             }
@@ -817,7 +928,42 @@ private struct TournamentBracketSection: View {
         }
         .onAppear(perform: reload)
     }
+    
+    @State private var showAnnounceConfirm = false
+    private func announceWinner() { showAnnounceConfirm = true }
+    private func performFinalize() {
+        let uid = UserDefaults.standard.integer(forKey: "loggedInUserId")
+        network.finalizeTournament(tournamentId: tournament.id, requestingUserId: uid) { result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(_):
+                    self.errorMessage = nil
+                    self.isTournamentComplete = true
+                    self.reload()
+                case .failure(let err):
+                    self.errorMessage = err.localizedDescription
+                }
+            }
+        }
+    }
 
+    private var cancellationBanner: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundColor(.orange)
+            Text("Tournament was cancelled due to not enough teams checking in.")
+                .font(ModernFontScheme.body)
+                .foregroundColor(ModernColorScheme.text)
+            Spacer()
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(ModernColorScheme.surface)
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.orange.opacity(0.25), lineWidth: 1))
+        )
+    }
+    
     private func reload() {
         let group = DispatchGroup()
         group.enter()
@@ -839,6 +985,30 @@ private struct TournamentBracketSection: View {
                     self.teamNamesById = map
                 }
                 group.leave()
+            }
+        }
+        group.enter()
+        network.getTournamentById(tournamentId: tournament.id) { result in
+            DispatchQueue.main.async {
+                if case .success(let t) = result {
+                    self.isTournamentComplete = (t.status == .complete)
+                }
+                group.leave()
+            }
+        }
+    }
+    
+    private func regenerate() {
+        let uid = UserDefaults.standard.integer(forKey: "loggedInUserId")
+        network.regenerateBracket(tournamentId: tournament.id, requestingUserId: uid) { result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success:
+                    self.errorMessage = nil
+                    self.reload()
+                case .failure(let err):
+                    self.errorMessage = err.localizedDescription
+                }
             }
         }
     }
@@ -1088,6 +1258,7 @@ private struct AdminEditScoreSheet: View, Identifiable {
     @State private var scoreB: String = ""
     @State private var isSaving = false
     @State private var errorMessage: String?
+    @State private var showConfirm: Bool = false
     private let network = NetworkManager()
 
     var body: some View {
@@ -1111,13 +1282,21 @@ private struct AdminEditScoreSheet: View, Identifiable {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel", action: onDismiss) }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(isSaving ? "Saving..." : "Save", action: save).disabled(isSaving)
+                    Button(isSaving ? "Saving..." : "Save") { showConfirm = true }.disabled(isSaving)
                 }
             }
             .onAppear {
                 scoreA = String(match.scoreA ?? 0)
                 scoreB = String(match.scoreB ?? 0)
             }
+            .alert("Confirm score update", isPresented: $showConfirm, actions: {
+                Button("Cancel", role: .cancel) { }
+                Button("Update", role: .destructive) { save() }
+            }, message: {
+                let aName = teamNamesById[match.teamAId ?? -1] ?? "Team A"
+                let bName = teamNamesById[match.teamBId ?? -1] ?? "Team B"
+                Text("Are you sure you want to set \(aName) \(scoreA) – \(bName) \(scoreB)?")
+            })
         }
     }
 
@@ -1208,6 +1387,8 @@ private func bracketPlaceholder() -> some View {
         }
     }
 }
+
+
 
 
 

@@ -35,6 +35,23 @@ public class BracketController {
     }
 
     // Keep manual generate for admin tools if needed later (optional)
+    @PostMapping("/bracket/regenerate")
+    public ResponseEntity<?> regenerate(@PathVariable Long tournamentId,
+                                        @RequestParam(name = "requesting_user_id") Long requestingUserId) {
+        // Admin only
+        String role = userRepository.findById(requestingUserId)
+                .map(User::getRole)
+                .orElse("USER");
+        if (!"ADMIN".equalsIgnoreCase(role)) {
+            return ResponseEntity.status(403).body(Map.of("message", "Only admins can regenerate brackets"));
+        }
+        try {
+            List<TournamentMatch> created = bracketService.regenerateBracket(tournamentId, requestingUserId);
+            return ResponseEntity.ok(created);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
 
     @PatchMapping("/matches/{matchId}/score")
     public ResponseEntity<?> updateScore(@PathVariable Long tournamentId,
@@ -53,6 +70,24 @@ public class BracketController {
             int scoreB = body.getOrDefault("team2_score", body.getOrDefault("score_b", 0));
             TournamentMatch updated = bracketService.updateScore(tournamentId, matchId, scoreA, scoreB, requestingUserId);
             return ResponseEntity.ok(updated);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+    
+    @PostMapping("/finalize")
+    public ResponseEntity<?> finalizeTournament(@PathVariable Long tournamentId,
+                                                @RequestParam(name = "requesting_user_id") Long requestingUserId) {
+        // Admin only
+        String role = userRepository.findById(requestingUserId)
+                .map(User::getRole)
+                .orElse("USER");
+        if (!"ADMIN".equalsIgnoreCase(role)) {
+            return ResponseEntity.status(403).body(Map.of("message", "Only admins can finalize"));
+        }
+        try {
+            Tournament t = bracketService.finalizeTournament(tournamentId, requestingUserId);
+            return ResponseEntity.ok(t);
         } catch (IllegalStateException e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }

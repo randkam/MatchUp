@@ -907,6 +907,16 @@ extension NetworkManager {
         let endpoint = APIConfig.tournamentMatchScoreEndpoint(tournamentId: tournamentId, matchId: matchId, requestingUserId: requestingUserId)
         patch(endpoint, body: ["team1_score": scoreA, "team2_score": scoreB], completion: completion)
     }
+    
+    func regenerateBracket(tournamentId: Int, requestingUserId: Int, completion: @escaping (Result<[TournamentMatchModel], Error>) -> Void) {
+        let endpoint = APIConfig.tournamentRegenerateBracketEndpoint(tournamentId: tournamentId, requestingUserId: requestingUserId)
+        post(endpoint, parameters: [:], completion: completion)
+    }
+    
+    func finalizeTournament(tournamentId: Int, requestingUserId: Int, completion: @escaping (Result<Tournament, Error>) -> Void) {
+        let endpoint = APIConfig.tournamentFinalizeEndpoint(tournamentId: tournamentId, requestingUserId: requestingUserId)
+        post(endpoint, parameters: [:], completion: completion)
+    }
 }
 
 extension NetworkManager {
@@ -915,6 +925,38 @@ extension NetworkManager {
     func getTeamTournamentStats(teamId: Int, completion: @escaping (Result<TeamTournamentStats, Error>) -> Void) {
         let endpoint = APIConfig.teamTournamentStatsEndpoint(teamId: teamId)
         get(endpoint, completion: completion)
+    }
+}
+
+extension NetworkManager {
+    // MARK: - Attendance
+    func getAttendanceList(tournamentId: Int, completion: @escaping (Result<[TournamentAttendanceRow], Error>) -> Void) {
+        let endpoint = APIConfig.tournamentAttendanceListEndpoint(tournamentId: tournamentId)
+        get(endpoint, completion: completion)
+    }
+    
+    struct AttendanceUpdateResponse: Codable {
+        let teamId: Int
+        let checkedIn: Bool
+        enum CodingKeys: String, CodingKey {
+            case teamId = "team_id"
+            case checkedIn = "checked_in"
+        }
+    }
+    
+    func setAttendance(tournamentId: Int, teamId: Int, checkedIn: Bool, requestingUserId: Int, completion: @escaping (Error?) -> Void) {
+        let endpoint = APIConfig.tournamentAttendanceUpdateEndpoint(tournamentId: tournamentId, teamId: teamId, requestingUserId: requestingUserId)
+        patch(endpoint, body: ["checked_in": checkedIn]) { (result: Result<AttendanceUpdateResponse, Error>) in
+            switch result {
+            case .success(_): completion(nil)
+            case .failure(let e): completion(e)
+            }
+        }
+    }
+    
+    func enforceAttendance(tournamentId: Int, requestingUserId: Int, completion: @escaping (Result<[TournamentMatchModel], Error>) -> Void) {
+        let endpoint = APIConfig.tournamentAttendanceEnforceEndpoint(tournamentId: tournamentId, requestingUserId: requestingUserId)
+        post(endpoint, parameters: [:], completion: completion)
     }
 }
 
@@ -1330,6 +1372,11 @@ extension NetworkManager {
         ]
         if let logoUrl = logoUrl { params["logo_url"] = logoUrl }
         post(endpoint, parameters: params, completion: completion)
+    }
+
+    func getAllTeamsAdmin(requestingUserId: Int, completion: @escaping (Result<[TeamModel], Error>) -> Void) {
+        let endpoint = APIConfig.allTeamsAdminEndpoint(requestingUserId: requestingUserId)
+        get(endpoint, completion: completion)
     }
 
     func getTeamMembers(teamId: Int, completion: @escaping (Result<[TeamMemberModel], Error>) -> Void) {

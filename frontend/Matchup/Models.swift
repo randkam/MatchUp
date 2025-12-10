@@ -256,6 +256,22 @@ struct TournamentRegistrationExpandedModel: Identifiable, Codable {
     }
 }
 
+// Attendance row for admin page
+struct TournamentAttendanceRow: Identifiable, Codable {
+    var id: Int { teamId }
+    let teamId: Int
+    let teamName: String
+    var checkedIn: Bool
+    let registeredAt: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case teamId = "team_id"
+        case teamName = "team_name"
+        case checkedIn = "checked_in"
+        case registeredAt = "registered_at"
+    }
+}
+
 // MARK: - Teams
 struct TeamModel: Identifiable, Codable {
     let id: Int
